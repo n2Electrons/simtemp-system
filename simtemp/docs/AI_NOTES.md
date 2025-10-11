@@ -32,7 +32,17 @@ All technical and functional logic described here was manually reviewed and veri
 
 ---
 
-## 3.2 Prompts Leading to `traceability.yml` Creation and Evolution
+## 3.2 Test Infrastructure Creation Prompts
+
+This section documents the discrete prompts used to create the test infrastructure for implementing F-K1-TC-001.
+
+| Step | Prompt | Purpose / Outcome | Validation Performed |
+|------|---------|------------------|---------------------|
+| 1 | "Based on TESTPLAN.md, create a test case for f-k1-tc-001-insmod-registers-driver" | Create initial test case implementation following test plan specifications | Verified test matches F-K1-TC-001 requirements from test plan |
+| 2 | "Create a simtemp_tests.yml with the same structure than infra/tests/config/tests.yml" | Create test configuration for Jenkins CI integration | Validated YAML structure matches infrastructure requirements |
+| 3 | "make a script in simtemp/tests/ to execute tests in local using pytest" | Create local test runner for development workflow | Tested script executes tests with proper environment setup |
+
+## 3.3 Prompts Leading to `traceability.yml` Creation and Evolution
 
 This section documents the discrete user prompts that resulted in the creation, population, and augmentation of the machine-readable traceability file `simtemp/scripts/traceability.yml`.
 
