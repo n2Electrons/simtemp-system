@@ -1,0 +1,225 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug CLI Application",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/user/cli/main.py",
+            "args": [
+                "--help"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Debug CLI - Test Mode",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/user/cli/main.py",
+            "args": [
+                "--test-mode",
+                "--count",
+                "5",
+                "--verbose"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Debug CLI - Device Configuration",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/user/cli/main.py",
+            "args": [
+                "configure",
+                "--sampling-rate",
+                "1000",
+                "--high-threshold",
+                "75.0",
+                "--low-threshold",
+                "10.0"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Debug CLI - Read Temperature",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/user/cli/main.py",
+            "args": [
+                "read",
+                "--count",
+                "10",
+                "--output",
+                "data/exports/debug_readings.csv"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Debug GUI Application",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/user/gui/main.py",
+            "args": [],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Debug Temperature Dashboard",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/user/gui/temperature_dashboard.py",
+            "args": [],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Debug Control Panel",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/user/gui/control_panel.py",
+            "args": [],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Debug Alert Monitor",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/user/gui/alert_monitor.py",
+            "args": [],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Debug SimTemp Reader",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/user/cli/simtemp_reader.py",
+            "args": [],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Debug Test Mode",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/user/cli/test_mode.py",
+            "args": [],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Python: Current File (External Terminal)",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "externalTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${command:python.interpreterPath}",
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "showReturnValue": true
+        },
+        {
+            "name": "Python: Attach to Process",
+            "type": "python",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "justMyCode": true
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Debug Full System",
+            "configurations": [
+                "Debug CLI - Test Mode"
+            ],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "system",
+                "order": 1
+            }
+        }
+    ]
+}

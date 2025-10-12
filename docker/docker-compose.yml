@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  sensor-driver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: temperature-sensor-driver
+    privileged: true  # Required for driver operations
+    ports:
+      - "8080:8080"   # API port
+      - "8081:8081"   # WebSocket port for real-time data
+    volumes:
+      - ./driver/src:/opt/sensor/src
+      - ./driver/config:/opt/sensor/config
+      - sensor_data:/opt/sensor/data
+      - /dev:/dev     # Device access
+    environment:
+      - SENSOR_LOG_LEVEL=INFO
+      - API_HOST=0.0.0.0
+      - API_PORT=8080
+      - WS_PORT=8081
+      - TEMP_RANGE_MIN=-50
+      - TEMP_RANGE_MAX=150
+    networks:
+      - sensor-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional: Database for data persistence
+  sensor-db:
+    image: timescale/timescaledb:latest-pg14
+    container_name: sensor-database
+    environment:
+      - POSTGRES_DB=sensor_data
+      - POSTGRES_USER=sensor_user
+      - POSTGRES_PASSWORD=sensor_pass
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - sensor-network
+    restart: unless-stopped
+
+volumes:
+  sensor_data:
+    driver: local
+  db_data:
+    driver: local
+
+networks:
+  sensor-network:
+    driver: bridge

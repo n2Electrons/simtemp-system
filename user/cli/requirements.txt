@@ -1,0 +1,23 @@
+# Challenge 2025 Temperature Sensor CLI Application Requirements
+
+# Core Python packages
+select
+struct
+time
+logging
+datetime
+pathlib
+argparse
+sys
+os
+
+# For Octave integration (optional)
+oct2py>=0.5.2
+
+# For advanced data analysis (optional)
+numpy>=1.21.0
+scipy>=1.7.0
+
+# For testing and development
+pytest>=6.0.0
+pytest-cov>=3.0.0

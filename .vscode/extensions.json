@@ -1,0 +1,27 @@
+{
+    "recommendations": [
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "ms-python.flake8",
+        "ms-python.debugpy",
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-docker",
+        "ms-vscode.powershell",
+        "donjayamanne.githistory",
+        "charliermarsh.ruff",
+        "ms-toolsai.jupyter",
+        "ms-toolsai.jupyter-renderers",
+        "ms-toolsai.jupyter-keymap",
+        "aprilandjan.ascii-tree-generator",
+        "streetsidesoftware.code-spell-checker",
+        "pkief.material-icon-theme",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools"
+    ],
+    "unwantedRecommendations": [
+        "ms-python.pylint",
+        "ms-python.autopep8"
+    ]
+}

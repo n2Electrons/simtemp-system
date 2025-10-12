@@ -1,0 +1,86 @@
+# Temperature Sensor GUI Application Requirements
+# Python dependencies for the Challenge 2025 temperature sensor system
+
+# Core GUI framework
+tkinter>=8.6  # Usually included with Python, but listed for completeness
+
+# Data visualization and analysis
+seaborn>=0.11.2
+matplotlib>=3.5.0
+pandas>=1.4.0
+numpy>=1.21.0
+
+# System and I/O
+psutil>=5.8.0  # For system monitoring
+
+# Plotting and scientific computing
+scipy>=1.7.0  # For statistical functions
+
+# Optional: Enhanced UI components
+ttkthemes>=3.2.2  # For additional TTK themes
+
+# Development and testing (optional)
+pytest>=6.2.0
+pytest-cov>=3.0.0
+
+# Logging and configuration
+pyyaml>=6.0  # For configuration files
+
+# Optional: Desktop notifications (platform dependent)
+# plyer>=2.1.0  # Cross-platform notifications
+# winsound  # Windows sound notifications (built-in)
+
+# Optional: Data export formats
+# openpyxl>=3.0.9  # Excel export
+# xlsxwriter>=3.0.0  # Excel formatting
+
+# System integration
+pathlib>=1.0.1  # Path handling (usually built-in)
+
+# Threading and async support
+concurrent.futures  # Built-in with Python 3.2+
+threading  # Built-in
+queue  # Built-in
+
+# Data structures and utilities
+collections  # Built-in
+datetime  # Built-in
+time  # Built-in
+logging  # Built-in
+json  # Built-in
+
+# Optional: Advanced plotting
+# plotly>=5.0.0  # Interactive plots
+# bokeh>=2.4.0  # Web-based plotting
+
+# Optional: Real-time data processing
+# asyncio  # Built-in with Python 3.4+
+
+# Installation notes:
+# 1. Install with: pip install -r requirements.txt
+# 2. For development: pip install -r requirements.txt pytest pytest-cov
+# 3. Some packages are built-in with Python and don't need installation
+# 4. GUI components use tkinter which is included with most Python distributions
+
+# Platform-specific notes:
+# - Windows: All packages should work out of the box
+# - Linux: May need python3-tk package for tkinter support
+# - macOS: tkinter included with Python.org Python installations
+
+# Version compatibility:
+# - Tested with Python 3.8+
+# - Recommended Python 3.9+ for best performance
+# - seaborn 0.11+ required for modern plotting API
+
+# Optional GPU acceleration (for large datasets):
+# - cupy>=9.0.0  # CUDA support for NumPy operations
+# - tensorflow>=2.6.0  # If using ML for prediction
+
+# Memory and performance optimization:
+# - numba>=0.56.0  # JIT compilation for numerical functions
+# - cython>=0.29.0  # For compiled extensions
+
+# Network and communication (if needed for remote monitoring):
+# - requests>=2.25.0  # HTTP client
+# - websockets>=10.0  # WebSocket support
+# - paho-mqtt>=1.5.0  # MQTT client for IoT integration

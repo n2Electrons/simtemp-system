@@ -1,0 +1,105 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Project-specific data directories
+data/logs/*.log
+data/exports/*.csv
+data/exports/*.json
+data/temp_readings/*.csv
+data/temp_readings/*.dat
+
+# Docker
+.env
+docker-compose.override.yml
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Kernel module build artifacts
+*.ko
+*.o
+*.mod
+*.mod.c
+*.symvers
+*.order
+.tmp_versions/
+Module.symvers
+modules.order
+
+# Octave/MATLAB
+*.m~
+octave-workspace
+
+# Build artifacts
+*.a
+*.la
+*.lo
+*.dSYM/
+*.out
+
+# Test coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Documentation builds
+docs/_build/
+.readthedocs.yml
+
+# Local configuration files that shouldn't be shared
+config/local_*.json
+*.local
