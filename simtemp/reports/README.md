@@ -34,7 +34,7 @@ python3 examples/kernel_module/scripts/show_progress.py > examples/kernel_module
 
 ## Report Statistics
 
-Based on current traceability data:
+Based on current traceability data (accurate as of the last report generation date; see "Generated on" below):
 - **Total Requirements**: 34 (24 Functional + 10 Non-Functional)
 - **Total Test Cases**: 74
 - **GitHub Issues Linked**: 7 (requirements and test cases)
