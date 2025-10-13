@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """generate_traceability_view.py
 
-Generate graphical traceability artifa    lines.append('.req { margin: .3rem 0; padding: .4rem; border: 1px solid #ccc; border-radius: 4px; display: flex; align-items: center; }')
+Generate graphical traceability artifacts
+    lines.append('.req { margin: .3rem 0; padding: .4rem; border: 1px solid #ccc; border-radius: 4px; display: flex; align-items: center; }')
     lines.append('.req-number { width: 60px; font-weight: bold; color: #333; font-size: .9rem; margin-right: 0.8rem; text-align: center; }')
     lines.append('.req-content { flex: 1; }')
     lines.append('.tests { margin-left: 6rem; margin-top: .3rem; }')
