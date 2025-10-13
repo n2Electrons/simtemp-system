@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/>
+<title>Traceability View</title>
+<style>
+body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
+.req { margin: .3rem 0; padding: .4rem; border: 1px solid #ccc; border-radius: 4px; display: flex; align-items: center; }
+.req-number { width: 60px; font-weight: bold; color: #333; font-size: .9rem; margin-right: 0.8rem; text-align: center; }
+.req-content { flex: 1; }
+.tests { margin-left: 4.5rem; margin-top: .3rem; }
+.test { margin: .15rem 0; padding: .25rem .4rem .25rem 1.5rem; border-left: 3px solid #888; }
+.status-pill { display: inline-block; padding: 2px 6px; font-size: .7rem; border-radius: 10px; background: #eee; margin-left: .4rem; }
+.toggle { cursor: pointer; font-weight: bold; }
+.counts { font-size: .75rem; color: #555; margin-left: .5rem; }
+.legend span { display: inline-block; margin-right: 1rem; font-size: .75rem; padding: 3px 6px; border-radius: 4px; }
+.gh-link { display: inline-block; text-decoration: none; color: #0969da; font-size: 0.9rem; margin-left: 0.3rem; }
+.gh-link:hover { color: #0969da; text-decoration: underline; }
+.branch-link { display: inline-block; text-decoration: none; color: #8250df; font-size: 0.8rem; margin-left: 0.3rem; }
+.branch-link:hover { color: #8250df; text-decoration: underline; }
+.summary { font-size: .85rem; color: #222; margin-bottom: .8rem; }
+</style>
+<script>function tg(id){const e=document.getElementById(id);if(!e)return;e.style.display=(e.style.display==="none"?"block":"none");}</script>
+</head><body>
+<h1>Requirements ↔ Test Cases Traceability</h1>
+<div class="legend"><span style="background:#f8f9fa">planned</span><span style="background:#fff3cd">in-progress</span><span style="background:#d1e7dd">implemented</span><span style="background:#d4edda">verified</span><span style="background:#f8d7da">blocked</span><span style="background:#d1d8e7">partial</span><span>🔗 = GitHub Issue</span><span>🌿 = Git Branch</span></div>
+<div class="summary">Requirements: 32 | Tests: 74 | Completed Tests: 1 (1.4%)</div>
+<div class="req" style="background:#fff3cd">
+<div class="req-number">1-2</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_0')">▸</span> <strong>F-K1</strong>: Register as platform driver via DT or local device
+ <a href="https://github.com/n2Electrons/challenge_2509/issues/58" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
+<span class="status-pill">in-progress</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_0" style="display:none">
+<div class="test" style="background:#fff3cd"><strong>F-K1-TC-001</strong>: `insmod` registers driver; sysfs entries created <a href="https://github.com/n2Electrons/challenge_2509/issues/61" target="_blank" title="GitHub Issue for F-K1-TC-001" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/challenge_2509/tree/f-k1-tc-001-insmod-registers-driver" target="_blank" title="Git branch: f-k1-tc-001-insmod-registers-driver" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K1-TC-002</strong>: DT overlay binds driver; properties parsed with no errors <a href="https://github.com/n2Electrons/challenge_2509/issues/62" target="_blank" title="GitHub Issue for F-K1-TC-002" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">3-4</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_1')">▸</span> <strong>F-K2</strong>: Generate periodic samples every N ms
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_1" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-K2-TC-001</strong>: Sampling jitter ≤ ±10 % <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K2-TC-002</strong>: Updating `sampling_ms` changes rate ≤ 2 periods <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">5-7</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_2')">▸</span> <strong>F-K3</strong>: Expose `/dev/simtemp` binary records
+<span class="status-pill">planned</span>
+<span class="counts">(0/3 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_2" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-K3-TC-001</strong>: Node exists with correct permissions <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K3-TC-002</strong>: `read()` returns full struct <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K3-TC-003</strong>: Non-blocking read returns `-EAGAIN` <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">8-10</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_3')">▸</span> <strong>F-K4</strong>: Support blocking read and poll/epoll
+<span class="status-pill">planned</span>
+<span class="counts">(0/3 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_3" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-K4-TC-001</strong>: `read()` blocks until next sample <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K4-TC-002</strong>: `poll()` signals `POLLIN` <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K4-TC-003</strong>: `poll()` wakes on threshold event <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">11-12</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_4')">▸</span> <strong>F-K5</strong>: Raise alert flag when threshold exceeded
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_4" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-K5-TC-001</strong>: Alert within ≤ 2 periods; `stats.alerts++` <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K5-TC-002</strong>: No alert when threshold &gt; value <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">13-16</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_5')">▸</span> <strong>F-K6</strong>: Provide attributes for config and stats
+<span class="status-pill">planned</span>
+<span class="counts">(0/4 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_5" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-K6-TC-001</strong>: `sampling_ms` validates range <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K6-TC-002</strong>: `threshold_mC` affects alerts <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K6-TC-003</strong>: `mode` accepts valid enums <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K6-TC-004</strong>: `stats` read-only and consistent <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">17-18</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_6')">▸</span> <strong>F-K7</strong>: Apply configuration atomically via sysfs/ioctl
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_6" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-K7-TC-001</strong>: Readers never see partial values <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K7-TC-002</strong>: Ioctl applies all-or-nothing update <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">19-20</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_7')">▸</span> <strong>F-K8</strong>: Clean load/unload sequence
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_7" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-K8-TC-001</strong>: Load/unload no WARN/OOPS <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K8-TC-002</strong>: Readers exit gracefully on unload <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">21-22</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_8')">▸</span> <strong>F-K9</strong>: Parse DT properties and apply defaults
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_8" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-K9-TC-001</strong>: DT props appear in sysfs <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K9-TC-002</strong>: Defaults used when DT missing <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">23-25</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_9')">▸</span> <strong>F-U1</strong>: CLI configures sampling, threshold, and mode
+<span class="status-pill">planned</span>
+<span class="counts">(0/3 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_9" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-U1-TC-001</strong>: `--set sampling_ms=50` updates sysfs <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-U1-TC-002</strong>: Invalid input rejected <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-U1-TC-003</strong>: Mode persists <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">26-28</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_10')">▸</span> <strong>F-U2</strong>: Read and display temperature samples
+<span class="status-pill">planned</span>
+<span class="counts">(0/3 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_10" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-U2-TC-001</strong>: Record parsed correctly <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-U2-TC-002</strong>: 100 Hz 5 s → no errors <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-U2-TC-003</strong>: Alert printed on threshold cross <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">29-31</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_11')">▸</span> <strong>F-U3</strong>: Poll/epoll for events
+<span class="status-pill">planned</span>
+<span class="counts">(0/3 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_11" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-U3-TC-001</strong>: Poll triggers per sample <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-U3-TC-002</strong>: Poll wakes on alert ≤ 2 periods <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-U3-TC-003</strong>: Non-blocking returns immediately <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">32-33</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_12')">▸</span> <strong>F-U4</strong>: CLI validates alert detection
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_12" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-U4-TC-001</strong>: Self-test PASS (≤ 2 periods) <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-U4-TC-002</strong>: High threshold → FAIL (exit ≠ 0) <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">34-35</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_13')">▸</span> <strong>F-U5</strong>: Visualize readings and live control
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_13" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-U5-TC-001</strong>: GUI updates ≥ 5 Hz <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-U5-TC-002</strong>: Parameter edits reflected in sysfs <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">36-38</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_14')">▸</span> <strong>F-S1</strong>: Automate kernel + CLI build
+<span class="status-pill">planned</span>
+<span class="counts">(0/3 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_14" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-S1-TC-001</strong>: Build succeeds; artifacts present <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-S1-TC-002</strong>: Missing headers → clear error <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-S1-TC-003</strong>: Re-run idempotent <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">39-41</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_15')">▸</span> <strong>F-S2</strong>: Automate demo pipeline
+<span class="status-pill">planned</span>
+<span class="counts">(0/3 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_15" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-S2-TC-001</strong>: Demo runs OK; exit 0 <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-S2-TC-002</strong>: Error → exit ≠ 0 <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-S2-TC-003</strong>: Cleanup on failure <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">42-43</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_16')">▸</span> <strong>F-S3</strong>: Lint and style verification
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_16" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-S3-TC-001</strong>: Clean run → return 0 <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-S3-TC-002</strong>: Missing tools → graceful skip <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">44-45</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_17')">▸</span> <strong>F-D1</strong>: Build/run/demo guide
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_17" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-D1-TC-001</strong>: Fresh VM → success <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-D1-TC-002</strong>: Links valid <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#fff3cd">
+<div class="req-number">46-47</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_18')">▸</span> <strong>F-D2</strong>: Architecture &amp; API
+<span class="status-pill">in-progress</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_18" style="display:none">
+<div class="test" style="background:#fff3cd"><strong>F-D2-TC-001</strong>: Struct/API match code <a href="https://github.com/n2Electrons/challenge_2509/issues/64" target="_blank" title="GitHub Issue for F-D2-TC-001" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/challenge_2509/tree/f-d2-tc-001-api-documentation-verification" target="_blank" title="Git branch: f-d2-tc-001-api-documentation-verification" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-D2-TC-002</strong>: Locking rationale consistent <a href="https://github.com/n2Electrons/challenge_2509/issues/65" target="_blank" title="GitHub Issue for F-D2-TC-002" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">48-49</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_19')">▸</span> <strong>F-D3</strong>: Test coverage matrix
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_19" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-D3-TC-001</strong>: All reqs mapped <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-D3-TC-002</strong>: Commands + criteria documented <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#d1d8e7">
+<div class="req-number">50-51</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_20')">▸</span> <strong>F-D4</strong>: Prompts and validation notes
+ <a href="https://github.com/n2Electrons/challenge_2509/issues/57" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
+<span class="status-pill">partial</span>
+<span class="counts">(1/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_20" style="display:none">
+<div class="test" style="background:#d1e7dd"><strong>F-D4-TC-001</strong>: Prompts recorded <a href="https://github.com/n2Electrons/challenge_2509/issues/59" target="_blank" title="GitHub Issue for F-D4-TC-001" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/challenge_2509/tree/f-d4-tc-prompts-recorded" target="_blank" title="Git branch: f-d4-tc-prompts-recorded" class="branch-link">🌿</a> <span class="status-pill">implemented</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-D4-TC-002</strong>: Mitigations listed <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">52-53</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_21')">▸</span> <strong>F-D5</strong>: Repository structure
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_21" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>F-D5-TC-001</strong>: Tag v1.0 exists; Signed-off-by used <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-D5-TC-002</strong>: No binaries tracked <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">54-56</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_22')">▸</span> <strong>N-F1</strong>: Operate ≤ 100 Hz with low latency
+<span class="status-pill">planned</span>
+<span class="counts">(0/3 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_22" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>N-F1-TC-001</strong>: Sampling stable ±10 % <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F1-TC-002</strong>: p95 latency &lt; 10 ms <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F1-TC-003</strong>: CPU usage &lt; 5 % <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">57-58</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_23')">▸</span> <strong>N-F2</strong>: No kernel warnings/leaks
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_23" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>N-F2-TC-001</strong>: 200 load/unload → 0 WARN/OOPS <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F2-TC-002</strong>: 6 h run → no leaks/crash <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">59-60</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_24')">▸</span> <strong>N-F3</strong>: Thread-safe multi-access
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_24" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>N-F3-TC-001</strong>: 8 threads → no deadlock <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F3-TC-002</strong>: Concurrent sysfs writes stable <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">61-62</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_25')">▸</span> <strong>N-F4</strong>: Build/run on Ubuntu + ARM
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_25" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>N-F4-TC-001</strong>: Host build passes <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F4-TC-002</strong>: ARM run in QEMU <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">63-64</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_26')">▸</span> <strong>N-F5</strong>: Input validation and permissions
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_26" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>N-F5-TC-001</strong>: Invalid sysfs → `-EINVAL` <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F5-TC-002</strong>: Root-only RW verified <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">65-66</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_27')">▸</span> <strong>N-F6</strong>: Code style &amp; modularity
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_27" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>N-F6-TC-001</strong>: `checkpatch` 0 errors <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F6-TC-002</strong>: Modules isolated; no symbol leak <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">67-68</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_28')">▸</span> <strong>N-F7</strong>: CLI clarity &amp; error handling
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_28" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>N-F7-TC-001</strong>: `--help` complete <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F7-TC-002</strong>: Device removal error handled <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">69-70</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_29')">▸</span> <strong>N-F8</strong>: Req ↔ Test ↔ Code mapping
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_29" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>N-F8-TC-001</strong>: 1:1 mapping verified <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F8-TC-002</strong>: Auto coverage 100 % <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">71-72</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_30')">▸</span> <strong>N-F9</strong>: Kernel coding style adherence
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_30" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>N-F9-TC-001</strong>: `checkpatch --strict` 0 errors, ≤ 3 warnings <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F9-TC-002</strong>: `clang-format --dry-run` no diff <span class="status-pill">planned</span></div>
+</div>
+<div class="req" style="background:#f8f9fa">
+<div class="req-number">73-74</div>
+<div class="req-content">
+<span class="toggle" onclick="tg('tests_31')">▸</span> <strong>N-F10</strong>: Consistency and reproducibility
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
+</div>
+</div>
+<div class="tests" id="tests_31" style="display:none">
+<div class="test" style="background:#f8f9fa"><strong>N-F10-TC-001</strong>: Fresh VM → README success <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>N-F10-TC-002</strong>: Versions match environment <span class="status-pill">planned</span></div>
+</div>
+<h2>Mermaid Diagram</h2>
+<p>This is a flowchart representation of Requirement → Test Case relationships.</p>
+<pre><code id="mermaid-code" class="language-mermaid"></code></pre>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>fetch("traceability.mmd").then(r=>r.text()).then(txt=>{document.getElementById("mermaid-code").textContent=txt; mermaid.initialize({startOnLoad:true});});</script>
+</body></html>

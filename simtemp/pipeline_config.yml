@@ -1,0 +1,179 @@
+# Pipeline Configuration for  Temperature Simulator Kernel Module
+# This file defines the build infrastructure, source code locations,
+# Makefiles, tests, and tools for the simtemp project
+#
+# Copyright (c) Jorge Rodriguez Moreno
+
+version: "1.0"
+pipeline_name: " SimTemp Kernel Module CI/CD Pipeline"
+
+# Global pipeline settings
+global:
+  workspace_root: "${WORKSPACE}"
+  sub_project_path: "simtemp"  # Configurable sub-project directory path
+  verbose_logging: true
+  timeout_minutes: 15
+  fail_fast: true
+  parallel_builds: false  # Kernel modules should be built sequentially
+
+# Build tools and environment
+build_tools:
+  c_compiler:
+    name: "gcc"
+    version_check_command: "gcc --version"
+    required: true
+  
+  build_system:
+    name: "make"
+    version_check_command: "make --version"
+    required: true
+  
+  kernel_headers:
+    name: "linux-headers"
+    version_check_command: "uname -r && ls /lib/modules/$(uname -r)/build"
+    required: true
+  
+  python:
+    name: "python3"
+    version_check_command: "python3 --version"
+    required: true
+    packages:
+      - pytest
+      - pyyaml
+
+# Source code configuration
+source_code:
+  base_directory: "examples/simtemp"
+  
+  modules:
+    nxp_simtemp:
+      enabled: true
+      description: " Temperature Simulator Kernel Module"
+      source_dir: "examples/simtemp/kernel"
+      source_files:
+        - "nxp_simtemp.c"
+        - "Kbuild"
+      makefile: "examples/simtemp/kernel/Makefile"
+      binary_name: "obj/nxp_simtemp.ko"
+      build_targets:
+        - "clean"
+        - "all"
+      artifacts:
+        - "obj/nxp_simtemp.ko"
+        - "obj/*.mod"
+        - "obj/Module.symvers"
+        - "obj/modules.order"
+
+# Test configuration
+testing:
+  test_config_file: "examples/simtemp/tests/config/simtemp_tests.yml"
+  reports_directory: "examples/simtemp/tests/reports"
+  test_report_generator: "examples/simtemp/tests/create_test_report.py"
+  timeout_minutes: 10
+  
+  # Test suites specific to simtemp
+  test_suites:
+    kernel_driver:
+      enabled: true
+      description: "Kernel module functionality tests"
+      test_files:
+        - "examples/simtemp/tests/test_kernel_driver.py"
+
+# Pipeline stages configuration
+stages:
+  checkout:
+    enabled: true
+    timeout_minutes: 2
+    description: "Checkout simtemp code and setup environment"
+    
+  build:
+    enabled: true
+    timeout_minutes: 5
+    description: "Build  Temperature Simulator kernel module"
+    parallel: false
+    modules: ["nxp_simtemp"]
+    depends_on: ["checkout"]
+    
+  test:
+    enabled: true
+    timeout_minutes: 8
+    description: "Execute kernel module tests"
+    depends_on: ["build"]
+    test_suites: ["kernel_driver"]
+    
+  cleanup:
+    enabled: true
+    timeout_minutes: 2
+    description: "Cleanup workspace permissions to allow Jenkins to clean"
+    always_run: true
+    script: "examples/simtemp/scripts/cleanup_permissions.sh"
+
+# Kernel module specific configuration
+kernel:
+  build_environment:
+    kernel_source: "/lib/modules/$(shell uname -r)/build"
+    architecture: "$(shell uname -m)"
+    cross_compile: ""  # Leave empty for native compilation
+  
+  module_info:
+    name: "nxp_simtemp"
+    description: " i.MX8M Plus Temperature Simulator Driver"
+    version: "1.0"
+    author: "Development Team"
+    license: "GPL"
+  
+  installation:
+    target_directory: "/lib/modules/$(shell uname -r)/extra"
+    permissions: "644"
+    
+  testing:
+    require_root: true   # Tests need root to load/unload kernel modules; NOTE: This creates root-owned files that need cleanup
+    test_load: true      # Tests do load the kernel module
+    test_unload: true    # Tests do unload the kernel module
+    module_signing:
+      enabled: true      # Enable module signing
+      allow_failures: false # Don't allow signing failures - we've fixed the process
+      enrollment_script: "/var/jenkins_home/auto_enroll_mok.sh" # Script to enroll MOK keys if needed
+
+# Artifact configuration
+artifacts:
+  test_reports:
+    - path: "examples/simtemp/reports/test_report_detailed.html"
+      description: "Detailed HTML test report"
+    - path: "examples/simtemp/reports/*.html"
+      description: "All HTML test reports"
+    - path: "examples/simtemp/reports/*.json"
+      description: "All JSON test reports"
+    - path: "examples/simtemp/reports/**/*"
+      description: "All test reports and artifacts"
+      
+  essential_configs:
+    - path: "simtemp/pipeline_config.yml"
+      description: "Pipeline configuration file"
+    - path: "simtemp/tests/config/simtemp_tests.yml"
+      description: "Test configuration file"
+    - path: "simtemp/tests/config/*.yml"
+      description: "Test configuration files"
+    - path: "Jenkinsfile"
+      description: "Jenkins pipeline definition"
+      
+  kernel_modules:
+    - path: "simtemp/kernel/obj/*.ko"
+      description: "Compiled kernel module"
+  
+  documentation:
+    - path: "simtemp/docs/*.md"
+      description: "Project documentation"
+
+# GitHub integration (inherits from main config if needed)
+github:
+  owner: "${GITHUB_OWNER}"
+  repository: "${GITHUB_REPO}"
+  api_token: "${GITHUB_TOKEN}"
+  
+  # Simtemp-specific PR comment settings
+  pr_comments:
+    enabled: true
+    include_build_details: true
+    include_test_details: true
+    include_artifacts: true

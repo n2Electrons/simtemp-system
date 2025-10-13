@@ -1,0 +1,524 @@
+{
+  "metadata": {
+    "repository": "n2Electrons/challenge_2509",
+    "search_method": "github_cli",
+    "patterns_searched": {
+      "requirements": [
+        "\\b(F-K\\d+)\\b",
+        "\\b(F-U\\d+)\\b",
+        "\\b(F-S\\d+)\\b",
+        "\\b(F-D\\d+)\\b",
+        "\\b(N-F\\d+)\\b"
+      ],
+      "test_cases": "\\b((F-[KUSD]\\d+|N-F\\d+)-TC-\\d{3})\\b",
+      "combined": "\\b((F-[KUSD]\\d+|N-F\\d+)(-TC-\\d{3})?)\\b"
+    },
+    "search_terms_used": [
+      "F-K1",
+      "F-K2",
+      "F-K3",
+      "F-K4",
+      "F-K5",
+      "F-K6",
+      "F-K7",
+      "F-K8",
+      "F-K9",
+      "F-U1",
+      "F-U2",
+      "F-U3",
+      "F-U4",
+      "F-U5",
+      "F-U6",
+      "F-U7",
+      "F-U8",
+      "F-U9",
+      "F-S1",
+      "F-S2",
+      "F-S3",
+      "F-S4",
+      "F-S5",
+      "F-S6",
+      "F-S7",
+      "F-S8",
+      "F-S9",
+      "F-D1",
+      "F-D2",
+      "F-D3",
+      "F-D4",
+      "F-D5",
+      "F-D6",
+      "F-D7",
+      "F-D8",
+      "F-D9",
+      "N-F1",
+      "N-F2",
+      "N-F3",
+      "N-F4",
+      "N-F5",
+      "N-F6",
+      "N-F7",
+      "N-F8",
+      "N-F9",
+      "-TC-001",
+      "-TC-002",
+      "-TC-003"
+    ]
+  },
+  "raw_results": [
+    {
+      "issue": {
+        "body": "Ensure documentation of locking and synchronization is complete and accurate.\n\n1. Review documented locking mechanisms:\n   - Mutex usage\n   - Atomic operations\n   - Critical sections\n2. Compare synchronization patterns with implementation\n3. Verify documented race condition mitigations\n",
+        "labels": [],
+        "number": 65,
+        "state": "OPEN",
+        "title": "F-D2-TC-002: Synchronization Documentation Review",
+        "url": "https://github.com/n2Electrons/challenge_2509/issues/65"
+      },
+      "matched_patterns": [
+        {
+          "id": "F-D2-TC-002",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "found_in": [
+            "title"
+          ],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue": {
+        "body": "### Description\nVerify that DESIGN.md accurately reflects all code interfaces and structures.\n\n### Tasks\n1. Compare documented APIs with implementation\n2. Verify example code snippets are valid\n3. Check all interface specifications against actual code\n\n### Success Criteria\n- No discrepancies between documentation and code\n- All interfaces are completely documented\n- Example code is valid and current",
+        "labels": [],
+        "number": 64,
+        "state": "OPEN",
+        "title": "F-D2-TC-001: API Documentation Verification",
+        "url": "https://github.com/n2Electrons/challenge_2509/issues/64"
+      },
+      "matched_patterns": [
+        {
+          "id": "F-D2-TC-001",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "found_in": [
+            "title"
+          ],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue": {
+        "body": "DESIGN.md must provide accurate, comprehensive technical documentation that:\n1. Reflects exact system architecture and APIs\n2. Documents all interfaces and components\n3. Explains synchronization mechanisms\n4. Maintains consistency with implementation\n\n## Test Cases\n1. **F-D2-TC-001**: Verify all documented structures and APIs match code implementation\n2. **F-D2-TC-002**: Validate completeness and consistency of locking mechanism documentation",
+        "labels": [],
+        "number": 63,
+        "state": "OPEN",
+        "title": "F-D2 / Technical Design Documentation",
+        "url": "https://github.com/n2Electrons/challenge_2509/issues/63"
+      },
+      "matched_patterns": [
+        {
+          "id": "F-D2-TC-002",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "found_in": [
+            "body"
+          ],
+          "confidence": "medium"
+        },
+        {
+          "id": "F-D2-TC-001",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "found_in": [
+            "body"
+          ],
+          "confidence": "medium"
+        }
+      ]
+    },
+    {
+      "issue": {
+        "body": "Test Case ID: TC-F-K1-002\nParent Requirement: F-K1 (Register as platform driver via DT or local device)\n\nModule/Submodule: Kernel / Driver core\n\nExpected Result: When using a Device Tree (DT) overlay, the driver should successfully bind to the hardware and parse all DT properties without any errors.\n\nAutomation: Yes (marked as automatable)\n\nThis test case verifies that the simtemp driver correctly integrates with the Linux kernel's Device Tree subsystem. Specifically, it tests that:\n\nThe driver can be loaded through a Device Tree overlay\nThe driver properly binds to the hardware when specified in the DT\nAll properties defined in the DT node are correctly parsed by the driver\nNo parsing errors occur during the binding process",
+        "labels": [],
+        "number": 62,
+        "state": "OPEN",
+        "title": "F-K1-TC-002 / DT overlay binds driver; properties parsed with no errors",
+        "url": "https://github.com/n2Electrons/challenge_2509/issues/62"
+      },
+      "matched_patterns": [
+        {
+          "id": "F-K1-TC-002",
+          "category": "test_case",
+          "type": "Functional/Kernel",
+          "found_in": [
+            "title"
+          ],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue": {
+        "body": "Test Case\nTC-F-K1-001\n\nGoal\nDriver loads and registers cleanly; expected sysfs entries appear; unload leaves no residue.\n\nAccept\n- insmod simtemp.ko → no WARN/OOPS in dmesg\n- Driver/module visible (lsmod or /sys/bus/platform/drivers/…)\n- Required sysfs nodes created (list them when known)\n- Permissions correct\n- rmmod simtemp → nodes gone, still no WARN\n\nDone When\nAutomated/scripted check passes; traceability updated; PR cites F-K1 + TC-F-K1-001.",
+        "labels": [],
+        "number": 61,
+        "state": "OPEN",
+        "title": "F-K1-TC-001 / insmod registers driver",
+        "url": "https://github.com/n2Electrons/challenge_2509/issues/61"
+      },
+      "matched_patterns": [
+        {
+          "id": "F-K1-TC-001",
+          "category": "test_case",
+          "type": "Functional/Kernel",
+          "found_in": [
+            "title"
+          ],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue": {
+        "body": "Test Case\nF-D4-TC-001\n\nGoal\nAll AI-assisted artifact prompts are logged with purpose + validation.\n\nAccept\n- New AI-generated changes add a prompt row\n- Each row has Purpose and Validation filled\n- No orphan/empty rows\n- Markdown table renders (no broken pipes)\n\nDone When\nTable updated, change committed, PR cites F-D4 + TC-F-D4-001.",
+        "labels": [],
+        "number": 59,
+        "state": "OPEN",
+        "title": "F-D4-TC-001 / Prompts recorded",
+        "url": "https://github.com/n2Electrons/challenge_2509/issues/59"
+      },
+      "matched_patterns": [
+        {
+          "id": "F-D4-TC-001",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "found_in": [
+            "title",
+            "body"
+          ],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue": {
+        "body": "Module/Submodule: Kernel / Driver core\n\nDescription: The simtemp driver needs to register itself with the Linux kernel as a platform driver. This can be accomplished through two approaches:\n\nDevice Tree (DT) integration - The driver should support being bound through a device tree overlay where properties are parsed from the DT node.\n\nLocal device registration - The driver should also support manual insertion through the insmod command, creating a local device when no matching DT node is found.",
+        "labels": [],
+        "number": 58,
+        "state": "OPEN",
+        "title": "F-K1 /  Register as platform driver via DT or local device",
+        "url": "https://github.com/n2Electrons/challenge_2509/issues/58"
+      },
+      "matched_patterns": [
+        {
+          "id": "F-K1",
+          "category": "requirement",
+          "type": "Functional/Kernel",
+          "found_in": [
+            "title"
+          ],
+          "confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue": {
+        "body": "**Is your feature request related to a problem? Please describe.**\nIs your feature request related to a problem? Please describe.\nLack of a concise, auditable record of how AI assistance influenced docs and test design; reviewers can’t see provenance.\n\n**Describe the solution you'd like**\nMaintain [AI_NOTES.md](vscode-file://vscode-app/snap/code/209/usr/share/code/resources/app/out/vs/code/electron-browser/workbench/workbench.html) with a compact table (prompt -> purpose -> validation) and reference requirement F-D4 in related PRs.\n\n**Describe alternatives you've considered**\nFull chat logs (too long, privacy risk); no tracking (low transparency); commit messages only (not structured enough).\n\n**Additional context**\nEnables traceability (REQ -> tests -> docs), future automation (lint + dashboard), and supports audit/compliance.",
+        "labels": [],
+        "number": 57,
+        "state": "OPEN",
+        "title": "F-D4 Documentation / AI_NOTES.md",
+        "url": "https://github.com/n2Electrons/challenge_2509/issues/57"
+      },
+      "matched_patterns": [
+        {
+          "id": "F-D4",
+          "category": "requirement",
+          "type": "Functional/Documentation",
+          "found_in": [
+            "title",
+            "body"
+          ],
+          "confidence": "high"
+        }
+      ]
+    }
+  ],
+  "organized_results": {
+    "by_type": {
+      "Functional/Documentation": [
+        {
+          "issue_number": 65,
+          "issue_title": "F-D2-TC-002: Synchronization Documentation Review",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/65",
+          "pattern": {
+            "id": "F-D2-TC-002",
+            "category": "test_case",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "title"
+            ],
+            "confidence": "high"
+          }
+        },
+        {
+          "issue_number": 64,
+          "issue_title": "F-D2-TC-001: API Documentation Verification",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/64",
+          "pattern": {
+            "id": "F-D2-TC-001",
+            "category": "test_case",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "title"
+            ],
+            "confidence": "high"
+          }
+        },
+        {
+          "issue_number": 63,
+          "issue_title": "F-D2 / Technical Design Documentation",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/63",
+          "pattern": {
+            "id": "F-D2-TC-002",
+            "category": "test_case",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "body"
+            ],
+            "confidence": "medium"
+          }
+        },
+        {
+          "issue_number": 63,
+          "issue_title": "F-D2 / Technical Design Documentation",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/63",
+          "pattern": {
+            "id": "F-D2-TC-001",
+            "category": "test_case",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "body"
+            ],
+            "confidence": "medium"
+          }
+        },
+        {
+          "issue_number": 59,
+          "issue_title": "F-D4-TC-001 / Prompts recorded",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/59",
+          "pattern": {
+            "id": "F-D4-TC-001",
+            "category": "test_case",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "title",
+              "body"
+            ],
+            "confidence": "high"
+          }
+        },
+        {
+          "issue_number": 57,
+          "issue_title": "F-D4 Documentation / AI_NOTES.md",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/57",
+          "pattern": {
+            "id": "F-D4",
+            "category": "requirement",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "title",
+              "body"
+            ],
+            "confidence": "high"
+          }
+        }
+      ],
+      "Functional/Kernel": [
+        {
+          "issue_number": 62,
+          "issue_title": "F-K1-TC-002 / DT overlay binds driver; properties parsed with no errors",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/62",
+          "pattern": {
+            "id": "F-K1-TC-002",
+            "category": "test_case",
+            "type": "Functional/Kernel",
+            "found_in": [
+              "title"
+            ],
+            "confidence": "high"
+          }
+        },
+        {
+          "issue_number": 61,
+          "issue_title": "F-K1-TC-001 / insmod registers driver",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/61",
+          "pattern": {
+            "id": "F-K1-TC-001",
+            "category": "test_case",
+            "type": "Functional/Kernel",
+            "found_in": [
+              "title"
+            ],
+            "confidence": "high"
+          }
+        },
+        {
+          "issue_number": 58,
+          "issue_title": "F-K1 /  Register as platform driver via DT or local device",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/58",
+          "pattern": {
+            "id": "F-K1",
+            "category": "requirement",
+            "type": "Functional/Kernel",
+            "found_in": [
+              "title"
+            ],
+            "confidence": "high"
+          }
+        }
+      ]
+    },
+    "by_category": {
+      "requirement": [
+        {
+          "issue_number": 58,
+          "issue_title": "F-K1 /  Register as platform driver via DT or local device",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/58",
+          "pattern": {
+            "id": "F-K1",
+            "category": "requirement",
+            "type": "Functional/Kernel",
+            "found_in": [
+              "title"
+            ],
+            "confidence": "high"
+          }
+        },
+        {
+          "issue_number": 57,
+          "issue_title": "F-D4 Documentation / AI_NOTES.md",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/57",
+          "pattern": {
+            "id": "F-D4",
+            "category": "requirement",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "title",
+              "body"
+            ],
+            "confidence": "high"
+          }
+        }
+      ],
+      "test_case": [
+        {
+          "issue_number": 65,
+          "issue_title": "F-D2-TC-002: Synchronization Documentation Review",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/65",
+          "pattern": {
+            "id": "F-D2-TC-002",
+            "category": "test_case",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "title"
+            ],
+            "confidence": "high"
+          }
+        },
+        {
+          "issue_number": 64,
+          "issue_title": "F-D2-TC-001: API Documentation Verification",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/64",
+          "pattern": {
+            "id": "F-D2-TC-001",
+            "category": "test_case",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "title"
+            ],
+            "confidence": "high"
+          }
+        },
+        {
+          "issue_number": 63,
+          "issue_title": "F-D2 / Technical Design Documentation",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/63",
+          "pattern": {
+            "id": "F-D2-TC-002",
+            "category": "test_case",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "body"
+            ],
+            "confidence": "medium"
+          }
+        },
+        {
+          "issue_number": 63,
+          "issue_title": "F-D2 / Technical Design Documentation",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/63",
+          "pattern": {
+            "id": "F-D2-TC-001",
+            "category": "test_case",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "body"
+            ],
+            "confidence": "medium"
+          }
+        },
+        {
+          "issue_number": 62,
+          "issue_title": "F-K1-TC-002 / DT overlay binds driver; properties parsed with no errors",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/62",
+          "pattern": {
+            "id": "F-K1-TC-002",
+            "category": "test_case",
+            "type": "Functional/Kernel",
+            "found_in": [
+              "title"
+            ],
+            "confidence": "high"
+          }
+        },
+        {
+          "issue_number": 61,
+          "issue_title": "F-K1-TC-001 / insmod registers driver",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/61",
+          "pattern": {
+            "id": "F-K1-TC-001",
+            "category": "test_case",
+            "type": "Functional/Kernel",
+            "found_in": [
+              "title"
+            ],
+            "confidence": "high"
+          }
+        },
+        {
+          "issue_number": 59,
+          "issue_title": "F-D4-TC-001 / Prompts recorded",
+          "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/59",
+          "pattern": {
+            "id": "F-D4-TC-001",
+            "category": "test_case",
+            "type": "Functional/Documentation",
+            "found_in": [
+              "title",
+              "body"
+            ],
+            "confidence": "high"
+          }
+        }
+      ]
+    },
+    "summary": {
+      "total_issues": 8,
+      "total_patterns": 9,
+      "requirements_count": 2,
+      "test_cases_count": 7
+    }
+  }
+}
