@@ -58,7 +58,7 @@ python3 -m pytest \
 TEST_EXIT_CODE=$?
 
 # Deactivate virtual environment if we used one
-if [ "$USE_VENV" = true ]; then
+if [ -n "$VIRTUAL_ENV" ]; then
     deactivate
 fi
 

@@ -158,7 +158,10 @@ class DetailedTestReportGenerator:
         """Fetch the current status of a GitHub issue"""
         try:
             # Try to get GitHub token from environment
+            self.logger.info("Attempting to retrieve GitHub token from environment variable 'GITHUB_TOKEN'")
             github_token = os.environ.get('GITHUB_TOKEN')
+            if not github_token:
+                self.logger.warning("No GitHub token found in environment variable 'GITHUB_TOKEN'. Requests will be unauthenticated and may be rate-limited.")
             
             # GitHub API URL
             api_url = f"https://api.github.com/repos/{self.github_repo_owner}/{self.github_repo_name}/issues/{issue_number}"
@@ -462,7 +465,7 @@ class DetailedTestReportGenerator:
             test_files = list(script_dir.glob("test_*.py"))
             
             if not test_files:
-                self.logger.warn("No test files found")
+                self.logger.warning("No test files found")
                 return
                 
             # Convert to string paths
