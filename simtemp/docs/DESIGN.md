@@ -2,7 +2,7 @@
 
 ## 1. Architecture Overview
 
-This document describes the technical architecture and design decisions for the NXP Systems Software Engineer Challenge implementation.
+This document describes the technical architecture and design decisions for the Challenge2509 System implementation.
 
 ## 2. System Components
 

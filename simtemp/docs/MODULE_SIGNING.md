@@ -1,6 +1,6 @@
 # Kernel Module Signing Setup and Troubleshooting
 
-This document explains how to set up and troubleshoot kernel module signing for the NXP Temperature Simulator driver in environments with Secure Boot enabled.
+This document explains how to set up and troubleshoot kernel module signing for the Temperature Simulator driver in environments with Secure Boot enabled.
 
 ## Overview
 
@@ -32,7 +32,7 @@ We've implemented an automatic module signing solution that integrates with the 
 ### Directory Structure
 
 ```
-simtemp/kernel/
+examples/kernel_module/kernel/
 ├── Makefile                    # Updated with signing integration
 ├── nxp_simtemp.c              # Driver source code
 ├── obj/                       # Build artifacts (signed modules)
@@ -60,7 +60,7 @@ $(SIGNING_PRIV):
 Building the module automatically signs it:
 
 ```bash
-cd simtemp/kernel
+cd examples/kernel_module/kernel
 make
 ```
 
@@ -349,7 +349,7 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                dir('simtemp/kernel') {
+                dir('examples/kernel_module/kernel') {
                     sh 'make clean && make'
                 }
             }
