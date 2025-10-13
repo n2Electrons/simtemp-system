@@ -48,7 +48,7 @@ sign_module:
 		fi; \
 		# Validate sign-file path and arguments strictly
 		VALID_SIGN_FILE_PATH="$$(readlink -f "$$SIGN_FILE_PATH")"; \
-		if [ ! -f "$$VALID_SIGN_FILE_PATH" ] || [ ! -x "$$VALID_SIGN_FILE_PATH" ] || [ "$$VALID_SIGN_FILE_PATH" != "$$SIGN_FILE_PATH" ] || [ -L "$$SIGN_FILE_PATH" ]; then \
+		if [ ! -f "$$VALID_SIGN_FILE_PATH" ] || [ ! -x "$$VALID_SIGN_FILE_PATH" ] || [ "$$VALID_SIGN_FILE_PATH" != "$$SIGN_FILE_PATH" ]; then \
 			echo "ERROR: sign-file path is invalid or not secure"; \
 			exit 1; \
 		fi; \
