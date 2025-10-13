@@ -1,0 +1,848 @@
+metadata:
+  generated_on: '2025-10-09'
+  source_files:
+  - simtemp/docs/TESTPLAN.md
+  notes: Regenerated from TESTPLAN.md via generate_traceability_yaml.py (preserving
+    statuses).
+requirements:
+- id: F-K1
+  group: functional
+  module: Kernel
+  submodule: Driver core
+  summary: Register as platform driver via DT or local device
+  priority: Medium
+  status: in-progress
+  github_link: https://github.com/n2Electrons/challenge_2509/issues/58
+  branches:
+  - f-k1-tc-001-insmod-registers-driver
+  tests:
+  - id: F-K1-TC-001
+    description: '`insmod` registers driver; sysfs entries created'
+    expected: '`insmod` registers driver; sysfs entries created'
+    status: in-progress
+    automation: true
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/61
+    branch: f-k1-tc-001-insmod-registers-driver
+  - id: F-K1-TC-002
+    description: DT overlay binds driver; properties parsed with no errors
+    expected: DT overlay binds driver; properties parsed with no errors
+    status: planned
+    automation: true
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/62
+    branch: ''
+- id: F-K2
+  group: functional
+  module: Kernel
+  submodule: Sampler
+  summary: Generate periodic samples every N ms
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-K2-TC-001
+    description: "Sampling jitter \u2264 \xB110 %"
+    expected: "Sampling jitter \u2264 \xB110 %"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K2-TC-002
+    description: "Updating `sampling_ms` changes rate \u2264 2 periods"
+    expected: "Updating `sampling_ms` changes rate \u2264 2 periods"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-K3
+  group: functional
+  module: Kernel
+  submodule: Char device
+  summary: Expose `/dev/simtemp` binary records
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-K3-TC-001
+    description: Node exists with correct permissions
+    expected: Node exists with correct permissions
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K3-TC-002
+    description: '`read()` returns full struct'
+    expected: '`read()` returns full struct'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K3-TC-003
+    description: Non-blocking read returns `-EAGAIN`
+    expected: Non-blocking read returns `-EAGAIN`
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-K4
+  group: functional
+  module: Kernel
+  submodule: I/O
+  summary: Support blocking read and poll/epoll
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-K4-TC-001
+    description: '`read()` blocks until next sample'
+    expected: '`read()` blocks until next sample'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K4-TC-002
+    description: '`poll()` signals `POLLIN`'
+    expected: '`poll()` signals `POLLIN`'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K4-TC-003
+    description: '`poll()` wakes on threshold event'
+    expected: '`poll()` wakes on threshold event'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-K5
+  group: functional
+  module: Kernel
+  submodule: Alert logic
+  summary: Raise alert flag when threshold exceeded
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-K5-TC-001
+    description: "Alert within \u2264 2 periods; `stats.alerts++`"
+    expected: "Alert within \u2264 2 periods; `stats.alerts++`"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K5-TC-002
+    description: No alert when threshold > value
+    expected: No alert when threshold > value
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-K6
+  group: functional
+  module: Kernel
+  submodule: Sysfs interface
+  summary: Provide attributes for config and stats
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-K6-TC-001
+    description: '`sampling_ms` validates range'
+    expected: '`sampling_ms` validates range'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K6-TC-002
+    description: '`threshold_mC` affects alerts'
+    expected: '`threshold_mC` affects alerts'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K6-TC-003
+    description: '`mode` accepts valid enums'
+    expected: '`mode` accepts valid enums'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K6-TC-004
+    description: '`stats` read-only and consistent'
+    expected: '`stats` read-only and consistent'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-K7
+  group: functional
+  module: Kernel
+  submodule: Config handler
+  summary: Apply configuration atomically via sysfs/ioctl
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-K7-TC-001
+    description: Readers never see partial values
+    expected: Readers never see partial values
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K7-TC-002
+    description: Ioctl applies all-or-nothing update
+    expected: Ioctl applies all-or-nothing update
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-K8
+  group: functional
+  module: Kernel
+  submodule: Lifecycle mgmt
+  summary: Clean load/unload sequence
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-K8-TC-001
+    description: Load/unload no WARN/OOPS
+    expected: Load/unload no WARN/OOPS
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K8-TC-002
+    description: Readers exit gracefully on unload
+    expected: Readers exit gracefully on unload
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-K9
+  group: functional
+  module: Kernel
+  submodule: DT parser
+  summary: Parse DT properties and apply defaults
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-K9-TC-001
+    description: DT props appear in sysfs
+    expected: DT props appear in sysfs
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-K9-TC-002
+    description: Defaults used when DT missing
+    expected: Defaults used when DT missing
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-U1
+  group: functional
+  module: User space
+  submodule: CLI config
+  summary: CLI configures sampling, threshold, and mode
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-U1-TC-001
+    description: '`--set sampling_ms=50` updates sysfs'
+    expected: '`--set sampling_ms=50` updates sysfs'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-U1-TC-002
+    description: Invalid input rejected
+    expected: Invalid input rejected
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-U1-TC-003
+    description: Mode persists
+    expected: Mode persists
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-U2
+  group: functional
+  module: User space
+  submodule: CLI read loop
+  summary: Read and display temperature samples
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-U2-TC-001
+    description: Record parsed correctly
+    expected: Record parsed correctly
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-U2-TC-002
+    description: "100 Hz 5 s \u2192 no errors"
+    expected: "100 Hz 5 s \u2192 no errors"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-U2-TC-003
+    description: Alert printed on threshold cross
+    expected: Alert printed on threshold cross
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-U3
+  group: functional
+  module: User space
+  submodule: Event monitor
+  summary: Poll/epoll for events
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-U3-TC-001
+    description: Poll triggers per sample
+    expected: Poll triggers per sample
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-U3-TC-002
+    description: "Poll wakes on alert \u2264 2 periods"
+    expected: "Poll wakes on alert \u2264 2 periods"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-U3-TC-003
+    description: Non-blocking returns immediately
+    expected: Non-blocking returns immediately
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-U4
+  group: functional
+  module: User space
+  submodule: Self-test mode
+  summary: CLI validates alert detection
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-U4-TC-001
+    description: "Self-test PASS (\u2264 2 periods)"
+    expected: "Self-test PASS (\u2264 2 periods)"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-U4-TC-002
+    description: "High threshold \u2192 FAIL (exit \u2260 0)"
+    expected: "High threshold \u2192 FAIL (exit \u2260 0)"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-U5
+  group: functional
+  module: User space
+  submodule: GUI
+  summary: Visualize readings and live control
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-U5-TC-001
+    description: "GUI updates \u2265 5 Hz"
+    expected: "GUI updates \u2265 5 Hz"
+    status: planned
+    automation: false
+    github_link: ''
+    branch: ''
+  - id: F-U5-TC-002
+    description: Parameter edits reflected in sysfs
+    expected: Parameter edits reflected in sysfs
+    status: planned
+    automation: false
+    github_link: ''
+    branch: ''
+- id: F-S1
+  group: functional
+  module: Scripts
+  submodule: build.sh
+  summary: Automate kernel + CLI build
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-S1-TC-001
+    description: Build succeeds; artifacts present
+    expected: Build succeeds; artifacts present
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-S1-TC-002
+    description: "Missing headers \u2192 clear error"
+    expected: "Missing headers \u2192 clear error"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-S1-TC-003
+    description: Re-run idempotent
+    expected: Re-run idempotent
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-S2
+  group: functional
+  module: Scripts
+  submodule: run_demo.sh
+  summary: Automate demo pipeline
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-S2-TC-001
+    description: Demo runs OK; exit 0
+    expected: Demo runs OK; exit 0
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-S2-TC-002
+    description: "Error \u2192 exit \u2260 0"
+    expected: "Error \u2192 exit \u2260 0"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-S2-TC-003
+    description: Cleanup on failure
+    expected: Cleanup on failure
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-S3
+  group: functional
+  module: Scripts
+  submodule: lint.sh
+  summary: Lint and style verification
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-S3-TC-001
+    description: "Clean run \u2192 return 0"
+    expected: "Clean run \u2192 return 0"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: F-S3-TC-002
+    description: "Missing tools \u2192 graceful skip"
+    expected: "Missing tools \u2192 graceful skip"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: F-D1
+  group: functional
+  module: Docs
+  submodule: README.md
+  summary: Build/run/demo guide
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-D1-TC-001
+    description: "Fresh VM \u2192 success"
+    expected: "Fresh VM \u2192 success"
+    status: planned
+    automation: false
+    github_link: ''
+    branch: ''
+  - id: F-D1-TC-002
+    description: Links valid
+    expected: Links valid
+    status: planned
+    automation: false
+    github_link: ''
+    branch: ''
+- id: F-D2
+  group: functional
+  module: Docs
+  submodule: DESIGN.md
+  summary: Architecture & API
+  priority: Medium
+  status: in-progress
+  github_link: ''
+  branches:
+  - f-d2-tc-001-api-documentation-verification
+  tests:
+  - id: F-D2-TC-001
+    description: Struct/API match code
+    expected: Struct/API match code
+    status: in-progress
+    automation: false
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/64
+    branch: f-d2-tc-001-api-documentation-verification
+  - id: F-D2-TC-002
+    description: Locking rationale consistent
+    expected: Locking rationale consistent
+    status: planned
+    automation: false
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/65
+    branch: ''
+- id: F-D3
+  group: functional
+  module: Docs
+  submodule: TESTPLAN.md
+  summary: Test coverage matrix
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-D3-TC-001
+    description: All reqs mapped
+    expected: All reqs mapped
+    status: planned
+    automation: false
+    github_link: ''
+    branch: ''
+  - id: F-D3-TC-002
+    description: Commands + criteria documented
+    expected: Commands + criteria documented
+    status: planned
+    automation: false
+    github_link: ''
+    branch: ''
+- id: F-D4
+  group: functional
+  module: Docs
+  submodule: AI_NOTES.md
+  summary: Prompts and validation notes
+  priority: Medium
+  status: in-progress
+  github_link: https://github.com/n2Electrons/challenge_2509/issues/57
+  branches:
+  - f-d4-tc-prompts-recorded
+  tests:
+  - id: F-D4-TC-001
+    description: Prompts recorded
+    expected: Prompts recorded
+    status: in-progress
+    automation: false
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/59
+    branch: f-d4-tc-prompts-recorded
+  - id: F-D4-TC-002
+    description: Mitigations listed
+    expected: Mitigations listed
+    status: planned
+    automation: false
+    github_link: ''
+    branch: ''
+- id: F-D5
+  group: functional
+  module: Docs
+  submodule: Git history
+  summary: Repository structure
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: F-D5-TC-001
+    description: Tag v1.0 exists; Signed-off-by used
+    expected: Tag v1.0 exists; Signed-off-by used
+    status: planned
+    automation: false
+    github_link: ''
+    branch: ''
+  - id: F-D5-TC-002
+    description: No binaries tracked
+    expected: No binaries tracked
+    status: planned
+    automation: false
+    github_link: ''
+    branch: ''
+- id: N-F1
+  group: non-functional
+  module: Non-Functional
+  submodule: Performance
+  summary: "Operate \u2264 100 Hz with low latency"
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: N-F1-TC-001
+    description: "Sampling stable \xB110 %"
+    expected: "Sampling stable \xB110 %"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F1-TC-002
+    description: p95 latency < 10 ms
+    expected: p95 latency < 10 ms
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F1-TC-003
+    description: CPU usage < 5 %
+    expected: CPU usage < 5 %
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: N-F2
+  group: non-functional
+  module: Non-Functional
+  submodule: Reliability
+  summary: No kernel warnings/leaks
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: N-F2-TC-001
+    description: "200 load/unload \u2192 0 WARN/OOPS"
+    expected: "200 load/unload \u2192 0 WARN/OOPS"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F2-TC-002
+    description: "6 h run \u2192 no leaks/crash"
+    expected: "6 h run \u2192 no leaks/crash"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: N-F3
+  group: non-functional
+  module: Non-Functional
+  submodule: Concurrency
+  summary: Thread-safe multi-access
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: N-F3-TC-001
+    description: "8 threads \u2192 no deadlock"
+    expected: "8 threads \u2192 no deadlock"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F3-TC-002
+    description: Concurrent sysfs writes stable
+    expected: Concurrent sysfs writes stable
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: N-F4
+  group: non-functional
+  module: Non-Functional
+  submodule: Portability
+  summary: Build/run on Ubuntu + ARM
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: N-F4-TC-001
+    description: Host build passes
+    expected: Host build passes
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F4-TC-002
+    description: ARM run in QEMU
+    expected: ARM run in QEMU
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: N-F5
+  group: non-functional
+  module: Non-Functional
+  submodule: Security
+  summary: Input validation and permissions
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: N-F5-TC-001
+    description: "Invalid sysfs \u2192 `-EINVAL`"
+    expected: "Invalid sysfs \u2192 `-EINVAL`"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F5-TC-002
+    description: Root-only RW verified
+    expected: Root-only RW verified
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: N-F6
+  group: non-functional
+  module: Non-Functional
+  submodule: Maintainability
+  summary: Code style & modularity
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: N-F6-TC-001
+    description: '`checkpatch` 0 errors'
+    expected: '`checkpatch` 0 errors'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F6-TC-002
+    description: Modules isolated; no symbol leak
+    expected: Modules isolated; no symbol leak
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: N-F7
+  group: non-functional
+  module: Non-Functional
+  submodule: Usability
+  summary: CLI clarity & error handling
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: N-F7-TC-001
+    description: '`--help` complete'
+    expected: '`--help` complete'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F7-TC-002
+    description: Device removal error handled
+    expected: Device removal error handled
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: N-F8
+  group: non-functional
+  module: Non-Functional
+  submodule: Traceability
+  summary: "Req \u2194 Test \u2194 Code mapping"
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: N-F8-TC-001
+    description: 1:1 mapping verified
+    expected: 1:1 mapping verified
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F8-TC-002
+    description: Auto coverage 100 %
+    expected: Auto coverage 100 %
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: N-F9
+  group: non-functional
+  module: Non-Functional
+  submodule: Compliance
+  summary: Kernel coding style adherence
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: N-F9-TC-001
+    description: "`checkpatch --strict` 0 errors, \u2264 3 warnings"
+    expected: "`checkpatch --strict` 0 errors, \u2264 3 warnings"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F9-TC-002
+    description: '`clang-format --dry-run` no diff'
+    expected: '`clang-format --dry-run` no diff'
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+- id: N-F10
+  group: non-functional
+  module: Non-Functional
+  submodule: Documentation Quality
+  summary: Consistency and reproducibility
+  priority: Medium
+  status: planned
+  github_link: ''
+  branches: []
+  tests:
+  - id: N-F10-TC-001
+    description: "Fresh VM \u2192 README success"
+    expected: "Fresh VM \u2192 README success"
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''
+  - id: N-F10-TC-002
+    description: Versions match environment
+    expected: Versions match environment
+    status: planned
+    automation: true
+    github_link: ''
+    branch: ''

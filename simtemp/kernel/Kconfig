@@ -1,0 +1,4 @@
+config _SIMTEMP
+        tristate " Temperature Simulator"
+        help
+          Temperature simulator driver for testing.

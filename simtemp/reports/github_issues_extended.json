@@ -1,0 +1,241 @@
+{
+  "search_metadata": {
+    "repository": "n2Electrons/challenge_2509",
+    "patterns_used": {
+      "requirements": [
+        "\\b(F-K\\d+)\\b",
+        "\\b(F-U\\d+)\\b",
+        "\\b(F-S\\d+)\\b",
+        "\\b(F-D\\d+)\\b",
+        "\\b(N-F\\d+)\\b"
+      ],
+      "test_cases": "\\b((F-[KUSD]\\d+|N-F\\d+)-TC-\\d{3})\\b",
+      "combined": "\\b((F-[KUSD]\\d+|N-F\\d+)(-TC-\\d{3})?)\\b"
+    },
+    "search_method": "simulated_with_extended_dataset"
+  },
+  "results": [
+    {
+      "issue_id": "58",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/58",
+      "issue_title": "F-K1 Platform Driver Registration",
+      "issue_body": "F-K1: Register as platform driver via DT or local device. Implement proper platform driver registration mechanism.",
+      "issue_state": "open",
+      "matched_ids": [
+        "F-K1"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-K1",
+          "category": "requirement",
+          "type": "Functional/Kernel",
+          "pattern_confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue_id": "61",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/61",
+      "issue_title": "F-K1-TC-001 insmod registers driver",
+      "issue_body": "F-K1-TC-001: Test that `insmod` successfully registers the driver and creates sysfs entries.",
+      "issue_state": "open",
+      "matched_ids": [
+        "F-K1-TC-001"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-K1-TC-001",
+          "category": "test_case",
+          "type": "Functional/Kernel",
+          "pattern_confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue_id": "62",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/62",
+      "issue_title": "F-K1-TC-002 DT overlay binds driver",
+      "issue_body": "F-K1-TC-002: Verify that DT overlay binds driver and properties are parsed with no errors.",
+      "issue_state": "open",
+      "matched_ids": [
+        "F-K1-TC-002"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-K1-TC-002",
+          "category": "test_case",
+          "type": "Functional/Kernel",
+          "pattern_confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue_id": "63",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/63",
+      "issue_title": "F-D2 Technical Design Documentation",
+      "issue_body": "F-D2: DESIGN.md must provide accurate, comprehensive technical documentation covering architecture and APIs.",
+      "issue_state": "open",
+      "matched_ids": [
+        "F-D2"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-D2",
+          "category": "requirement",
+          "type": "Functional/Documentation",
+          "pattern_confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue_id": "64",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/64",
+      "issue_title": "F-D2-TC-001 API Documentation Match",
+      "issue_body": "F-D2-TC-001: Verify all documented structures and APIs match code implementation exactly.",
+      "issue_state": "open",
+      "matched_ids": [
+        "F-D2-TC-001"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-D2-TC-001",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "pattern_confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue_id": "65",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/65",
+      "issue_title": "F-D2-TC-002 Locking Documentation",
+      "issue_body": "F-D2-TC-002: Validate completeness and consistency of locking mechanism documentation.",
+      "issue_state": "open",
+      "matched_ids": [
+        "F-D2-TC-002"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-D2-TC-002",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "pattern_confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue_id": "59",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/59",
+      "issue_title": "F-D4-TC-001 Prompts recorded",
+      "issue_body": "F-D4-TC-001: Ensure all prompts used for requirements and test cases are properly recorded in AI_NOTES.md.",
+      "issue_state": "open",
+      "matched_ids": [
+        "F-D4-TC-001"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-D4-TC-001",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "pattern_confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue_id": "70",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/70",
+      "issue_title": "F-K2 Periodic Sampling Implementation",
+      "issue_body": "F-K2: Generate periodic samples every N ms with configurable sampling rate.",
+      "issue_state": "open",
+      "matched_ids": [
+        "F-K2"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-K2",
+          "category": "requirement",
+          "type": "Functional/Kernel",
+          "pattern_confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue_id": "71",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/71",
+      "issue_title": "F-K2-TC-001 Sampling Jitter Test",
+      "issue_body": "F-K2-TC-001: Verify sampling jitter is ≤ ±10% of configured period.",
+      "issue_state": "open",
+      "matched_ids": [
+        "F-K2-TC-001"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-K2-TC-001",
+          "category": "test_case",
+          "type": "Functional/Kernel",
+          "pattern_confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue_id": "72",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/72",
+      "issue_title": "F-U1 CLI Tool Implementation",
+      "issue_body": "F-U1: Implement command-line tool for device interaction and data retrieval.",
+      "issue_state": "open",
+      "matched_ids": [
+        "F-U1"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-U1",
+          "category": "requirement",
+          "type": "Functional/User Space",
+          "pattern_confidence": "high"
+        }
+      ]
+    },
+    {
+      "issue_id": "73",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/73",
+      "issue_title": "N-F1 Performance Requirements",
+      "issue_body": "N-F1: System must meet specified performance benchmarks under load.",
+      "issue_state": "open",
+      "matched_ids": [
+        "N-F1"
+      ],
+      "id_analysis": [
+        {
+          "id": "N-F1",
+          "category": "requirement",
+          "type": "Non-Functional",
+          "pattern_confidence": "high"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_issues_found": 11,
+    "total_ids_found": 11,
+    "requirements_found": 5,
+    "test_cases_found": 6,
+    "by_type": {
+      "Functional/Kernel": 5,
+      "Functional/Documentation": 4,
+      "Functional/User Space": 1,
+      "Non-Functional": 1
+    },
+    "by_category": {
+      "requirement": 5,
+      "test_case": 6
+    },
+    "by_state": {
+      "open": 11
+    },
+    "confidence_levels": {
+      "high": 11,
+      "medium": 0,
+      "low": 0
+    }
+  }
+}

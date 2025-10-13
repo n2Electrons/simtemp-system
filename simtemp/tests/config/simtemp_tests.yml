@@ -1,0 +1,51 @@
+# Test Configuration File for  Temperature Simulator Driver
+# This file controls which tests are executed and their configurations
+#
+# Copyright (c) Jorge Rodriguez Moreno
+
+version: "1.0"
+
+# Global test settings
+global:
+  verbose: true
+  timeout_seconds: 60  # Longer timeout for kernel module operations
+  fail_fast: true     # Stop on first failure for kernel module safety
+
+# GitHub issue mappings for test IDs (optional - can also be in separate JSON file)
+github_issue_mappings:
+  F-K1: 58             # Kernel module loading (parent requirement)
+  F-K1-TC-001: 61      # insmod registers driver
+  F-K1-TC-002: 62      # DT overlay binds driver
+
+# Test requirements
+requirements:
+  parent_requirement:
+    source: "github_pr"
+    id: "${GITHUB_PR_NUMBER}"  # Will be expanded by Jenkins
+    enabled: true
+
+# Test case configurations
+tests:
+  kernel_driver:
+    enabled: true
+    description: "Tests for the  Temperature Simulator Driver"
+    depends_on: ["nxp_simtemp"]  # Module dependency
+    env:
+      SOURCE_FILE: 'kernel/nxp_simtemp.c'
+      MODULE_DIR: 'kernel'
+      MODULE_NAME: 'nxp_simtemp.ko'
+      BUILD_DIR: 'obj'
+    module_path: "${MODULE_DIR}/${BUILD_DIR}/${MODULE_NAME}"
+    test_cases:
+      - name: "insmod_registers_driver"
+        description: "Verifies driver registration via insmod"
+        enabled: true
+        test_id: "F-K1-TC-001"  # Maps to test plan ID
+      - name: "sysfs_entries"
+        description: "Validates creation of sysfs entries"
+        enabled: true
+        test_id: "F-K1-TC-002"
+      - name: "driver_cleanup"
+        description: "Verifies clean driver unloading"
+        enabled: true
+        test_id: "F-K8-TC-001"

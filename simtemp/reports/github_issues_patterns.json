@@ -1,0 +1,150 @@
+{
+  "search_metadata": {
+    "repository": "n2Electrons/challenge_2509",
+    "patterns_used": {
+      "requirements": [
+        "functional_kernel",
+        "functional_user",
+        "functional_scripts",
+        "functional_docs",
+        "non_functional"
+      ],
+      "test_cases": "(F-[KUSD]\\d+|N-F\\d+)-TC-\\d{3}"
+    }
+  },
+  "results": [
+    {
+      "issue_id": "58",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/58",
+      "issue_title": "F-K1 Platform Driver Registration",
+      "issue_description": "Register as platform driver via DT or local device",
+      "matched_ids": [
+        "F-K1"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-K1",
+          "category": "requirement",
+          "type": "Functional/Kernel",
+          "pattern_match": "functional_kernel"
+        }
+      ]
+    },
+    {
+      "issue_id": "61",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/61",
+      "issue_title": "F-K1-TC-001 insmod registers driver",
+      "issue_description": "insmod registers driver; sysfs entries created",
+      "matched_ids": [
+        "F-K1-TC-001"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-K1-TC-001",
+          "category": "test_case",
+          "type": "Functional/Kernel",
+          "pattern_match": "functional_kernel"
+        }
+      ]
+    },
+    {
+      "issue_id": "62",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/62",
+      "issue_title": "F-K1-TC-002 DT overlay binds driver",
+      "issue_description": "DT overlay binds driver; properties parsed with no errors",
+      "matched_ids": [
+        "F-K1-TC-002"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-K1-TC-002",
+          "category": "test_case",
+          "type": "Functional/Kernel",
+          "pattern_match": "functional_kernel"
+        }
+      ]
+    },
+    {
+      "issue_id": "63",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/63",
+      "issue_title": "F-D2 Technical Design Documentation",
+      "issue_description": "DESIGN.md must provide accurate, comprehensive technical documentation",
+      "matched_ids": [
+        "F-D2"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-D2",
+          "category": "requirement",
+          "type": "Functional/Documentation",
+          "pattern_match": "functional_docs"
+        }
+      ]
+    },
+    {
+      "issue_id": "64",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/64",
+      "issue_title": "F-D2-TC-001 API Documentation Match",
+      "issue_description": "Verify all documented structures and APIs match code implementation",
+      "matched_ids": [
+        "F-D2-TC-001"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-D2-TC-001",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "pattern_match": "functional_docs"
+        }
+      ]
+    },
+    {
+      "issue_id": "65",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/65",
+      "issue_title": "F-D2-TC-002 Locking Documentation",
+      "issue_description": "Validate completeness and consistency of locking mechanism documentation",
+      "matched_ids": [
+        "F-D2-TC-002"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-D2-TC-002",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "pattern_match": "functional_docs"
+        }
+      ]
+    },
+    {
+      "issue_id": "59",
+      "issue_url": "https://github.com/n2Electrons/challenge_2509/issues/59",
+      "issue_title": "F-D4-TC-001 Prompts recorded",
+      "issue_description": "Test Case F-D4-TC-001",
+      "matched_ids": [
+        "F-D4-TC-001"
+      ],
+      "id_analysis": [
+        {
+          "id": "F-D4-TC-001",
+          "category": "test_case",
+          "type": "Functional/Documentation",
+          "pattern_match": "functional_docs"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_issues_found": 7,
+    "total_ids_found": 7,
+    "requirements_found": 2,
+    "test_cases_found": 5,
+    "by_type": {
+      "Functional/Kernel": 3,
+      "Functional/Documentation": 4
+    },
+    "by_category": {
+      "requirement": 2,
+      "test_case": 5
+    }
+  }
+}

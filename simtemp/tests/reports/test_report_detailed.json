@@ -1,0 +1,45 @@
+{
+  "summary": {
+    "total_modules": 1,
+    "total_tests": 3,
+    "passed_tests": 1,
+    "failed_tests": 0,
+    "skipped_tests": 0,
+    "not_implemented_tests": 2,
+    "timestamp": "2025-10-13T10:36:08.183731",
+    "runtime": 2.1236698627471924
+  },
+  "modules": {
+    "kernel_driver": {
+      "name": "kernel_driver",
+      "description": "Tests for the  Temperature Simulator Driver",
+      "enabled": true,
+      "tests": [
+        {
+          "name": "insmod_registers_driver",
+          "description": "Verifies driver registration via insmod",
+          "test_id": "F-K1-TC-001",
+          "status": "passed",
+          "duration": 0,
+          "message": "Test executed via pytest"
+        },
+        {
+          "name": "sysfs_entries",
+          "description": "Validates creation of sysfs entries",
+          "test_id": "F-K1-TC-002",
+          "status": "not implemented",
+          "duration": 0,
+          "message": "Test defined in configuration but no pytest implementation found"
+        },
+        {
+          "name": "driver_cleanup",
+          "description": "Verifies clean driver unloading",
+          "test_id": "F-K8-TC-001",
+          "status": "not implemented",
+          "duration": 0,
+          "message": "Test defined in configuration but no pytest implementation found"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,668 @@
+{
+  "requirements": [
+    {
+      "id": "F-K1",
+      "summary": "Register as platform driver via DT or local device",
+      "status": "in-progress",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-K1-TC-001",
+          "description": "`insmod` registers driver; sysfs entries created",
+          "status": "in-progress"
+        },
+        {
+          "id": "F-K1-TC-002",
+          "description": "DT overlay binds driver; properties parsed with no errors",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-K2",
+      "summary": "Generate periodic samples every N ms",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-K2-TC-001",
+          "description": "Sampling jitter \u2264 \u00b110 %",
+          "status": "planned"
+        },
+        {
+          "id": "F-K2-TC-002",
+          "description": "Updating `sampling_ms` changes rate \u2264 2 periods",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-K3",
+      "summary": "Expose `/dev/simtemp` binary records",
+      "status": "planned",
+      "test_count": 3,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-K3-TC-001",
+          "description": "Node exists with correct permissions",
+          "status": "planned"
+        },
+        {
+          "id": "F-K3-TC-002",
+          "description": "`read()` returns full struct",
+          "status": "planned"
+        },
+        {
+          "id": "F-K3-TC-003",
+          "description": "Non-blocking read returns `-EAGAIN`",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-K4",
+      "summary": "Support blocking read and poll/epoll",
+      "status": "planned",
+      "test_count": 3,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-K4-TC-001",
+          "description": "`read()` blocks until next sample",
+          "status": "planned"
+        },
+        {
+          "id": "F-K4-TC-002",
+          "description": "`poll()` signals `POLLIN`",
+          "status": "planned"
+        },
+        {
+          "id": "F-K4-TC-003",
+          "description": "`poll()` wakes on threshold event",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-K5",
+      "summary": "Raise alert flag when threshold exceeded",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-K5-TC-001",
+          "description": "Alert within \u2264 2 periods; `stats.alerts++`",
+          "status": "planned"
+        },
+        {
+          "id": "F-K5-TC-002",
+          "description": "No alert when threshold > value",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-K6",
+      "summary": "Provide attributes for config and stats",
+      "status": "planned",
+      "test_count": 4,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-K6-TC-001",
+          "description": "`sampling_ms` validates range",
+          "status": "planned"
+        },
+        {
+          "id": "F-K6-TC-002",
+          "description": "`threshold_mC` affects alerts",
+          "status": "planned"
+        },
+        {
+          "id": "F-K6-TC-003",
+          "description": "`mode` accepts valid enums",
+          "status": "planned"
+        },
+        {
+          "id": "F-K6-TC-004",
+          "description": "`stats` read-only and consistent",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-K7",
+      "summary": "Apply configuration atomically via sysfs/ioctl",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-K7-TC-001",
+          "description": "Readers never see partial values",
+          "status": "planned"
+        },
+        {
+          "id": "F-K7-TC-002",
+          "description": "Ioctl applies all-or-nothing update",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-K8",
+      "summary": "Clean load/unload sequence",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-K8-TC-001",
+          "description": "Load/unload no WARN/OOPS",
+          "status": "planned"
+        },
+        {
+          "id": "F-K8-TC-002",
+          "description": "Readers exit gracefully on unload",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-K9",
+      "summary": "Parse DT properties and apply defaults",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-K9-TC-001",
+          "description": "DT props appear in sysfs",
+          "status": "planned"
+        },
+        {
+          "id": "F-K9-TC-002",
+          "description": "Defaults used when DT missing",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-U1",
+      "summary": "CLI configures sampling, threshold, and mode",
+      "status": "planned",
+      "test_count": 3,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-U1-TC-001",
+          "description": "`--set sampling_ms=50` updates sysfs",
+          "status": "planned"
+        },
+        {
+          "id": "F-U1-TC-002",
+          "description": "Invalid input rejected",
+          "status": "planned"
+        },
+        {
+          "id": "F-U1-TC-003",
+          "description": "Mode persists",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-U2",
+      "summary": "Read and display temperature samples",
+      "status": "planned",
+      "test_count": 3,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-U2-TC-001",
+          "description": "Record parsed correctly",
+          "status": "planned"
+        },
+        {
+          "id": "F-U2-TC-002",
+          "description": "100 Hz 5 s \u2192 no errors",
+          "status": "planned"
+        },
+        {
+          "id": "F-U2-TC-003",
+          "description": "Alert printed on threshold cross",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-U3",
+      "summary": "Poll/epoll for events",
+      "status": "planned",
+      "test_count": 3,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-U3-TC-001",
+          "description": "Poll triggers per sample",
+          "status": "planned"
+        },
+        {
+          "id": "F-U3-TC-002",
+          "description": "Poll wakes on alert \u2264 2 periods",
+          "status": "planned"
+        },
+        {
+          "id": "F-U3-TC-003",
+          "description": "Non-blocking returns immediately",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-U4",
+      "summary": "CLI validates alert detection",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-U4-TC-001",
+          "description": "Self-test PASS (\u2264 2 periods)",
+          "status": "planned"
+        },
+        {
+          "id": "F-U4-TC-002",
+          "description": "High threshold \u2192 FAIL (exit \u2260 0)",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-U5",
+      "summary": "Visualize readings and live control",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-U5-TC-001",
+          "description": "GUI updates \u2265 5 Hz",
+          "status": "planned"
+        },
+        {
+          "id": "F-U5-TC-002",
+          "description": "Parameter edits reflected in sysfs",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-S1",
+      "summary": "Automate kernel + CLI build",
+      "status": "planned",
+      "test_count": 3,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-S1-TC-001",
+          "description": "Build succeeds; artifacts present",
+          "status": "planned"
+        },
+        {
+          "id": "F-S1-TC-002",
+          "description": "Missing headers \u2192 clear error",
+          "status": "planned"
+        },
+        {
+          "id": "F-S1-TC-003",
+          "description": "Re-run idempotent",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-S2",
+      "summary": "Automate demo pipeline",
+      "status": "planned",
+      "test_count": 3,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-S2-TC-001",
+          "description": "Demo runs OK; exit 0",
+          "status": "planned"
+        },
+        {
+          "id": "F-S2-TC-002",
+          "description": "Error \u2192 exit \u2260 0",
+          "status": "planned"
+        },
+        {
+          "id": "F-S2-TC-003",
+          "description": "Cleanup on failure",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-S3",
+      "summary": "Lint and style verification",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-S3-TC-001",
+          "description": "Clean run \u2192 return 0",
+          "status": "planned"
+        },
+        {
+          "id": "F-S3-TC-002",
+          "description": "Missing tools \u2192 graceful skip",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-D1",
+      "summary": "Build/run/demo guide",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-D1-TC-001",
+          "description": "Fresh VM \u2192 success",
+          "status": "planned"
+        },
+        {
+          "id": "F-D1-TC-002",
+          "description": "Links valid",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-D2",
+      "summary": "Architecture & API",
+      "status": "in-progress",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-D2-TC-001",
+          "description": "Struct/API match code",
+          "status": "in-progress"
+        },
+        {
+          "id": "F-D2-TC-002",
+          "description": "Locking rationale consistent",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-D3",
+      "summary": "Test coverage matrix",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-D3-TC-001",
+          "description": "All reqs mapped",
+          "status": "planned"
+        },
+        {
+          "id": "F-D3-TC-002",
+          "description": "Commands + criteria documented",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-D4",
+      "summary": "Prompts and validation notes",
+      "status": "partial",
+      "test_count": 2,
+      "done_count": 1,
+      "tests": [
+        {
+          "id": "F-D4-TC-001",
+          "description": "Prompts recorded",
+          "status": "implemented"
+        },
+        {
+          "id": "F-D4-TC-002",
+          "description": "Mitigations listed",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "F-D5",
+      "summary": "Repository structure",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "F-D5-TC-001",
+          "description": "Tag v1.0 exists; Signed-off-by used",
+          "status": "planned"
+        },
+        {
+          "id": "F-D5-TC-002",
+          "description": "No binaries tracked",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "N-F1",
+      "summary": "Operate \u2264 100 Hz with low latency",
+      "status": "planned",
+      "test_count": 3,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "N-F1-TC-001",
+          "description": "Sampling stable \u00b110 %",
+          "status": "planned"
+        },
+        {
+          "id": "N-F1-TC-002",
+          "description": "p95 latency < 10 ms",
+          "status": "planned"
+        },
+        {
+          "id": "N-F1-TC-003",
+          "description": "CPU usage < 5 %",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "N-F2",
+      "summary": "No kernel warnings/leaks",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "N-F2-TC-001",
+          "description": "200 load/unload \u2192 0 WARN/OOPS",
+          "status": "planned"
+        },
+        {
+          "id": "N-F2-TC-002",
+          "description": "6 h run \u2192 no leaks/crash",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "N-F3",
+      "summary": "Thread-safe multi-access",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "N-F3-TC-001",
+          "description": "8 threads \u2192 no deadlock",
+          "status": "planned"
+        },
+        {
+          "id": "N-F3-TC-002",
+          "description": "Concurrent sysfs writes stable",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "N-F4",
+      "summary": "Build/run on Ubuntu + ARM",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "N-F4-TC-001",
+          "description": "Host build passes",
+          "status": "planned"
+        },
+        {
+          "id": "N-F4-TC-002",
+          "description": "ARM run in QEMU",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "N-F5",
+      "summary": "Input validation and permissions",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "N-F5-TC-001",
+          "description": "Invalid sysfs \u2192 `-EINVAL`",
+          "status": "planned"
+        },
+        {
+          "id": "N-F5-TC-002",
+          "description": "Root-only RW verified",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "N-F6",
+      "summary": "Code style & modularity",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "N-F6-TC-001",
+          "description": "`checkpatch` 0 errors",
+          "status": "planned"
+        },
+        {
+          "id": "N-F6-TC-002",
+          "description": "Modules isolated; no symbol leak",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "N-F7",
+      "summary": "CLI clarity & error handling",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "N-F7-TC-001",
+          "description": "`--help` complete",
+          "status": "planned"
+        },
+        {
+          "id": "N-F7-TC-002",
+          "description": "Device removal error handled",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "N-F8",
+      "summary": "Req \u2194 Test \u2194 Code mapping",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "N-F8-TC-001",
+          "description": "1:1 mapping verified",
+          "status": "planned"
+        },
+        {
+          "id": "N-F8-TC-002",
+          "description": "Auto coverage 100 %",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "N-F9",
+      "summary": "Kernel coding style adherence",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "N-F9-TC-001",
+          "description": "`checkpatch --strict` 0 errors, \u2264 3 warnings",
+          "status": "planned"
+        },
+        {
+          "id": "N-F9-TC-002",
+          "description": "`clang-format --dry-run` no diff",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "N-F10",
+      "summary": "Consistency and reproducibility",
+      "status": "planned",
+      "test_count": 2,
+      "done_count": 0,
+      "tests": [
+        {
+          "id": "N-F10-TC-001",
+          "description": "Fresh VM \u2192 README success",
+          "status": "planned"
+        },
+        {
+          "id": "N-F10-TC-002",
+          "description": "Versions match environment",
+          "status": "planned"
+        }
+      ]
+    }
+  ],
+  "aggregate": {
+    "requirements_total": 32,
+    "tests_total": 74,
+    "tests_completed": 1,
+    "tests_completed_pct": 1.3513513513513513
+  }
+}
