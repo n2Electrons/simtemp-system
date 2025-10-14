@@ -269,7 +269,34 @@ def runPRDetectionDiagnostics() {
     
     echo "Testing all available PR detection methods..."
     
-    // Method 1: Using CHANGE_ID environment variable (Jenkins pipeline standard)
+    // Method 1: Check GitHub issue mappings file first
+    results.methods.github_mappings = [success: false, value: null]
+    try {
+        def branch = env.BRANCH_NAME ?: (env.GIT_BRANCH ?: null)
+        if (branch) {
+            def mappingFile = 'simtemp/tests/config/github_issue_mappings.json'
+            if (fileExists(mappingFile)) {
+                def mappings = readJSON file: mappingFile
+                if (mappings && mappings[branch]) {
+                    def prNumber = mappings[branch].toString()
+                    results.methods.github_mappings.success = true
+                    results.methods.github_mappings.value = prNumber
+                    echo "✅ Found PR via GitHub mappings: ${prNumber}"
+                    results.prNumber = prNumber
+                    results.success = true
+                }
+            } else {
+                echo "❌ GitHub mappings file not found: ${mappingFile}"
+            }
+        } else {
+            echo "❌ No branch name available for mapping lookup"
+        }
+    } catch (Exception e) {
+        echo "ERROR checking GitHub mappings: ${e.message}"
+        results.methods.github_mappings.error = e.message
+    }
+    
+    // Method 2: Using CHANGE_ID environment variable (Jenkins pipeline standard)
     results.methods.change_id = [success: false, value: null]
     try {
         if (env.CHANGE_ID) {
@@ -286,7 +313,7 @@ def runPRDetectionDiagnostics() {
         results.methods.change_id.error = e.message
     }
     
-    // Method 2: Using GITHUB_PR_NUMBER environment variable (commonly set by GitHub plugins)
+    // Method 3: Using GITHUB_PR_NUMBER environment variable (commonly set by GitHub plugins)
     results.methods.github_pr_number = [success: false, value: null]
     try {
         if (env.GITHUB_PR_NUMBER) {
@@ -305,7 +332,7 @@ def runPRDetectionDiagnostics() {
         results.methods.github_pr_number.error = e.message
     }
     
-    // Method 3: Using GitHub API to find PR for branch
+    // Method 4: Using GitHub API to find PR for branch
     results.methods.github_api = [success: false, value: null]
     try {
         def owner = env.GITHUB_OWNER ?: (env.REPO_OWNER ?: null)
@@ -340,7 +367,7 @@ def runPRDetectionDiagnostics() {
         results.methods.github_api.error = e.message
     }
     
-    // Method 4: Parse from git branch name (if it follows naming convention like PR-123)
+    // Method 5: Parse from git branch name (if it follows naming convention like PR-123)
     results.methods.branch_parse = [success: false, value: null]
     try {
         def branch = env.BRANCH_NAME ?: (env.GIT_BRANCH ?: null)
@@ -355,8 +382,6 @@ def runPRDetectionDiagnostics() {
                     results.prNumber = prNumber
                     results.success = true
                 }
-            } else {
-                echo "❌ Branch name doesn't match PR pattern: ${branch}"
             }
         } else {
             echo "❌ No branch name available for parsing"
@@ -366,7 +391,7 @@ def runPRDetectionDiagnostics() {
         results.methods.branch_parse.error = e.message
     }
     
-    // Method 5: Check JOB_NAME for PR indicators
+    // Method 6: Check JOB_NAME for PR indicators
     results.methods.job_name_parse = [success: false, value: null]
     try {
         if (env.JOB_NAME) {
@@ -380,8 +405,6 @@ def runPRDetectionDiagnostics() {
                     results.prNumber = prNumber
                     results.success = true
                 }
-            } else {
-                echo "❌ Job name doesn't match PR pattern: ${env.JOB_NAME}"
             }
         } else {
             echo "❌ No JOB_NAME available for parsing"
