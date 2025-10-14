@@ -535,7 +535,7 @@ def executeJenkinsTests() {
                         "name": testName,
                         "test_id": testId,
                         "status": status,
-                        "description": "Jenkins integration test: ${testName}"
+                        "description": " ${testName}"
                     ])
                 }
             }
