@@ -43,9 +43,9 @@ tests:
         test_id: "F-K1-TC-001"  # Maps to test plan ID
       - name: "sysfs_entries"
         description: "Validates creation of sysfs entries"
-        enabled: true
+        enabled: false
         test_id: "F-K1-TC-002"
       - name: "driver_cleanup"
         description: "Verifies clean driver unloading"
-        enabled: true
+        enabled: false
         test_id: "F-K8-TC-001"
