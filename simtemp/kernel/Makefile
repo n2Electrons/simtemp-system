@@ -48,12 +48,12 @@ sign_module:
 		fi; \
 		if [ "$$(id -u)" = "0" ]; then \
 			echo "Running sign-file as root..."; \
-			$$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/generic_driver.ko; \
+			$$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
 		else \
 			echo "Running sign-file with sudo (non-interactive)..."; \
 			# Try without password first, fall back to sudo if needed and user has rights \
-			if ! $$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/generic_driver.ko 2>/dev/null; then \
-				if ! sudo -n $$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/generic_driver.ko; then \
+			if ! $$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko 2>/dev/null; then \
+				if ! sudo -n $$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; then \
 					echo "WARNING: Could not sign module - permissions issue"; \
 				fi; \
 			fi; \
