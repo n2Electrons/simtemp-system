@@ -76,7 +76,7 @@ class DetailedTestReportGenerator:
         
         # GitHub repository information for issue links
         self.github_repo_owner = os.getenv("GITHUB_OWNER", "n2Electrons")
-        self.github_repo_name = os.getenv("GITHUB_REPO", "challenge_2509")
+        self.github_repo_name = os.getenv("GITHUB_REPO", "simtemp-system")
         
         # Load GitHub issue mappings from configuration or environment
         self.github_issue_mapping = self._load_github_issue_mappings()

@@ -589,7 +589,7 @@ def convertDetailedReportToPRFormat(detailedReport) {
     
     // GitHub repository information for issue links
     def githubRepoOwner = env.GITHUB_OWNER ?: "n2Electrons"
-    def githubRepoName = env.GITHUB_REPO ?: "n2Electrons-Infra"
+    def githubRepoName = env.GITHUB_REPO ?: "simtemp-system"
     
     // Load GitHub issue mappings dynamically from configuration files
     def githubIssueMapping = loadGitHubIssueMappings()
@@ -1593,7 +1593,7 @@ pipeline {
         // Uso de valores por defecto simplificados para garantizar el funcionamiento de los comentarios en PRs
         // Basado en el commit 00a13a1 que funcionaba correctamente
         GITHUB_OWNER = "${params.GITHUB_OWNER ?: 'n2Electrons'}"
-        GITHUB_REPO = "${params.GITHUB_REPO ?: 'n2Electrons-Infra'}"
+        GITHUB_REPO = "${params.GITHUB_REPO ?: 'simtemp-system'}"
         
         // Infrastructure submodule path (path to this infrastructure within parent repo)
         INFRASTRUCTURE_PATH = "${params.INFRASTRUCTURE_PATH ?: 'infrastructure'}"
