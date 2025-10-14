@@ -69,7 +69,7 @@ testing:
   test_config_file: "simtemp/tests/config/simtemp_tests.yml"
   reports_directory: "simtemp/tests/reports"
   test_report_generator: "simtemp/tests/create_test_report.py"
-  timeout_minutes: 10
+  timeout_minutes: 5
   
   # Test suites specific to simtemp
   test_suites:
