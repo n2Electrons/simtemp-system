@@ -468,12 +468,13 @@ class DetailedTestReportGenerator:
                 self.logger.warning("No test files found")
                 return
                 
-            # Convert to string paths
-            test_file_paths = [str(f) for f in test_files]
+            # Convert to relative paths from project root
+            project_root = script_dir.parent.parent  # Go up from simtemp/tests/ to project root
+            test_file_paths = [str(f.relative_to(project_root)) for f in test_files]
             
-            # Run pytest with verbose output from the correct directory
+            # Run pytest with verbose output from the project root directory
             cmd = ["python3", "-m", "pytest", "-v", "--tb=short"] + test_file_paths
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=script_dir)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=project_root)
             
             # Parse pytest output
             self.parse_pytest_output(result.stdout, module_data)
