@@ -1744,7 +1744,7 @@ pipeline {
                             // Archive pytest cache and test logs (excluding unwanted files)
                             try {
                                 // Archive test results but skip .pytest_cache entirely due to unwanted files
-                                archiveArtifacts artifacts: "${env.SUB_PROJECT_PATH}/tests/results/**/*", allowEmptyArchive: true, fingerprint: true
+                                archiveArtifacts artifacts: "${env.SUB_PROJECT_PATH}/tests/reports/**/*", allowEmptyArchive: true, fingerprint: true
                                 echo "Archived test results (skipped .pytest_cache to exclude CACHEDIR.TAG, README.md, nodeids, stepwise)"
                             } catch (Exception e) {
                                 echo "⚠️ Note: No test results found to archive"

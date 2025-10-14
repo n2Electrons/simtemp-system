@@ -138,13 +138,13 @@ kernel:
 # Artifact configuration
 artifacts:
   test_reports:
-    - path: "simtemp/reports/test_report_detailed.html"
+    - path: "simtemp/tests/reports/test_report_detailed.html"
       description: "Detailed HTML test report"
-    - path: "simtemp/reports/*.html"
+    - path: "simtemp/tests/reports/*.html"
       description: "All HTML test reports"
-    - path: "simtemp/reports/*.json"
+    - path: "simtemp/tests/reports/*.json"
       description: "All JSON test reports"
-    - path: "simtemp/reports/**/*"
+    - path: "simtemp/tests/reports/**/*"
       description: "All test reports and artifacts"
       
   essential_configs:
