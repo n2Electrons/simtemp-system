@@ -45,11 +45,11 @@ tests:
       - name: "pr_detection"
         description: "Verifies PR detection functionality"
         enabled: true
-        test_id: "F-J1-TC-001"
+        test_id: "F-J1-TC-002"
       - name: "github_api_connectivity"
         description: "Validates GitHub API connectivity"
         enabled: true
-        test_id: "F-J1-TC-001"
+        test_id: "F-J1-TC-003"
         
   kernel_driver:
     enabled: true
