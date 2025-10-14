@@ -43,13 +43,13 @@ build_tools:
 
 # Source code configuration
 source_code:
-  base_directory: "examples/simtemp"
+  base_directory: "simtemp"
   
   modules:
     nxp_simtemp:
       enabled: true
       description: " Temperature Simulator Kernel Module"
-      source_dir: "examples/simtemp/kernel"
+      source_dir: "simtemp/kernel"
       source_files:
         - "nxp_simtemp.c"
         - "Kbuild"
@@ -77,7 +77,7 @@ testing:
       enabled: true
       description: "Kernel module functionality tests"
       test_files:
-        - "examples/simtemp/tests/test_kernel_driver.py"
+        - "simtemp/tests/test_kernel_driver.py"
 
 # Pipeline stages configuration
 stages:
@@ -106,7 +106,7 @@ stages:
     timeout_minutes: 2
     description: "Cleanup workspace permissions to allow Jenkins to clean"
     always_run: true
-    script: "examples/simtemp/scripts/cleanup_permissions.sh"
+    script: "simtemp/scripts/cleanup_permissions.sh"
 
 # Kernel module specific configuration
 kernel:
@@ -138,13 +138,13 @@ kernel:
 # Artifact configuration
 artifacts:
   test_reports:
-    - path: "examples/simtemp/reports/test_report_detailed.html"
+    - path: "simtemp/reports/test_report_detailed.html"
       description: "Detailed HTML test report"
-    - path: "examples/simtemp/reports/*.html"
+    - path: "simtemp/reports/*.html"
       description: "All HTML test reports"
-    - path: "examples/simtemp/reports/*.json"
+    - path: "simtemp/reports/*.json"
       description: "All JSON test reports"
-    - path: "examples/simtemp/reports/**/*"
+    - path: "simtemp/reports/**/*"
       description: "All test reports and artifacts"
       
   essential_configs:
