@@ -16,7 +16,7 @@
 def printEnvironmentDiagnostics() {
     echo "===== ENVIRONMENT DIAGNOSTICS ====="
     echo "Date/Time: ${new Date().toString()}"
-    echo "Jenkins Version: ${jenkins.model.Jenkins.instance.getVersion()}"
+    echo "Jenkins Version: ${env.JENKINS_VERSION ?: 'Version not available'}"
     
     // Build Information
     echo "----- Build Information -----"

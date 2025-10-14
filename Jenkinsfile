@@ -563,8 +563,8 @@ def loadGitHubIssueMappings() {
     
     // Try to discover from generated mapping files
     try {
-        if (fileExists('/tmp/github_mappings.json')) {
-            def discoveredMappings = readJSON file: '/tmp/github_mappings.json'
+        if (fileExists('simtemp/tests/config/github_mappings.json')) {
+            def discoveredMappings = readJSON file: 'simtemp/tests/config/github_mappings.json'
             if (discoveredMappings instanceof Map) {
                 mappings.putAll(discoveredMappings)
                 echo "Discovered ${discoveredMappings.size()} GitHub issue mappings from generated files"
