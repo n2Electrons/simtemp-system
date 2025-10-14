@@ -306,7 +306,7 @@ def runPRDetectionDiagnostics() {
             results.prNumber = env.CHANGE_ID
             results.success = true
         } else {
-            echo "❌ No CHANGE_ID environment variable available"
+            echo "ℹ️ CHANGE_ID not available (requires Jenkins GitHub Branch Source Plugin)"
         }
     } catch (Exception e) {
         echo "ERROR checking CHANGE_ID: ${e.message}"
@@ -325,7 +325,7 @@ def runPRDetectionDiagnostics() {
                 results.success = true
             }
         } else {
-            echo "❌ No GITHUB_PR_NUMBER environment variable available"
+            echo "ℹ️ GITHUB_PR_NUMBER not available (requires GitHub Actions or specific plugins)"
         }
     } catch (Exception e) {
         echo "ERROR checking GITHUB_PR_NUMBER: ${e.message}"
