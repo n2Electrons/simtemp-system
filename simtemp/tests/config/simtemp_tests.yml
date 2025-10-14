@@ -13,13 +13,7 @@ global:
 
 # GitHub issue mappings for test IDs (optional - can also be in separate JSON file)
 github_issue_mappings:
-  F-K1: 58             # Kernel module loading (parent requirement)
-  F-K1-TC-001: 61      # insmod registers driver
-  F-K1-TC-002: 62      # DT overlay binds driver
-  F-J1: 65             # Jenkins integration testing (parent requirement)
-  F-J1-TC-001: 66      # Jenkins connectivity test
-  F-J1-TC-002: 67      # PR detection test
-  F-J1-TC-003: 68      # GitHub API connectivity test
+
 
 # Test requirements
 requirements:
@@ -31,25 +25,17 @@ requirements:
 # Test case configurations
 tests:
   jenkins_test:
-    enabled: false
+    enabled: true
     description: "Tests for Jenkins integration and PR detection"
     env:
       SOURCE_FILE: 'jenkins/diagnostics.groovy'
       MODULE_DIR: 'jenkins'
       MODULE_NAME: 'diagnostics.groovy'
     test_cases:
-      - name: "jenkins_connectivity"
+      - name: "jenkins_to_GH_acces"
         description: "Verifies connectivity to Jenkins server"
         enabled: true
         test_id: "F-J1-TC-001"
-      - name: "pr_detection"
-        description: "Verifies PR detection functionality"
-        enabled: true
-        test_id: "F-J1-TC-002"
-      - name: "github_api_connectivity"
-        description: "Validates GitHub API connectivity"
-        enabled: true
-        test_id: "F-J1-TC-003"
         
   kernel_driver:
     enabled: true
