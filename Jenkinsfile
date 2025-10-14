@@ -504,17 +504,13 @@ def executeJenkinsTests() {
         ]
         
         // Parse test output to create structured test details
-        echo "DEBUG: Starting to parse ${testOutput.size()} test output lines..."
         testOutput.each { line ->
-            echo "DEBUG: Processing line: '${line}'"
             if (line.contains('Test ') && line.contains(':')) {
                 def parts = line.split(':', 2)
-                echo "DEBUG: Split parts: [0]='${parts[0]}', [1]='${parts[1]}'"
                 if (parts.length >= 2) {
                     // Extract test name correctly: "Test 1: connectivity ✅" -> "connectivity"
                     def testName = parts[1].trim().replaceAll('✅|❌', '').trim()
                     def status = line.contains('✅') ? 'passed' : 'failed'
-                    echo "DEBUG: Extracted testName='${testName}', status='${status}'"
                     
                     // Map test names to configured test IDs
                     def testId = ""
@@ -533,9 +529,7 @@ def executeJenkinsTests() {
                             break
                         default:
                             testId = "F-J1-TC-999"
-                            echo "DEBUG: No match for testName '${testName}', using default ID"
                     }
-                    echo "DEBUG: Mapped to testId='${testId}'"
                     
                     testDetailsJson.tests.add([
                         "name": testName,
@@ -548,9 +542,10 @@ def executeJenkinsTests() {
         }
         
         // Write JSON file
-        def jsonContent = groovy.json.JsonBuilder(testDetailsJson).toPrettyString()
+        def jsonContent = writeJSON returnText: true, json: testDetailsJson
         writeFile file: '/tmp/test_details_jenkins_test.json', text: jsonContent
         echo "Generated test details file: /tmp/test_details_jenkins_test.json"
+        echo "DEBUG: JSON content preview: ${jsonContent.take(200)}..."
         
     } catch (Exception e) {
         echo "Warning: Could not generate test details JSON: ${e.message}"
@@ -756,6 +751,7 @@ def runModuleTests() {
     
     echo "DEBUG: configTestSuites = ${configTestSuites}"
     echo "DEBUG: configTestSuites.size() = ${configTestSuites.size()}"
+    echo "DEBUG: Available test suites: ${configTestSuites.join(', ')}"
     
     // Use enabled test suites from test configuration
     if (configTestSuites.size() > 0) {
