@@ -8,6 +8,7 @@ version: "1.0"
 # Global test settings
 global:
   verbose: true
+  debug: true          # Enable detailed debug output
   timeout_seconds: 60  # Longer timeout for kernel module operations
   fail_fast: true     # Stop on first failure for kernel module safety
 
@@ -51,7 +52,8 @@ tests:
         
   kernel_driver:
     enabled: true
-    description: "Tests for the  Temperature Simulator Driver"
+    debug_verbose: true  # Enable detailed debug output for this module
+    description: "Tests for the Temperature Simulator Driver"
     depends_on: ["nxp_simtemp"]  # Module dependency
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
@@ -64,11 +66,14 @@ tests:
         description: "Verifies driver registration via insmod"
         enabled: true
         test_id: "F-K1-TC-001"  # Maps to test plan ID
+        debug_info: "This test loads the kernel module using insmod"
       - name: "sysfs_entries"
         description: "Validates creation of sysfs entries"
         enabled: true
         test_id: "F-K1-TC-002"
+        debug_info: "This test checks for sysfs entries created by the module"
       - name: "driver_cleanup"
         description: "Verifies clean driver unloading"
         enabled: true
         test_id: "F-K8-TC-001"
+        debug_info: "This test unloads the kernel module using rmmod"

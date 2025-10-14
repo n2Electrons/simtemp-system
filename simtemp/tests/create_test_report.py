@@ -405,8 +405,16 @@ class DetailedTestReportGenerator:
             
             # Add test cases from configuration
             test_cases = test_suite_config.get('test_cases', [])
+            self.logger.info(f"Found {len(test_cases)} test cases for module {test_suite_name}")
             for test_case in test_cases:
-                if test_case.get('enabled', True):
+                test_name = test_case.get('name', 'unnamed')
+                test_enabled = test_case.get('enabled', True)
+                test_id = test_case.get('test_id', '')
+                self.logger.info(f"  - Test case: {test_name} (ID: {test_id}, enabled: {test_enabled})")
+                if test_case.get('debug_info'):
+                    self.logger.info(f"    Debug info: {test_case['debug_info']}")
+                    
+                if test_enabled:
                     test_data = {
                         "name": test_case['name'],
                         "description": test_case.get('description', ''),
@@ -417,6 +425,8 @@ class DetailedTestReportGenerator:
                     }
                     module_data["tests"].append(test_data)
                     self.test_results["summary"]["total_tests"] += 1
+                else:
+                    self.logger.info(f"    Skipping disabled test: {test_name}")
             
             # Try to find actual test results for this suite
             self.update_with_actual_results(test_suite_name, module_data)
@@ -464,17 +474,30 @@ class DetailedTestReportGenerator:
             script_dir = Path(__file__).parent
             test_files = list(script_dir.glob("test_*.py"))
             
+            self.logger.info(f"Found {len(test_files)} test files: {[f.name for f in test_files]}")
+            
             if not test_files:
                 self.logger.warning("No test files found")
                 return
                 
             # Convert to relative paths from project root
-            project_root = script_dir.parent.parent  # Go up from simtemp/tests/ to project root
+            project_root = script_dir.parent.parent  
             test_file_paths = [str(f.relative_to(project_root)) for f in test_files]
+            
+            self.logger.info(f"Project root: {project_root}")
+            self.logger.info(f"Test file paths: {test_file_paths}")
             
             # Run pytest with verbose output from the project root directory
             cmd = ["python3", "-m", "pytest", "-v", "--tb=short"] + test_file_paths
+            self.logger.info(f"Executing pytest command: {' '.join(cmd)}")
+            
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=project_root)
+            
+            self.logger.info(f"Pytest exit code: {result.returncode}")
+            if result.stdout:
+                self.logger.info(f"Pytest stdout:\n{result.stdout}")
+            if result.stderr:
+                self.logger.warning(f"Pytest stderr:\n{result.stderr}")
             
             # Parse pytest output
             self.parse_pytest_output(result.stdout, module_data)
