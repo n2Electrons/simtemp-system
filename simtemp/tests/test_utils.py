@@ -69,17 +69,13 @@ def is_running_in_privileged_container():
 def get_sudo_prefix():
     """
     Get the appropriate sudo prefix based on the environment.
-    Returns empty string if running in privileged container or as root.
+    Returns empty string if running as root, otherwise uses sudo if available.
     """
     # If we're root, no need for sudo
     if os.getuid() == 0:
         return ""
 
-    # If we're in a privileged container, no need for sudo
-    if is_running_in_privileged_container():
-        return ""
-
-    # Otherwise, use sudo if available
+    # Otherwise, use sudo if available (even in containers)
     return "sudo " if shutil.which('sudo') else ""
 
 
