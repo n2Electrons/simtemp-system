@@ -442,8 +442,20 @@ def executeJenkinsTests() {
         // Print environment diagnostics
         diagnostics.printEnvironmentDiagnostics()
         
-        // Run comprehensive PR detection diagnostics
-        def prDiagnosticResults = diagnostics.runPRDetectionDiagnostics()
+        // Run comprehensive PR detection diagnostics with GitHub token access
+        def prDiagnosticResults = null
+        def apiConnectivity = false
+        withCredentials([string(credentialsId: 'github-api-token', variable: 'GITHUB_TOKEN')]) {
+            prDiagnosticResults = diagnostics.runPRDetectionDiagnostics()
+            
+            // Test GitHub API connectivity while we have token access
+            echo "[INFO] Test 3b: GitHub API connectivity test"
+            apiConnectivity = diagnostics.testGitHubAPIConnectivity(
+                env.GITHUB_TOKEN, 
+                env.GITHUB_OWNER, 
+                env.GITHUB_REPO
+            )
+        }
         
         if (prDiagnosticResults.success) {
             env.DETECTED_PR_NUMBER = prDiagnosticResults.prNumber
@@ -464,23 +476,14 @@ def executeJenkinsTests() {
             }
         }
         
-        // Test GitHub API connectivity if token is available
-        if (env.GITHUB_TOKEN) {
-            echo "[INFO] Test 3b: GitHub API connectivity test"
-            def apiConnectivity = diagnostics.testGitHubAPIConnectivity(
-                env.GITHUB_TOKEN, 
-                env.GITHUB_OWNER, 
-                env.GITHUB_REPO
-            )
-            
-            if (apiConnectivity) {
-                testOutput.add("Test 3b: github_api_connectivity ✅")
-                echo "[SUCCESS] GitHub API connectivity test passed"
-            } else {
-                testOutput.add("Test 3b: github_api_connectivity ❌")
-                echo "[ERROR] GitHub API connectivity test failed"
-                // Don't fail the entire test suite for API connectivity issues
-            }
+        // Report GitHub API connectivity results
+        if (apiConnectivity) {
+            testOutput.add("Test 3b: github_api_connectivity ✅")
+            echo "[SUCCESS] GitHub API connectivity test passed"
+        } else {
+            testOutput.add("Test 3b: github_api_connectivity ❌")
+            echo "[ERROR] GitHub API connectivity test failed"
+            // Don't fail the entire test suite for API connectivity issues
         }
     } catch (Exception e) {
         testOutput.add("Test 3: pr_processing ❌")

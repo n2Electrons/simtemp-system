@@ -355,6 +355,19 @@ def runPRDetectionDiagnostics() {
             }
         } else {
             echo "❌ Missing required parameters for GitHub API PR detection"
+            def missingParams = []
+            if (!owner) missingParams.add("GITHUB_OWNER")
+            if (!repo) missingParams.add("GITHUB_REPO") 
+            if (!token) missingParams.add("GITHUB_TOKEN")
+            if (!branch) missingParams.add("BRANCH_NAME/GIT_BRANCH")
+            
+            echo "Missing parameters: ${missingParams.join(', ')}"
+            echo "Available values:"
+            echo "  GITHUB_OWNER: ${owner ?: 'NOT SET'}"
+            echo "  GITHUB_REPO: ${repo ?: 'NOT SET'}"
+            echo "  GITHUB_TOKEN: ${token ? 'SET (length: ' + token.length() + ')' : 'NOT SET'}"
+            echo "  BRANCH_NAME: ${branch ?: 'NOT SET'}"
+            
             results.methods.github_api.missing_params = [
                 owner: !owner,
                 repo: !repo,
