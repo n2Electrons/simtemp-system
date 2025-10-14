@@ -41,12 +41,15 @@ tests:
       - name: "jenkins_connectivity"
         description: "Verifies connectivity to Jenkins server"
         enabled: true
+        test_id: "F-J1-TC-001"
       - name: "pr_detection"
         description: "Verifies PR detection functionality"
         enabled: true
+        test_id: "F-J1-TC-001"
       - name: "github_api_connectivity"
         description: "Validates GitHub API connectivity"
         enabled: true
+        test_id: "F-J1-TC-001"
         
   kernel_driver:
     enabled: true
