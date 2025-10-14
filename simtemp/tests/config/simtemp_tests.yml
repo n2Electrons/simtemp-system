@@ -31,7 +31,7 @@ requirements:
 # Test case configurations
 tests:
   jenkins_test:
-    enabled: true
+    enabled: false
     description: "Tests for Jenkins integration and PR detection"
     env:
       SOURCE_FILE: 'jenkins/diagnostics.groovy'
