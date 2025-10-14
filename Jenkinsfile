@@ -495,6 +495,60 @@ def executeJenkinsTests() {
     testOutput.each { echo it }
     echo "${allPassed ? '[SUCCESS]' : '[FAILED]'} Jenkins integration tests ${allPassed ? 'passed' : 'failed'}"
     
+    // Generate test details JSON file for report integration
+    try {
+        def testDetailsJson = [
+            "module": "jenkins_test",
+            "timestamp": new Date().toString(),
+            "tests": []
+        ]
+        
+        // Parse test output to create structured test details
+        testOutput.each { line ->
+            if (line.contains('Test ') && line.contains(':')) {
+                def parts = line.split(':', 2)
+                if (parts.length >= 2) {
+                    def testName = parts[0].trim().replaceAll('Test \\d+', '').trim()
+                    def status = line.contains('✅') ? 'passed' : 'failed'
+                    
+                    // Map test names to configured test IDs
+                    def testId = ""
+                    switch(testName) {
+                        case "connectivity":
+                            testId = "F-J1-TC-001"
+                            break
+                        case "authentication":
+                            testId = "F-J1-TC-002"
+                            break
+                        case "pr_processing":
+                            testId = "F-J1-TC-003"
+                            break
+                        case "github_api_connectivity":
+                            testId = "F-J1-TC-004"
+                            break
+                        default:
+                            testId = "F-J1-TC-999"
+                    }
+                    
+                    testDetailsJson.tests.add([
+                        "name": testName,
+                        "test_id": testId,
+                        "status": status,
+                        "description": "Jenkins integration test: ${testName}"
+                    ])
+                }
+            }
+        }
+        
+        // Write JSON file
+        def jsonContent = groovy.json.JsonBuilder(testDetailsJson).toPrettyString()
+        writeFile file: '/tmp/test_details_jenkins_test.json', text: jsonContent
+        echo "Generated test details file: /tmp/test_details_jenkins_test.json"
+        
+    } catch (Exception e) {
+        echo "Warning: Could not generate test details JSON: ${e.message}"
+    }
+    
     return testOutput.join('\n')
 }
 

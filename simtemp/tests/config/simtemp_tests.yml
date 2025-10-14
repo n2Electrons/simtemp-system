@@ -32,10 +32,22 @@ tests:
       MODULE_DIR: 'jenkins'
       MODULE_NAME: 'diagnostics.groovy'
     test_cases:
-      - name: "jenkins_to_GH_acces"
+      - name: "connectivity"
         description: "Verifies connectivity to Jenkins server"
         enabled: true
         test_id: "F-J1-TC-001"
+      - name: "authentication" 
+        description: "Verifies Jenkins authentication"
+        enabled: true
+        test_id: "F-J1-TC-002"
+      - name: "pr_processing"
+        description: "Verifies PR detection functionality"
+        enabled: true
+        test_id: "F-J1-TC-003"
+      - name: "github_api_connectivity"
+        description: "Validates GitHub API connectivity"
+        enabled: true
+        test_id: "F-J1-TC-004"
         
   kernel_driver:
     enabled: true
