@@ -1,13 +1,14 @@
 {
-  "_comment": "GitHub issue mappings for requirements and test IDs - maps IDs to specific GitHub issue numbers",
-  "_format": "requirement_or_test_id: issue_number",
-  "_example": "F-K1: 58, F-K1-TC-001: 61",
-  
-  "F-K1": 58,
-  "F-K1-TC-001": 61,
-  "F-K1-TC-002": 62,
   "F-D2": 63,
   "F-D2-TC-001": 64,
   "F-D2-TC-002": 65,
-  "F-D4-TC-001": 59
+  "F-D4-TC-001": 59,
+  "F-K1": 58,
+  "F-K1-TC-001": 61,
+  "F-K1-TC-002": 62,
+  "F-J1": 2,
+  "F-J1-TC-001": 3,
+  "F-J1-TC-002": 30,
+  "F-J1-TC-003": 36,
+  "req-trigger-jenkins": 5
 }

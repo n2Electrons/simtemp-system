@@ -43,17 +43,17 @@ build_tools:
 
 # Source code configuration
 source_code:
-  base_directory: "examples/simtemp"
+  base_directory: "simtemp"
   
   modules:
     nxp_simtemp:
       enabled: true
       description: " Temperature Simulator Kernel Module"
-      source_dir: "examples/simtemp/kernel"
+      source_dir: "simtemp/kernel"
       source_files:
         - "nxp_simtemp.c"
         - "Kbuild"
-      makefile: "examples/simtemp/kernel/Makefile"
+      makefile: "simtemp/kernel/Makefile"
       binary_name: "obj/nxp_simtemp.ko"
       build_targets:
         - "clean"
@@ -66,10 +66,10 @@ source_code:
 
 # Test configuration
 testing:
-  test_config_file: "examples/simtemp/tests/config/simtemp_tests.yml"
-  reports_directory: "examples/simtemp/tests/reports"
-  test_report_generator: "examples/simtemp/tests/create_test_report.py"
-  timeout_minutes: 10
+  test_config_file: "simtemp/tests/config/simtemp_tests.yml"
+  reports_directory: "simtemp/tests/reports"
+  test_report_generator: "simtemp/tests/create_test_report.py"
+  timeout_minutes: 5
   
   # Test suites specific to simtemp
   test_suites:
@@ -77,7 +77,7 @@ testing:
       enabled: true
       description: "Kernel module functionality tests"
       test_files:
-        - "examples/simtemp/tests/test_kernel_driver.py"
+        - "simtemp/tests/test_kernel_driver.py"
 
 # Pipeline stages configuration
 stages:
@@ -106,7 +106,7 @@ stages:
     timeout_minutes: 2
     description: "Cleanup workspace permissions to allow Jenkins to clean"
     always_run: true
-    script: "examples/simtemp/scripts/cleanup_permissions.sh"
+    script: "simtemp/scripts/cleanup_permissions.sh"
 
 # Kernel module specific configuration
 kernel:
@@ -138,13 +138,13 @@ kernel:
 # Artifact configuration
 artifacts:
   test_reports:
-    - path: "examples/simtemp/reports/test_report_detailed.html"
+    - path: "simtemp/tests/reports/test_report_detailed.html"
       description: "Detailed HTML test report"
-    - path: "examples/simtemp/reports/*.html"
+    - path: "simtemp/tests/reports/*.html"
       description: "All HTML test reports"
-    - path: "examples/simtemp/reports/*.json"
+    - path: "simtemp/tests/reports/*.json"
       description: "All JSON test reports"
-    - path: "examples/simtemp/reports/**/*"
+    - path: "simtemp/tests/reports/**/*"
       description: "All test reports and artifacts"
       
   essential_configs:

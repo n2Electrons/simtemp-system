@@ -1,5 +1,64 @@
 # Challenge 2025 Temperature Sensor System with Octave Integration
 
+## Quick Setup
+
+### For New Team Members
+
+After cloning this repository, **it's recommended** to set up Git hooks for automatic PR mapping:
+
+```bash
+# One-time setup for Git hooks (recommended)
+./infra_ext/git-hooks/configure-hooks.sh && gh auth login
+```
+
+**Why use Git hooks?**
+- **Automatic PR mapping**: Keeps `simtemp/tests/config/github_issue_mappings.json` updated
+- **CI/CD integration**: Ensures Jenkins can detect correct PR numbers
+- **Zero maintenance**: No manual mapping file updates needed
+- **Team consistency**: Everyone uses the same workflow
+
+The hooks automatically discover and map branch names to GitHub PR numbers, enabling accurate CI/CD pipeline integration.
+
+## Git Hooks for PR Mapping (Recommended)
+
+This repository includes **automated Git hooks** that maintain the GitHub issue mappings file (`simtemp/tests/config/github_issue_mappings.json`) required for CI/CD integration.
+
+### Why Use Git Hooks?
+
+- **Automatic Discovery**: Uses GitHub CLI to find PR numbers for your branches
+- **Auto-Update Mappings**: Keeps mapping file synchronized across team
+- **Never Blocks**: Gracefully handles missing PRs or authentication issues
+- **Zero Maintenance**: No manual JSON file editing required
+
+### Setup (One-time per developer)
+
+```bash
+# Configure hooks to run automatically
+./infra_ext/git-hooks/configure-hooks.sh
+
+# Install GitHub CLI for auto-discovery (recommended)
+gh auth login
+```
+
+### How It Works
+
+1. **Before each commit**: Pre-commit hook runs automatically
+2. **Check mappings**: Looks for existing branch to PR mapping
+3. **Auto-discover**: Uses `gh pr list --head <branch>` to find PR number
+4. **Update & stage**: Adds mapping to JSON file and stages it
+5. **Commit proceeds**: Mapping included in your commit
+
+**Example mapping file:**
+```json
+{
+  "req-trigger-jenkins": 5,
+  "feature-new-sensor": 42,
+  "F-K1-TC-001": 61
+}
+```
+
+**See [infra_ext/git-hooks/README.md](infra_ext/git-hooks/README.md) for detailed documentation.**
+
 ## Project Structure
 
 ```
