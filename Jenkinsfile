@@ -508,7 +508,8 @@ def executeJenkinsTests() {
             if (line.contains('Test ') && line.contains(':')) {
                 def parts = line.split(':', 2)
                 if (parts.length >= 2) {
-                    def testName = parts[0].trim().replaceAll('Test \\d+', '').trim()
+                    // Extract test name correctly: "Test 1: connectivity ✅" -> "connectivity"
+                    def testName = parts[1].trim().replaceAll('✅|❌', '').trim()
                     def status = line.contains('✅') ? 'passed' : 'failed'
                     
                     // Map test names to configured test IDs
