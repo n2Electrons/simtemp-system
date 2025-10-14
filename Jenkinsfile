@@ -554,6 +554,52 @@ def executeJenkinsTests() {
     return testOutput.join('\n')
 }
 
+// Function to run only Jenkins integration tests
+def runJenkinsTests() {
+    echo "=== Jenkins Integration Test Stage ==="
+    
+    def testResults = [:]
+    def testDetails = [:]
+    
+    echo "🚀 Executing Jenkins integration tests..."
+    def testOutput = executeJenkinsTests()
+    def result = testOutput.contains('FAILED') ? 1 : 0
+    
+    testResults['jenkins_test'] = result
+    
+    // Parse test output to extract individual test results
+    def moduleTestDetails = []
+    def lines = testOutput.split('\n')
+    
+    for (def line : lines) {
+        if (line.contains('Test ') && line.contains(':') && (line.contains('✅') || line.contains('❌'))) {
+            // Extract jenkins test results: "Test 1: connectivity ✅"
+            def testMatch = line =~ /Test\s+\d+:\s*(\w+)\s*(✅|❌)/
+            if (testMatch) {
+                def testName = testMatch[0][1]
+                def status = testMatch[0][2]
+                moduleTestDetails.add("Test: ${testName} ${status}")
+            }
+        }
+    }
+    
+    testDetails['jenkins_test'] = moduleTestDetails
+    
+    // Store results globally for final PR comment
+    globalTestResults['jenkins_test'] = result
+    globalTestDetails['jenkins_test'] = moduleTestDetails
+    
+    if (result != 0) {
+        echo "Jenkins integration tests failed"
+        globalTestStatus = 'failure'
+        error "Jenkins integration tests failed with exit code: ${result}"
+    } else {
+        echo "✅ Jenkins integration tests passed"
+    }
+    
+    return [testResults: testResults, testDetails: testDetails]
+}
+
 // Helper function to load detailed test report from JSON
 def loadDetailedTestReport(pipelineConfig) {
     def reportsDirectory = pipelineConfig.testing?.reports_directory
@@ -773,13 +819,11 @@ def runModuleTests() {
         echo "OVERRIDE: Using test modules from environment variable: ${testModules.join(', ')}"
     }
     
-    // Manual trigger: if ENABLE_JENKINS_TEST is true AND TEST_MODULES explicitly set to 'jenkins_test'
-    if (params.ENABLE_JENKINS_TEST && 
-        params.TEST_MODULES && 
-        params.TEST_MODULES.trim() == 'jenkins_test') {
-        testModules = ['jenkins_test']
-        echo "MANUAL TRIGGER: Running only jenkins_test based on ENABLE_JENKINS_TEST parameter and TEST_MODULES setting"
+    // EXCLUDE jenkins_test from this stage (it runs in its own stage)
+    testModules = testModules.findAll { module ->
+        module.trim() != 'jenkins_test'
     }
+    echo "Test modules after excluding jenkins_test: ${testModules.join(', ')}"
     
     echo "Preparing to test modules: ${testModules.join(', ')}"
     
@@ -814,30 +858,22 @@ def runModuleTests() {
         def result = 0
         def testOutput = ""
         
-        if (moduleName == 'jenkins_test') {
-            // Handle Jenkins integration test specially
-            echo "🚀 Executing Jenkins integration tests..."
-            testOutput = executeJenkinsTests()
-            result = testOutput.contains('FAILED') ? 1 : 0
-            echo "🔍 DEBUG: Jenkins test output: ${testOutput.take(200)}..."
-            echo "🔍 DEBUG: Jenkins test result: ${result}"
-        } else {
-            // Regular module tests
-            echo "🔧 Executing regular module test for: ${moduleName}"
-            
-            // Get test paths from pipeline configuration
-            def testRunner = pipelineConfig.testing?.test_report_generator
-            def testConfigFile = pipelineConfig.testing?.test_config_file
-            
-            if (!testRunner) {
-                error "test_report_generator not specified in pipeline configuration testing section"
-            }
-            if (!testConfigFile) {
-                error "test_config_file not specified in pipeline configuration testing section"
-            }
-            
-            echo "Using test runner: ${testRunner}"
-            echo "Using test config: ${testConfigFile}"
+        // Regular module tests (jenkins_test is handled in separate stage)
+        echo "🔧 Executing regular module test for: ${moduleName}"
+        
+        // Get test paths from pipeline configuration
+        def testRunner = pipelineConfig.testing?.test_report_generator
+        def testConfigFile = pipelineConfig.testing?.test_config_file
+        
+        if (!testRunner) {
+            error "test_report_generator not specified in pipeline configuration testing section"
+        }
+        if (!testConfigFile) {
+            error "test_config_file not specified in pipeline configuration testing section"
+        }
+        
+        echo "Using test runner: ${testRunner}"
+        echo "Using test config: ${testConfigFile}"
             
             def testScript = """cd ${WORKSPACE} && python3 ${testRunner}"""
             
@@ -857,31 +893,17 @@ def runModuleTests() {
         def moduleTestDetails = []
         def lines = testOutput.split('\n')
         
-        if (moduleName == 'jenkins_test') {
-            // Special parsing for jenkins_test output
-            for (def line : lines) {
-                if (line.contains('Test ') && line.contains(':') && (line.contains('✅') || line.contains('❌'))) {
-                    // Extract jenkins test results: "Test 1: connectivity ✅"
-                    def testMatch = line =~ /Test\s+\d+:\s*(\w+)\s*(✅|❌)/
-                    if (testMatch) {
-                        def testName = testMatch[0][1]
-                        def status = testMatch[0][2]
-                        moduleTestDetails.add("Test: ${testName} ${status}")
-                    }
-                }
-            }
-        } else {
-            // Regular parsing for other modules
-            def inTestSuite = false
-            
-            for (def line : lines) {
-                if (line.contains('=== Test Suite for Module:')) {
-                    inTestSuite = true
-                } else if (line.contains('=== Test Summary ===')) {
-                    inTestSuite = false
-                } else if (inTestSuite) {
-                    // Look for test execution patterns - updated to match actual output format
-                    if (line.contains('Test ') && line.contains(':') && line =~ /Test\s+\d+:/) {
+        // Regular parsing for modules (jenkins_test handled in separate stage)
+        def inTestSuite = false
+        
+        for (def line : lines) {
+            if (line.contains('=== Test Suite for Module:')) {
+                inTestSuite = true
+            } else if (line.contains('=== Test Summary ===')) {
+                inTestSuite = false
+            } else if (inTestSuite) {
+                // Look for test execution patterns - updated to match actual output format
+                if (line.contains('Test ') && line.contains(':') && line =~ /Test\s+\d+:/) {
                         // Extract test name and description from format: "Test 1: Basic execution test"
                         def testMatch = line =~ /Test\s+(\d+):\s*(.+)/
                         if (testMatch) {
@@ -912,9 +934,7 @@ def runModuleTests() {
                             }
                         }
                     }
-                }
             }
-        }
         
         testDetails[moduleName] = moduleTestDetails
         
@@ -935,16 +955,20 @@ def runModuleTests() {
     try {
         // Debug: Show test detail files before cleanup
         echo "📋 Test detail files in /tmp before cleanup:"
-        sh "ls -la /tmp/test_details_*.json 2>/dev/null || echo 'No test detail files found'"
-        
-        // Clean up any empty or malformed test detail files before report generation
-        sh """
-            find /tmp -name 'test_details_*.json' -size 0 -delete 2>/dev/null || true
-            find /tmp -name 'test_details_*.json' -exec sh -c 'python3 -m json.tool "\$1" >/dev/null 2>&1 || rm -f "\$1"' _ {} \\; 2>/dev/null || true
-        """
-        
-        echo "📋 Test detail files after cleanup:"
-        sh "ls -la /tmp/test_details_*.json 2>/dev/null || echo 'No test detail files found after cleanup'"
+        try {
+            sh "ls -la /tmp/test_details_*.json 2>/dev/null || echo 'No test detail files found'"
+            
+            // Clean up any empty or malformed test detail files before report generation
+            sh """
+                find /tmp -name 'test_details_*.json' -size 0 -delete 2>/dev/null || true
+                find /tmp -name 'test_details_*.json' -exec sh -c 'python3 -m json.tool "\$1" >/dev/null 2>&1 || rm -f "\$1"' _ {} \\; 2>/dev/null || true
+            """
+            
+            echo "📋 Test detail files after cleanup:"
+            sh "ls -la /tmp/test_details_*.json 2>/dev/null || echo 'No test detail files found after cleanup'"
+        } catch (Exception e) {
+            echo "⚠️ Warning: Could not execute debug commands - may be running outside node context: ${e.message}"
+        }
         
         // Get reports directory from pipeline configuration
         def reportsDirectory = pipelineConfig.testing?.reports_directory
@@ -963,12 +987,18 @@ def runModuleTests() {
             error "test_report_generator not specified in pipeline configuration testing section"
         }
         
-        sh "cd ${WORKSPACE} && python3 ${reportGenerator} --output-dir ${reportsDirectory}"
-        echo "✅ JSON test reports generated successfully"
-        
-        // Debug: Show what files exist in reports directory
-        echo "📋 Files in ${reportsDirectory} directory:"
-        sh "ls -la ${WORKSPACE}/${reportsDirectory}/ || echo 'No reports directory found'"
+        try {
+            sh "cd ${WORKSPACE} && python3 ${reportGenerator} --output-dir ${reportsDirectory}"
+            echo "✅ JSON test reports generated successfully"
+            
+            // Debug: Show what files exist in reports directory
+            echo "📋 Files in ${reportsDirectory} directory:"
+            sh "ls -la ${WORKSPACE}/${reportsDirectory}/ || echo 'No reports directory found'"
+        } catch (Exception e) {
+            echo "⚠️ Warning: Could not execute shell commands - may be running outside node context: ${e.message}"
+            // Try alternative approach without shell commands
+            echo "⚠️ Skipping report generation due to context limitations"
+        }
         
         // Load and process detailed test report for enhanced PR comments
         echo "📊 Loading detailed test report for PR comment enhancement..."
@@ -1719,6 +1749,34 @@ pipeline {
                     echo "ALL_BUILD_MODULES: ${env.ALL_BUILD_MODULES}"
                     echo "ALL_TEST_MODULES: ${env.ALL_TEST_MODULES}"
                     echo "=========================="
+                }
+            }
+        }
+
+        stage('Jenkins_test') {
+            steps {
+                script {
+                    echo "=== Jenkins Integration Test Stage ==="
+                    
+                    try {
+                        // Run Jenkins-specific integration tests
+                        runJenkinsTests()
+                        echo "✅ Jenkins integration tests completed successfully"
+                    } catch (Exception e) {
+                        echo "❌ Jenkins integration tests failed: ${e.message}"
+                        throw e
+                    }
+                }
+            }
+            post {
+                always {
+                    echo "Jenkins integration test stage completed"
+                }
+                success {
+                    echo "✅ Jenkins integration tests passed"
+                }
+                failure {
+                    echo "❌ Jenkins integration tests failed"
                 }
             }
         }

@@ -1,15 +1,62 @@
 {
   "summary": {
-    "total_modules": 1,
-    "total_tests": 3,
-    "passed_tests": 1,
+    "total_modules": 2,
+    "total_tests": 8,
+    "passed_tests": 2,
     "failed_tests": 0,
     "skipped_tests": 0,
-    "not_implemented_tests": 2,
-    "timestamp": "2025-10-13T10:36:08.183731",
-    "runtime": 2.1236698627471924
+    "not_implemented_tests": 6,
+    "timestamp": "2025-10-14T13:40:22.021761",
+    "runtime": 7.014969110488892
   },
   "modules": {
+    "jenkins_test": {
+      "name": "jenkins_test",
+      "description": "Tests for Jenkins integration and PR detection",
+      "enabled": true,
+      "tests": [
+        {
+          "name": "connectivity",
+          "description": "Verifies connectivity to Jenkins server",
+          "test_id": "F-J1-TC-001",
+          "status": "not implemented",
+          "duration": 0,
+          "message": "Test defined in configuration but no pytest implementation found"
+        },
+        {
+          "name": "authentication",
+          "description": "Verifies Jenkins authentication",
+          "test_id": "F-J1-TC-002",
+          "status": "not implemented",
+          "duration": 0,
+          "message": "Test defined in configuration but no pytest implementation found"
+        },
+        {
+          "name": "pr_processing",
+          "description": "Verifies PR detection functionality",
+          "test_id": "F-J1-TC-003",
+          "status": "not implemented",
+          "duration": 0,
+          "message": "Test defined in configuration but no pytest implementation found"
+        },
+        {
+          "name": "github_api_connectivity",
+          "description": "Validates GitHub API connectivity",
+          "test_id": "F-J1-TC-004",
+          "status": "not implemented",
+          "duration": 0,
+          "message": "Test defined in configuration but no pytest implementation found"
+        },
+        {
+          "name": "test_insmod_registers_driver               [100%]",
+          "description": "Actual pytest test: test_insmod_registers_driver               [100%]",
+          "test_id": "",
+          "status": "passed",
+          "duration": 0,
+          "message": "Test executed via pytest (not in configuration)"
+        }
+      ]
+    },
     "kernel_driver": {
       "name": "kernel_driver",
       "description": "Tests for the  Temperature Simulator Driver",
