@@ -7,6 +7,7 @@ import subprocess
 import shutil
 import pytest
 
+
 def setup_test_environment():
     """
     Setup test environment and return module path.
@@ -17,7 +18,7 @@ def setup_test_environment():
     project_root = os.path.dirname(test_dir)
     module_path = os.path.join(project_root, 'kernel', 'obj', 'nxp_simtemp.ko')
     
-    print(f"\nTest environment:")
+    print("\nTest environment:")
     print(f"Current directory: {os.getcwd()}")
     print(f"Project root: {project_root}")
     print(f"Module path: {module_path}\n")
@@ -32,5 +33,51 @@ def setup_test_environment():
     
     return module_path
 
-# Simple sudo prefix - assume environment is ready for testing
-SUDO = "sudo " if shutil.which('sudo') else ""
+
+def is_running_in_privileged_container():
+    """
+    Detect if we're running in a privileged container.
+    Returns True if running in a container with privileges (no sudo needed).
+    """
+    # Check if we're in a container
+    if not os.path.exists('/.dockerenv'):
+        return False
+
+    # Check if we're running as root
+    if os.getuid() == 0:
+        return True
+
+    # Check if we can access kernel modules without sudo
+    # This is a good indicator of privileged container access
+    try:
+        result = subprocess.run(
+            ['lsmod'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            # Additional check: try to access /proc/modules directly
+            if os.access('/proc/modules', os.R_OK):
+                return True
+    except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError):
+        pass
+
+    return False
+
+
+def get_sudo_prefix():
+    """
+    Get the appropriate sudo prefix based on the environment.
+    Returns empty string if running as root, otherwise uses sudo if available.
+    """
+    # If we're root, no need for sudo
+    if os.getuid() == 0:
+        return ""
+
+    # Otherwise, use sudo if available (even in containers)
+    return "sudo " if shutil.which('sudo') else ""
+
+
+# Dynamic sudo prefix based on environment detection
+SUDO = get_sudo_prefix()

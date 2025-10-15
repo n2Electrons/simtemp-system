@@ -16,14 +16,14 @@ if [ -d "${OBJ_DIR}" ]; then
     echo "Resetting ownership of kernel build artifacts to Jenkins user"
     
     # Fix permissions on all files in the obj directory
-    if [ -n "$(which sudo)" ]; then
-        # If sudo is available, use it to change ownership recursively
-        sudo chown -R jenkins:jenkins "${OBJ_DIR}" || true
-        sudo chmod -R u+rw "${OBJ_DIR}" || true
+    echo "Making files readable and writable for cleanup"
+    
+    # Try to make files readable/writable without changing ownership
+    # This should be sufficient for Jenkins cleanup
+    if chmod -R a+rw "${OBJ_DIR}" 2>/dev/null; then
+        echo "Successfully updated permissions"
     else
-        echo "Warning: sudo not available, attempting direct chmod"
-        # If sudo is not available, try to make files readable/writable for everyone
-        chmod -R a+rw "${OBJ_DIR}" || true
+        echo "Warning: Could not update all permissions, but continuing..."
     fi
     
     echo "Cleanup complete"
@@ -34,12 +34,11 @@ fi
 # Also handle potential root-owned files in the tests directory
 TEST_DIR="${WORKSPACE_ROOT}/simtemp/tests"
 if [ -d "${TEST_DIR}" ]; then
-    echo "Checking for root-owned files in test directory"
-    if [ -n "$(which sudo)" ]; then
-        sudo chown -R jenkins:jenkins "${TEST_DIR}" || true
-    else
-        chmod -R a+rw "${TEST_DIR}" || true
-    fi
+    echo "Checking for permission issues in test directory"
+    # Just ensure files are readable/writable, don't change ownership
+    chmod -R a+rw "${TEST_DIR}" 2>/dev/null || {
+        echo "Warning: Could not update all test directory permissions"
+    }
 fi
 
 echo "Permission cleanup completed"

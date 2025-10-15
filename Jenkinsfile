@@ -15,8 +15,20 @@ import groovy.transform.Field
 @Field def globalTestResults = [:]
 @Field def globalTestDetails = [:]
 @Field def globalDetailedReport = [:]
-@Field def globalBuildStatus = 'success'
-@Field def globalTestStatus = 'success'
+@Field def globalBuildStatus = 'unknown'    // Start neutral, will be set during execution
+@Field def globalTestStatus = 'unknown'     // Start neutral, will be set during execution
+
+// Function to clear all global variables to prevent cache issues
+def clearGlobalVariables() {
+    echo "🧹 Clearing global variables to prevent cache issues..."
+    globalBuildResults = [:]
+    globalTestResults = [:]
+    globalTestDetails = [:]
+    globalDetailedReport = [:]
+    globalBuildStatus = 'unknown'    // Start with neutral state, not success
+    globalTestStatus = 'unknown'     // Start with neutral state, not success
+    echo "✅ Global variables cleared successfully - status reset to 'unknown'"
+}
 
 // Helper function to load pipeline configuration from YAML
 def loadPipelineConfig(configPath) {
@@ -370,6 +382,78 @@ def getEnabledTestSuites(pipelineConfig) {
     return enabledTestSuites
 }
 
+// Helper function to get test suites for general test stage (excludes own_pipeline modules)
+def getTestStageModules(pipelineConfig) {
+    def enabledTestSuites = getEnabledTestSuites(pipelineConfig)
+    def testStageModules = []
+    
+    echo "DEBUG: Filtering test suites for general test stage..."
+    
+    // Get the test config file path from pipeline config or use discovered one
+    def testConfigFile = pipelineConfig.testing?.test_config_file ?: env.TEST_CONFIG_PATH
+    if (!testConfigFile || !fileExists(testConfigFile)) {
+        echo "No test config file found, returning all enabled test suites"
+        return enabledTestSuites
+    }
+    
+    try {
+        // Read and parse the YAML test configuration
+        def testConfigYaml = readYaml file: testConfigFile
+        
+        // Filter out modules that have their own pipeline stage
+        enabledTestSuites.each { suiteName ->
+            def suiteConfig = testConfigYaml.tests?."${suiteName}"
+            if (suiteConfig?.own_pipeline == true) {
+                echo "DEBUG: Skipping '${suiteName}' - has own_pipeline: true"
+            } else {
+                testStageModules.add(suiteName)
+                echo "DEBUG: Added '${suiteName}' to test stage modules"
+            }
+        }
+        
+        echo "Test stage will run ${testStageModules.size()} modules: ${testStageModules.join(', ')}"
+        
+    } catch (Exception e) {
+        echo "ERROR: Failed to filter test modules: ${e.message}"
+        echo "Falling back to all enabled test suites"
+        return enabledTestSuites
+    }
+    
+    return testStageModules
+}
+
+// Helper function to get repository configuration for a specific test module
+def getModuleRepository(pipelineConfig, moduleName) {
+    def defaultRepo = env.GITHUB_REPO ?: "n2Electrons-Infra"
+    
+    // Get the test config file path from pipeline config or use discovered one
+    def testConfigFile = pipelineConfig.testing?.test_config_file ?: env.TEST_CONFIG_PATH
+    if (!testConfigFile || !fileExists(testConfigFile)) {
+        echo "No test config file found, using default repository: ${defaultRepo}"
+        return defaultRepo
+    }
+    
+    try {
+        // Read and parse the YAML test configuration
+        def testConfigYaml = readYaml file: testConfigFile
+        
+        // Check if module configuration exists with repository setting
+        if (testConfigYaml.tests?."${moduleName}"?.repository) {
+            def moduleRepo = testConfigYaml.tests."${moduleName}".repository
+            echo "Found repository configuration for module '${moduleName}': ${moduleRepo}"
+            return moduleRepo
+        } else {
+            echo "No repository configured for module '${moduleName}', using default: ${defaultRepo}"
+            return defaultRepo
+        }
+        
+    } catch (Exception e) {
+        echo "ERROR: Failed to read repository config for module '${moduleName}': ${e.message}"
+        echo "Using default repository: ${defaultRepo}"
+        return defaultRepo
+    }
+}
+
 // Helper function to get test suites from stage configuration
 def getStageTestSuites(pipelineConfig) {
     def stageTestSuites = []
@@ -442,8 +526,20 @@ def executeJenkinsTests() {
         // Print environment diagnostics
         diagnostics.printEnvironmentDiagnostics()
         
-        // Run comprehensive PR detection diagnostics
-        def prDiagnosticResults = diagnostics.runPRDetectionDiagnostics()
+        // Run comprehensive PR detection diagnostics with GitHub token access
+        def prDiagnosticResults = null
+        def apiConnectivity = false
+        withCredentials([string(credentialsId: 'github-api-token', variable: 'GITHUB_TOKEN')]) {
+            prDiagnosticResults = diagnostics.runPRDetectionDiagnostics()
+            
+            // Test GitHub API connectivity while we have token access
+            echo "[INFO] Test 3b: GitHub API connectivity test"
+            apiConnectivity = diagnostics.testGitHubAPIConnectivity(
+                env.GITHUB_TOKEN, 
+                env.GITHUB_OWNER, 
+                env.GITHUB_REPO
+            )
+        }
         
         if (prDiagnosticResults.success) {
             env.DETECTED_PR_NUMBER = prDiagnosticResults.prNumber
@@ -464,23 +560,14 @@ def executeJenkinsTests() {
             }
         }
         
-        // Test GitHub API connectivity if token is available
-        if (env.GITHUB_TOKEN) {
-            echo "[INFO] Test 3b: GitHub API connectivity test"
-            def apiConnectivity = diagnostics.testGitHubAPIConnectivity(
-                env.GITHUB_TOKEN, 
-                env.GITHUB_OWNER, 
-                env.GITHUB_REPO
-            )
-            
-            if (apiConnectivity) {
-                testOutput.add("Test 3b: github_api_connectivity ✅")
-                echo "[SUCCESS] GitHub API connectivity test passed"
-            } else {
-                testOutput.add("Test 3b: github_api_connectivity ❌")
-                echo "[ERROR] GitHub API connectivity test failed"
-                // Don't fail the entire test suite for API connectivity issues
-            }
+        // Report GitHub API connectivity results
+        if (apiConnectivity) {
+            testOutput.add("Test 3b: github_api_connectivity ✅")
+            echo "[SUCCESS] GitHub API connectivity test passed"
+        } else {
+            testOutput.add("Test 3b: github_api_connectivity ❌")
+            echo "[ERROR] GitHub API connectivity test failed"
+            // Don't fail the entire test suite for API connectivity issues
         }
     } catch (Exception e) {
         testOutput.add("Test 3: pr_processing ❌")
@@ -492,7 +579,109 @@ def executeJenkinsTests() {
     testOutput.each { echo it }
     echo "${allPassed ? '[SUCCESS]' : '[FAILED]'} Jenkins integration tests ${allPassed ? 'passed' : 'failed'}"
     
+    // Generate test details JSON file for report integration
+    try {
+        def testDetailsJson = [
+            "module": "jenkins_test",
+            "timestamp": new Date().toString(),
+            "tests": []
+        ]
+        
+        // Parse test output to create structured test details
+        testOutput.each { line ->
+            if (line.contains('Test ') && line.contains(':')) {
+                def parts = line.split(':', 2)
+                if (parts.length >= 2) {
+                    // Extract test name correctly: "Test 1: connectivity ✅" -> "connectivity"
+                    def testName = parts[1].trim().replaceAll('✅|❌', '').trim()
+                    def status = line.contains('✅') ? 'passed' : 'failed'
+                    
+                    // Map test names to configured test IDs
+                    def testId = ""
+                    switch(testName) {
+                        case "connectivity":
+                            testId = "F-J1-TC-001"
+                            break
+                        case "authentication":
+                            testId = "F-J1-TC-002"
+                            break
+                        case "pr_processing":
+                            testId = "F-J1-TC-003"
+                            break
+                        case "github_api_connectivity":
+                            testId = "F-J1-TC-004"
+                            break
+                        default:
+                            testId = "F-J1-TC-999"
+                    }
+                    
+                    testDetailsJson.tests.add([
+                        "name": testName,
+                        "test_id": testId,
+                        "status": status,
+                        "description": " ${testName}"
+                    ])
+                }
+            }
+        }
+        
+        // Write JSON file
+        def jsonContent = writeJSON returnText: true, json: testDetailsJson
+        writeFile file: '/tmp/test_details_jenkins_test.json', text: jsonContent
+        echo "Generated test details file: /tmp/test_details_jenkins_test.json"
+        echo "DEBUG: JSON content preview: ${jsonContent.take(200)}..."
+        
+    } catch (Exception e) {
+        echo "Warning: Could not generate test details JSON: ${e.message}"
+    }
+    
     return testOutput.join('\n')
+}
+
+// Function to run only Jenkins integration tests
+def runJenkinsTests() {
+    echo "=== Jenkins Integration Test Stage ==="
+    
+    def testResults = [:]
+    def testDetails = [:]
+    
+    echo "🚀 Executing Jenkins integration tests..."
+    def testOutput = executeJenkinsTests()
+    def result = testOutput.contains('FAILED') ? 1 : 0
+    
+    testResults['jenkins_test'] = result
+    
+    // Parse test output to extract individual test results
+    def moduleTestDetails = []
+    def lines = testOutput.split('\n')
+    
+    for (def line : lines) {
+        if (line.contains('Test ') && line.contains(':') && (line.contains('✅') || line.contains('❌'))) {
+            // Extract jenkins test results: "Test 1: connectivity ✅"
+            def testMatch = line =~ /Test\s+\d+:\s*(\w+)\s*(✅|❌)/
+            if (testMatch) {
+                def testName = testMatch[0][1]
+                def status = testMatch[0][2]
+                moduleTestDetails.add("Test: ${testName} ${status}")
+            }
+        }
+    }
+    
+    testDetails['jenkins_test'] = moduleTestDetails
+    
+    // Store results globally for final PR comment
+    globalTestResults['jenkins_test'] = result
+    globalTestDetails['jenkins_test'] = moduleTestDetails
+    
+    if (result != 0) {
+        echo "Jenkins integration tests failed"
+        globalTestStatus = 'failure'
+        error "Jenkins integration tests failed with exit code: ${result}"
+    } else {
+        echo "✅ Jenkins integration tests passed"
+    }
+    
+    return [testResults: testResults, testDetails: testDetails]
 }
 
 // Helper function to load detailed test report from JSON
@@ -504,14 +693,33 @@ def loadDetailedTestReport(pipelineConfig) {
     }
     
     def reportFile = "${WORKSPACE}/${reportsDirectory}/test_report_detailed.json"
+    echo "🔍 Looking for detailed test report at: ${reportFile}"
+    
     if (!fileExists(reportFile)) {
         echo "⚠️ Warning: Detailed test report not found at ${reportFile}"
+        echo "🔍 Checking if reports directory exists: ${WORKSPACE}/${reportsDirectory}"
         return null
+    }
+    
+    echo "📂 Report file found, checking timestamp..."
+    try {
+        // Show file timestamp for debugging
+        sh "ls -la '${reportFile}' || echo 'Cannot get file details'"
+    } catch (Exception e) {
+        echo "⚠️ Could not get file details: ${e.message}"
     }
     
     try {
         def reportJson = readJSON file: reportFile
-        echo "✅ Loaded detailed test report with ${reportJson.summary?.total_tests ?: 0} tests from ${reportJson.summary?.total_modules ?: 0} modules"
+        echo "✅ Loaded fresh detailed test report with ${reportJson.summary?.total_tests ?: 0} tests from ${reportJson.summary?.total_modules ?: 0} modules"
+        echo "📊 Report timestamp: ${reportJson.summary?.timestamp ?: 'not available'}"
+        
+        // Debug: show module names from the report
+        if (reportJson.modules) {
+            def moduleNames = reportJson.modules.keySet().join(', ')
+            echo "🔍 Module names in report: ${moduleNames}"
+        }
+        
         return reportJson
     } catch (Exception e) {
         echo "⚠️ Warning: Could not parse detailed test report: ${e.message}"
@@ -674,6 +882,58 @@ def convertDetailedReportToPRFormat(detailedReport) {
     return [testResults: testResults, testDetails: testDetails]
 }
 
+// Helper function to parse test output and extract individual test results
+def parseTestOutput(testOutput) {
+    def moduleTestDetails = []
+    def lines = testOutput.split('\n')
+    
+    // Regular parsing for modules (jenkins_test handled in separate stage)
+    def inTestSuite = false
+    
+    for (def line : lines) {
+        if (line.contains('=== Test Suite for Module:')) {
+            inTestSuite = true
+        } else if (line.contains('=== Test Summary ===')) {
+            inTestSuite = false
+        } else if (inTestSuite) {
+            // Look for test execution patterns - updated to match actual output format
+            if (line.contains('Test ') && line.contains(':') && line =~ /Test\s+\d+:/) {
+                // Extract test name and description from format: "Test 1: Basic execution test"
+                def testMatch = line =~ /Test\s+(\d+):\s*(.+)/
+                if (testMatch) {
+                    def testNum = testMatch[0][1]
+                    def testDesc = testMatch[0][2]
+                    
+                    // Clean up test description - remove any status indicators and brackets
+                    def cleanDesc = testDesc.replaceAll(/\s*\[SKIPPED.*?\]/, '').trim()
+                    
+                    moduleTestDetails.add("Test ${testNum}: ${cleanDesc}")
+                }
+            } else if (line.contains('test passed') || line.contains('Test passed')) {
+                // Mark the last test as passed
+                if (moduleTestDetails.size() > 0) {
+                    def lastIndex = moduleTestDetails.size() - 1
+                    def lastTest = moduleTestDetails[lastIndex]
+                    if (lastTest.startsWith('Test ') && !lastTest.contains('✅') && !lastTest.contains('❌')) {
+                        moduleTestDetails[lastIndex] = lastTest + " ✅"
+                    }
+                }
+            } else if (line.contains('test failed') || line.contains('Test failed')) {
+                // Mark the last test as failed
+                if (moduleTestDetails.size() > 0) {
+                    def lastIndex = moduleTestDetails.size() - 1
+                    def lastTest = moduleTestDetails[lastIndex]
+                    if (lastTest.startsWith('Test ') && !lastTest.contains('✅') && !lastTest.contains('❌')) {
+                        moduleTestDetails[lastIndex] = lastTest + " ❌"
+                    }
+                }
+            }
+        }
+    }
+    
+    return moduleTestDetails
+}
+
 // Function to execute all module tests
 def runModuleTests() {
     // Load pipeline configuration
@@ -688,15 +948,16 @@ def runModuleTests() {
     
     // First, try to get test modules from test configuration
     echo "DEBUG: Loading test configuration from test config..."
-    def configTestSuites = getEnabledTestSuites(pipelineConfig)
+    def configTestSuites = getTestStageModules(pipelineConfig)
     
     echo "DEBUG: configTestSuites = ${configTestSuites}"
     echo "DEBUG: configTestSuites.size() = ${configTestSuites.size()}"
+    echo "DEBUG: Available test suites: ${configTestSuites.join(', ')}"
     
     // Use enabled test suites from test configuration
     if (configTestSuites.size() > 0) {
         testModules = configTestSuites
-        echo "Using enabled test suites from test config: ${testModules.join(', ')}"
+        echo "Using test stage modules from test config: ${testModules.join(', ')}"
     } else {
         echo "WARNING: No enabled test suites found in test configuration"
     }
@@ -713,13 +974,11 @@ def runModuleTests() {
         echo "OVERRIDE: Using test modules from environment variable: ${testModules.join(', ')}"
     }
     
-    // Manual trigger: if ENABLE_JENKINS_TEST is true AND TEST_MODULES explicitly set to 'jenkins_test'
-    if (params.ENABLE_JENKINS_TEST && 
-        params.TEST_MODULES && 
-        params.TEST_MODULES.trim() == 'jenkins_test') {
-        testModules = ['jenkins_test']
-        echo "MANUAL TRIGGER: Running only jenkins_test based on ENABLE_JENKINS_TEST parameter and TEST_MODULES setting"
+    // EXCLUDE jenkins_test from this stage (it runs in its own stage)
+    testModules = testModules.findAll { module ->
+        module.trim() != 'jenkins_test'
     }
+    echo "Test modules after excluding jenkins_test: ${testModules.join(', ')}"
     
     echo "Preparing to test modules: ${testModules.join(', ')}"
     
@@ -751,110 +1010,45 @@ def runModuleTests() {
     for (def moduleName in enabledModules) {
         echo "🔍 DEBUG: Processing test module: ${moduleName}"
         
+        // Get repository configuration for this module
+        def moduleRepository = getModuleRepository(pipelineConfig, moduleName)
+        echo "Using repository '${moduleRepository}' for module '${moduleName}'"
+        
         def result = 0
         def testOutput = ""
         
-        if (moduleName == 'jenkins_test') {
-            // Handle Jenkins integration test specially
-            echo "🚀 Executing Jenkins integration tests..."
-            testOutput = executeJenkinsTests()
-            result = testOutput.contains('FAILED') ? 1 : 0
-            echo "🔍 DEBUG: Jenkins test output: ${testOutput.take(200)}..."
-            echo "🔍 DEBUG: Jenkins test result: ${result}"
-        } else {
-            // Regular module tests
-            echo "🔧 Executing regular module test for: ${moduleName}"
+        // Regular module tests (jenkins_test is handled in separate stage)
+        echo "🔧 Executing regular module test for: ${moduleName}"
+        
+        // Get test paths from pipeline configuration
+        def testRunner = pipelineConfig.testing?.test_report_generator
+        def testConfigFile = pipelineConfig.testing?.test_config_file
+        
+        if (!testRunner) {
+            error "test_report_generator not specified in pipeline configuration testing section"
+        }
+        if (!testConfigFile) {
+            error "test_config_file not specified in pipeline configuration testing section"
+        }
+        
+        echo "Using test runner: ${testRunner}"
+        echo "Using test config: ${testConfigFile}"
             
-            // Get test paths from pipeline configuration
-            def testRunner = pipelineConfig.testing?.test_report_generator
-            def testConfigFile = pipelineConfig.testing?.test_config_file
-            
-            if (!testRunner) {
-                error "test_report_generator not specified in pipeline configuration testing section"
-            }
-            if (!testConfigFile) {
-                error "test_config_file not specified in pipeline configuration testing section"
-            }
-            
-            echo "Using test runner: ${testRunner}"
-            echo "Using test config: ${testConfigFile}"
-            
-            def testScript = """cd ${WORKSPACE} && python3 ${testRunner}"""
-            
-            try {
-                testOutput = sh(script: testScript, returnStdout: true)
-                result = 0  // If no exception, tests passed
-            } catch (Exception e) {
-                // If exception occurs, capture the output and get the exit code
-                testOutput = sh(script: testScript, returnStdout: true, returnStatus: false) ?: ""
-                result = sh(script: testScript, returnStatus: true)
-            }
+        def testScript = """cd ${WORKSPACE} && python3 ${testRunner} --verbose"""
+        
+        try {
+            testOutput = sh(script: testScript, returnStdout: true)
+            result = 0  // If no exception, tests passed
+        } catch (Exception e) {
+            // If exception occurs, capture the output and get the exit code
+            testOutput = sh(script: testScript, returnStdout: true, returnStatus: false) ?: ""
+            result = sh(script: testScript, returnStatus: true)
         }
         
         testResults[moduleName] = result
         
         // Parse test output to extract individual test results
-        def moduleTestDetails = []
-        def lines = testOutput.split('\n')
-        
-        if (moduleName == 'jenkins_test') {
-            // Special parsing for jenkins_test output
-            for (def line : lines) {
-                if (line.contains('Test ') && line.contains(':') && (line.contains('✅') || line.contains('❌'))) {
-                    // Extract jenkins test results: "Test 1: connectivity ✅"
-                    def testMatch = line =~ /Test\s+\d+:\s*(\w+)\s*(✅|❌)/
-                    if (testMatch) {
-                        def testName = testMatch[0][1]
-                        def status = testMatch[0][2]
-                        moduleTestDetails.add("Test: ${testName} ${status}")
-                    }
-                }
-            }
-        } else {
-            // Regular parsing for other modules
-            def inTestSuite = false
-            
-            for (def line : lines) {
-                if (line.contains('=== Test Suite for Module:')) {
-                    inTestSuite = true
-                } else if (line.contains('=== Test Summary ===')) {
-                    inTestSuite = false
-                } else if (inTestSuite) {
-                    // Look for test execution patterns - updated to match actual output format
-                    if (line.contains('Test ') && line.contains(':') && line =~ /Test\s+\d+:/) {
-                        // Extract test name and description from format: "Test 1: Basic execution test"
-                        def testMatch = line =~ /Test\s+(\d+):\s*(.+)/
-                        if (testMatch) {
-                            def testNum = testMatch[0][1]
-                            def testDesc = testMatch[0][2]
-                            
-                            // Clean up test description - remove any status indicators and brackets
-                            def cleanDesc = testDesc.replaceAll(/\s*\[SKIPPED.*?\]/, '').trim()
-                            
-                            moduleTestDetails.add("Test ${testNum}: ${cleanDesc}")
-                        }
-                    } else if (line.contains('test passed') || line.contains('Test passed')) {
-                        // Mark the last test as passed
-                        if (moduleTestDetails.size() > 0) {
-                            def lastIndex = moduleTestDetails.size() - 1
-                            def lastTest = moduleTestDetails[lastIndex]
-                            if (lastTest.startsWith('Test ') && !lastTest.contains('✅') && !lastTest.contains('❌')) {
-                                moduleTestDetails[lastIndex] = lastTest + " ✅"
-                            }
-                        }
-                    } else if (line.contains('test failed') || line.contains('Test failed')) {
-                        // Mark the last test as failed
-                        if (moduleTestDetails.size() > 0) {
-                            def lastIndex = moduleTestDetails.size() - 1
-                            def lastTest = moduleTestDetails[lastIndex]
-                            if (lastTest.startsWith('Test ') && !lastTest.contains('✅') && !lastTest.contains('❌')) {
-                                moduleTestDetails[lastIndex] = lastTest + " ❌"
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        def moduleTestDetails = parseTestOutput(testOutput)
         
         testDetails[moduleName] = moduleTestDetails
         
@@ -875,16 +1069,20 @@ def runModuleTests() {
     try {
         // Debug: Show test detail files before cleanup
         echo "📋 Test detail files in /tmp before cleanup:"
-        sh "ls -la /tmp/test_details_*.json 2>/dev/null || echo 'No test detail files found'"
-        
-        // Clean up any empty or malformed test detail files before report generation
-        sh """
-            find /tmp -name 'test_details_*.json' -size 0 -delete 2>/dev/null || true
-            find /tmp -name 'test_details_*.json' -exec sh -c 'python3 -m json.tool "\$1" >/dev/null 2>&1 || rm -f "\$1"' _ {} \\; 2>/dev/null || true
-        """
-        
-        echo "📋 Test detail files after cleanup:"
-        sh "ls -la /tmp/test_details_*.json 2>/dev/null || echo 'No test detail files found after cleanup'"
+        try {
+            sh "ls -la /tmp/test_details_*.json 2>/dev/null || echo 'No test detail files found'"
+            
+            // Clean up any empty or malformed test detail files before report generation
+            sh """
+                find /tmp -name 'test_details_*.json' -size 0 -delete 2>/dev/null || true
+                find /tmp -name 'test_details_*.json' -exec sh -c 'python3 -m json.tool "\$1" >/dev/null 2>&1 || rm -f "\$1"' _ {} \\; 2>/dev/null || true
+            """
+            
+            echo "📋 Test detail files after cleanup:"
+            sh "ls -la /tmp/test_details_*.json 2>/dev/null || echo 'No test detail files found after cleanup'"
+        } catch (Exception e) {
+            echo "⚠️ Warning: Could not execute debug commands - may be running outside node context: ${e.message}"
+        }
         
         // Get reports directory from pipeline configuration
         def reportsDirectory = pipelineConfig.testing?.reports_directory
@@ -903,18 +1101,26 @@ def runModuleTests() {
             error "test_report_generator not specified in pipeline configuration testing section"
         }
         
-        sh "cd ${WORKSPACE} && python3 ${reportGenerator} --output-dir ${reportsDirectory}"
-        echo "✅ JSON test reports generated successfully"
+        try {
+            sh "cd ${WORKSPACE} && python3 ${reportGenerator} --output-dir ${reportsDirectory}"
+            echo "✅ JSON test reports generated successfully"
+            
+            // Debug: Show what files exist in reports directory
+            echo "📋 Files in ${reportsDirectory} directory:"
+            sh "ls -la ${WORKSPACE}/${reportsDirectory}/ || echo 'No reports directory found'"
+        } catch (Exception e) {
+            echo "⚠️ Warning: Could not execute shell commands - may be running outside node context: ${e.message}"
+            // Try alternative approach without shell commands
+            echo "⚠️ Skipping report generation due to context limitations"
+        }
         
-        // Debug: Show what files exist in reports directory
-        echo "📋 Files in ${reportsDirectory} directory:"
-        sh "ls -la ${WORKSPACE}/${reportsDirectory}/ || echo 'No reports directory found'"
-        
-        // Load and process detailed test report for enhanced PR comments
-        echo "📊 Loading detailed test report for PR comment enhancement..."
+        // Clear any previous cached data and load fresh detailed test report
+        globalDetailedReport = [:]  // Clear any previous cached data
+        echo "📊 Loading fresh detailed test report for PR comment enhancement..."
         def detailedReport = loadDetailedTestReport(pipelineConfig)
         if (detailedReport) {
-            globalDetailedReport = detailedReport  // Store globally for PR comment
+            globalDetailedReport = detailedReport  // Store fresh report globally for PR comment
+            echo "🔄 Fresh detailed report loaded with ${detailedReport.summary?.total_tests ?: 0} tests from ${detailedReport.summary?.total_modules ?: 0} modules"
             def enhancedData = convertDetailedReportToPRFormat(detailedReport)
             if (enhancedData.testResults && enhancedData.testDetails) {
                 echo "✅ Enhanced test data loaded from detailed report"
@@ -951,6 +1157,9 @@ def sendConsolidatedPRComment() {
         echo "DEBUG: PR comment disabled by parameter"
         return
     }
+    
+    // Load pipeline configuration to get module repositories
+    def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
     
     // Load GitHub issue mappings dynamically from configuration files
     def githubIssueMapping = loadGitHubIssueMappings()
@@ -1219,12 +1428,37 @@ def sendConsolidatedPRComment() {
     // Join all lines into final comment
     def finalComment = commentLines.join('\n')
     
-    // Send the comment using the basic sendPRComment function
-    sendPRComment(overallStatus, finalComment)
+    // Determine target repository for PR comments
+    def githubRepo = getPRTargetRepository(pipelineConfig)
+    
+    // Send the comment using the basic sendPRComment function with target repository
+    sendPRComment(overallStatus, finalComment, githubRepo)
+}
+
+// Function to determine the target repository for PR comments based on configuration
+def getPRTargetRepository(pipelineConfig) {
+    def targetRepo = env.GITHUB_REPO
+    
+    try {
+        // Check if repository configuration exists in pipeline config
+        if (pipelineConfig.repository?.pr_target) {
+            targetRepo = pipelineConfig.repository.pr_target
+            echo "Using PR target repository from pipeline config: ${targetRepo}"
+        } else {
+            echo "No repository.pr_target configuration found in pipeline config, using env.GITHUB_REPO: ${targetRepo}"
+        }
+        
+    } catch (Exception e) {
+        echo "ERROR: Failed to read repository configuration from pipeline config: ${e.message}"
+        echo "Using env.GITHUB_REPO for PR: ${targetRepo}"
+    }
+    
+    return targetRepo
 }
 
 // Function to send PR comment with job results
-def sendPRComment(status, details = '') {
+def sendPRComment(status, details = '', targetRepo = null) {
+    def githubRepo = targetRepo ?: env.GITHUB_REPO
     // Try to automatically detect PR number from various environment variables
     def prNumber = null
     
@@ -1280,7 +1514,7 @@ def sendPRComment(status, details = '') {
                             curl -s \\
                             -H "Authorization: token ${GITHUB_TOKEN}" \\
                             -H "Accept: application/vnd.github.v3+json" \\
-                            "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/pulls?state=open&head=${env.GITHUB_OWNER}:${cleanBranch}"
+                            "https://api.github.com/repos/${env.GITHUB_OWNER}/${githubRepo}/pulls?state=open&head=${env.GITHUB_OWNER}:${cleanBranch}"
                         """,
                         returnStdout: true
                     ).trim()
@@ -1304,7 +1538,7 @@ def sendPRComment(status, details = '') {
                             echo "Found PR #${prNumber} for branch '${cleanBranch}'"
                         } else {
                             // Try alternative approach without owner prefix
-                            def apiUrl = "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/pulls?state=open&head=${cleanBranch}"
+                            def apiUrl = "https://api.github.com/repos/${env.GITHUB_OWNER}/${githubRepo}/pulls?state=open&head=${cleanBranch}"
                             
                             response = sh(
                                 script: """
@@ -1332,7 +1566,7 @@ def sendPRComment(status, details = '') {
                             
                             // Last resort - get all PRs and filter
                             if (!prNumber) {
-                                def allPRsUrl = "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/pulls?state=open"
+                                def allPRsUrl = "https://api.github.com/repos/${env.GITHUB_OWNER}/${githubRepo}/pulls?state=open"
                                 
                                 response = sh(
                                     script: """
@@ -1472,7 +1706,7 @@ def sendPRComment(status, details = '') {
                     -H "Accept: application/vnd.github.v3+json" \\
                     -H "Content-Type: application/json" \\
                     -d @"${commentFile}" \\
-                    "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/issues/${prNumber}/comments"
+                    "https://api.github.com/repos/${env.GITHUB_OWNER}/${githubRepo}/issues/${prNumber}/comments"
                 """,
                 returnStdout: true
             ).trim()
@@ -1493,8 +1727,17 @@ def sendPRComment(status, details = '') {
 }
 
 // Function to test PR comment functionality
-def postPRComment() {
+def postPRComment(pipelineConfig = null) {
     echo "Preparing PR comment..."
+    
+    // Determine target repository for PR comments
+    def githubRepo = env.GITHUB_REPO
+    if (pipelineConfig) {
+        githubRepo = getPRTargetRepository(pipelineConfig)
+        echo "Using target repository from config: ${githubRepo}"
+    } else {
+        echo "No pipeline config provided, using default repository: ${githubRepo}"
+    }
     
     def prNumber = null
     
@@ -1523,7 +1766,7 @@ def postPRComment() {
                     curl -s -w "%{http_code}" \\
                     -H "Authorization: token ${GITHUB_TOKEN}" \\
                     -H "Accept: application/vnd.github.v3+json" \\
-                    "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}" \\
+                    "https://api.github.com/repos/${env.GITHUB_OWNER}/${githubRepo}" \\
                     -o /dev/null
                 """,
                 returnStdout: true
@@ -1593,7 +1836,7 @@ pipeline {
         // Uso de valores por defecto simplificados para garantizar el funcionamiento de los comentarios en PRs
         // Basado en el commit 00a13a1 que funcionaba correctamente
         GITHUB_OWNER = "${params.GITHUB_OWNER ?: 'n2Electrons'}"
-        GITHUB_REPO = "${params.GITHUB_REPO ?: 'simtemp-system'}"
+        GITHUB_REPO = "${params.GITHUB_REPO ?: 'n2Electrons-Infra'}"
         
         // Infrastructure submodule path (path to this infrastructure within parent repo)
         INFRASTRUCTURE_PATH = "${params.INFRASTRUCTURE_PATH ?: 'infrastructure'}"
@@ -1604,6 +1847,9 @@ pipeline {
             steps {
                 echo 'Code checked out from SCM'
                 script {
+                    // Clear global variables to prevent cache issues from previous runs
+                    clearGlobalVariables()
+                    
                     echo "=== Infrastructure Setup ==="
                     echo "Infrastructure path: ${env.INFRASTRUCTURE_PATH}"
                     echo "Pipeline config override: ${params.PIPELINE_CONFIG_PATH}"
@@ -1659,6 +1905,34 @@ pipeline {
                     echo "ALL_BUILD_MODULES: ${env.ALL_BUILD_MODULES}"
                     echo "ALL_TEST_MODULES: ${env.ALL_TEST_MODULES}"
                     echo "=========================="
+                }
+            }
+        }
+
+        stage('Jenkins_test') {
+            steps {
+                script {
+                    echo "=== Jenkins Integration Test Stage ==="
+                    
+                    try {
+                        // Run Jenkins-specific integration tests
+                        runJenkinsTests()
+                        echo "✅ Jenkins integration tests completed successfully"
+                    } catch (Exception e) {
+                        echo "❌ Jenkins integration tests failed: ${e.message}"
+                        throw e
+                    }
+                }
+            }
+            post {
+                always {
+                    echo "Jenkins integration test stage completed"
+                }
+                success {
+                    echo "✅ Jenkins integration tests passed"
+                }
+                failure {
+                    echo "❌ Jenkins integration tests failed"
                 }
             }
         }
@@ -1732,7 +2006,8 @@ pipeline {
                     // Run PR comment test if enabled
                     if (params.PUBLISH_PR_COMMENT) {
                         echo "Testing PR comment functionality..."
-                        postPRComment()
+                        def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
+                        postPRComment(pipelineConfig)
                     }
                 }
             }

@@ -8,18 +8,13 @@ version: "1.0"
 # Global test settings
 global:
   verbose: true
+  debug: true          # Enable detailed debug output
   timeout_seconds: 60  # Longer timeout for kernel module operations
   fail_fast: true     # Stop on first failure for kernel module safety
 
 # GitHub issue mappings for test IDs (optional - can also be in separate JSON file)
 github_issue_mappings:
-  F-K1: 58             # Kernel module loading (parent requirement)
-  F-K1-TC-001: 61      # insmod registers driver
-  F-K1-TC-002: 62      # DT overlay binds driver
-  F-J1: 65             # Jenkins integration testing (parent requirement)
-  F-J1-TC-001: 66      # Jenkins connectivity test
-  F-J1-TC-002: 67      # PR detection test
-  F-J1-TC-003: 68      # GitHub API connectivity test
+
 
 # Test requirements
 requirements:
@@ -31,30 +26,40 @@ requirements:
 # Test case configurations
 tests:
   jenkins_test:
-    enabled: false
+    enabled: true
+    own_pipeline: true  # This module has its own dedicated pipeline stage
+    repository: "n2Electrons-Infra"  # GitHub repository for this test module (has JENKINS secrets)
     description: "Tests for Jenkins integration and PR detection"
+    pytest_file: null  # No pytest file - these are Jenkins-specific tests
     env:
       SOURCE_FILE: 'jenkins/diagnostics.groovy'
       MODULE_DIR: 'jenkins'
       MODULE_NAME: 'diagnostics.groovy'
     test_cases:
-      - name: "jenkins_connectivity"
+      - name: "connectivity"
         description: "Verifies connectivity to Jenkins server"
         enabled: true
         test_id: "F-J1-TC-001"
-      - name: "pr_detection"
-        description: "Verifies PR detection functionality"
+      - name: "authentication" 
+        description: "Verifies Jenkins authentication"
         enabled: true
         test_id: "F-J1-TC-002"
+      - name: "pr_processing"
+        description: "Verifies PR detection functionality"
+        enabled: true
+        test_id: "F-J1-TC-003"
       - name: "github_api_connectivity"
         description: "Validates GitHub API connectivity"
         enabled: true
-        test_id: "F-J1-TC-003"
+        test_id: "F-J1-TC-004"
         
-  kernel_driver:
+  kernel_driver_base:
     enabled: true
-    description: "Tests for the  Temperature Simulator Driver"
+    repository: "n2Electrons-Infra"  # GitHub repository for this test module  
+    debug_verbose: true  # Enable detailed debug output for this module
+    description: "Tests for the Temperature Simulator Driver (Infrastructure)"
     depends_on: ["nxp_simtemp"]  # Module dependency
+    pytest_file: "test_kernel_driver.py"  # Specific pytest file for this module
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
       MODULE_DIR: 'kernel'
@@ -66,11 +71,29 @@ tests:
         description: "Verifies driver registration via insmod"
         enabled: true
         test_id: "F-K1-TC-001"  # Maps to test plan ID
+        debug_info: "This test loads the kernel module using insmod"
+
+  kernel_driver_suite:
+    enabled: true
+    repository: "simtemp-system"  # GitHub repository for this test module  
+    debug_verbose: true  # Enable detailed debug output for this module
+    description: "Extended Tests for the Temperature Simulator Driver"
+    depends_on: ["nxp_simtemp"]  # Module dependency
+    pytest_file: "test_kernel_driver_suite.py"  # Specific pytest file for this module
+    env:
+      SOURCE_FILE: 'kernel/nxp_simtemp.c'
+      MODULE_DIR: 'kernel'
+      MODULE_NAME: 'nxp_simtemp.ko'
+      BUILD_DIR: 'obj'
+    module_path: "${MODULE_DIR}/${BUILD_DIR}/${MODULE_NAME}"
+    test_cases:
       - name: "sysfs_entries"
         description: "Validates creation of sysfs entries"
         enabled: true
         test_id: "F-K1-TC-002"
+        debug_info: "This test checks for sysfs entries created by the module"
       - name: "driver_cleanup"
         description: "Verifies clean driver unloading"
         enabled: true
         test_id: "F-K8-TC-001"
+        debug_info: "This test unloads the kernel module using rmmod"
