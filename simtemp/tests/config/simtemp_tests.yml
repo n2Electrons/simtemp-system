@@ -29,6 +29,7 @@ tests:
     enabled: true
     repository: "n2Electrons-Infra"  # GitHub repository for this test module (has JENKINS secrets)
     description: "Tests for Jenkins integration and PR detection"
+    pytest_file: null  # No pytest file - these are Jenkins-specific tests
     env:
       SOURCE_FILE: 'jenkins/diagnostics.groovy'
       MODULE_DIR: 'jenkins'
@@ -51,12 +52,13 @@ tests:
         enabled: true
         test_id: "F-J1-TC-004"
         
-  kernel_driver:
+  kernel_driver_base:
     enabled: true
     repository: "n2Electrons-Infra"  # GitHub repository for this test module  
     debug_verbose: true  # Enable detailed debug output for this module
-    description: "Tests for the Temperature Simulator Driver"
+    description: "Tests for the Temperature Simulator Driver (Infrastructure)"
     depends_on: ["nxp_simtemp"]  # Module dependency
+    pytest_file: "test_kernel_driver.py"  # Specific pytest file for this module
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
       MODULE_DIR: 'kernel'
@@ -69,6 +71,21 @@ tests:
         enabled: true
         test_id: "F-K1-TC-001"  # Maps to test plan ID
         debug_info: "This test loads the kernel module using insmod"
+
+  kernel_driver_suite:
+    enabled: true
+    repository: "simtemp-system"  # GitHub repository for this test module  
+    debug_verbose: true  # Enable detailed debug output for this module
+    description: "Extended Tests for the Temperature Simulator Driver"
+    depends_on: ["nxp_simtemp"]  # Module dependency
+    pytest_file: "test_kernel_driver_suite.py"  # Specific pytest file for this module
+    env:
+      SOURCE_FILE: 'kernel/nxp_simtemp.c'
+      MODULE_DIR: 'kernel'
+      MODULE_NAME: 'nxp_simtemp.ko'
+      BUILD_DIR: 'obj'
+    module_path: "${MODULE_DIR}/${BUILD_DIR}/${MODULE_NAME}"
+    test_cases:
       - name: "sysfs_entries"
         description: "Validates creation of sysfs entries"
         enabled: true

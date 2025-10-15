@@ -449,7 +449,7 @@ class DetailedTestReportGenerator:
     def update_with_actual_results(self, suite_name, module_data):
         """Try to find and integrate actual test execution results"""
         # Look for pytest JSON results or recent pytest output
-        self.capture_pytest_results(module_data)
+        self.capture_pytest_results(suite_name, module_data)
         
         # Also check results directory for any JSON files
         results_dir = 'results'
@@ -462,19 +462,46 @@ class DetailedTestReportGenerator:
                 except Exception as e:
                     self.logger.debug(f"Could not parse result file {result_file}: {e}")
 
-    def capture_pytest_results(self, module_data):
+    def capture_pytest_results(self, suite_name, module_data):
         """Run pytest and capture results to update test status"""
         try:
             import subprocess
             
             # Run pytest with JSON output
-            self.logger.info("Running pytest to capture actual test results...")
+            self.logger.info(f"Running pytest for module {suite_name} to capture actual test results...")
             
-            # Find test files in the script directory
-            script_dir = Path(__file__).parent
-            test_files = list(script_dir.glob("test_*.py"))
+            # Get the specific pytest file for this module from configuration
+            module_config = None
+            for test_suite_name, test_suite_config in self.test_config.get('tests', {}).items():
+                if test_suite_name == suite_name:
+                    module_config = test_suite_config
+                    break
             
-            self.logger.info(f"Found {len(test_files)} test files: {[f.name for f in test_files]}")
+            if not module_config:
+                self.logger.warning(f"No configuration found for module {suite_name}")
+                return
+                
+            # Check if this module has a specific pytest file configured
+            pytest_file = module_config.get('pytest_file')
+            if pytest_file is None:
+                # Module explicitly configured to not run pytest
+                self.logger.info(f"Module {suite_name} configured with pytest_file: null - skipping pytest execution")
+                return
+            elif not pytest_file:
+                # Fall back to finding all test files (old behavior)
+                script_dir = Path(__file__).parent
+                test_files = list(script_dir.glob("test_*.py"))
+                self.logger.info(f"No specific pytest file configured for {suite_name}, using all test files: {[f.name for f in test_files]}")
+            else:
+                # Use the specific pytest file for this module
+                script_dir = Path(__file__).parent
+                test_file_path = script_dir / pytest_file
+                if test_file_path.exists():
+                    test_files = [test_file_path]
+                    self.logger.info(f"Using specific pytest file for {suite_name}: {pytest_file}")
+                else:
+                    self.logger.error(f"Configured pytest file {pytest_file} not found for module {suite_name}")
+                    return
             
             if not test_files:
                 self.logger.warning("No test files found")
@@ -485,25 +512,25 @@ class DetailedTestReportGenerator:
             test_file_paths = [str(f.relative_to(project_root)) for f in test_files]
             
             self.logger.info(f"Project root: {project_root}")
-            self.logger.info(f"Test file paths: {test_file_paths}")
+            self.logger.info(f"Test file paths for {suite_name}: {test_file_paths}")
             
             # Run pytest with verbose output from the project root directory
             cmd = ["python3", "-m", "pytest", "-v", "--tb=short"] + test_file_paths
-            self.logger.info(f"Executing pytest command: {' '.join(cmd)}")
+            self.logger.info(f"Executing pytest command for {suite_name}: {' '.join(cmd)}")
             
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=project_root)
             
-            self.logger.info(f"Pytest exit code: {result.returncode}")
+            self.logger.info(f"Pytest exit code for {suite_name}: {result.returncode}")
             if result.stdout:
-                self.logger.info(f"Pytest stdout:\n{result.stdout}")
+                self.logger.info(f"Pytest stdout for {suite_name}:\n{result.stdout}")
             if result.stderr:
-                self.logger.warning(f"Pytest stderr:\n{result.stderr}")
+                self.logger.warning(f"Pytest stderr for {suite_name}:\n{result.stderr}")
             
             # Parse pytest output
             self.parse_pytest_output(result.stdout, module_data)
             
         except Exception as e:
-            self.logger.error(f"Error running pytest: {e}")
+            self.logger.error(f"Error running pytest for {suite_name}: {e}")
 
     def parse_pytest_output(self, pytest_output, module_data):
         """Parse pytest output to extract test results"""
