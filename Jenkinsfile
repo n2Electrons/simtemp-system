@@ -370,6 +370,46 @@ def getEnabledTestSuites(pipelineConfig) {
     return enabledTestSuites
 }
 
+// Helper function to get test suites for general test stage (excludes own_pipeline modules)
+def getTestStageModules(pipelineConfig) {
+    def enabledTestSuites = getEnabledTestSuites(pipelineConfig)
+    def testStageModules = []
+    
+    echo "DEBUG: Filtering test suites for general test stage..."
+    
+    // Get the test config file path from pipeline config or use discovered one
+    def testConfigFile = pipelineConfig.testing?.test_config_file ?: env.TEST_CONFIG_PATH
+    if (!testConfigFile || !fileExists(testConfigFile)) {
+        echo "No test config file found, returning all enabled test suites"
+        return enabledTestSuites
+    }
+    
+    try {
+        // Read and parse the YAML test configuration
+        def testConfigYaml = readYaml file: testConfigFile
+        
+        // Filter out modules that have their own pipeline stage
+        enabledTestSuites.each { suiteName ->
+            def suiteConfig = testConfigYaml.tests?."${suiteName}"
+            if (suiteConfig?.own_pipeline == true) {
+                echo "DEBUG: Skipping '${suiteName}' - has own_pipeline: true"
+            } else {
+                testStageModules.add(suiteName)
+                echo "DEBUG: Added '${suiteName}' to test stage modules"
+            }
+        }
+        
+        echo "Test stage will run ${testStageModules.size()} modules: ${testStageModules.join(', ')}"
+        
+    } catch (Exception e) {
+        echo "ERROR: Failed to filter test modules: ${e.message}"
+        echo "Falling back to all enabled test suites"
+        return enabledTestSuites
+    }
+    
+    return testStageModules
+}
+
 // Helper function to get repository configuration for a specific test module
 def getModuleRepository(pipelineConfig, moduleName) {
     def defaultRepo = env.GITHUB_REPO ?: "n2Electrons-Infra"
@@ -877,7 +917,7 @@ def runModuleTests() {
     
     // First, try to get test modules from test configuration
     echo "DEBUG: Loading test configuration from test config..."
-    def configTestSuites = getEnabledTestSuites(pipelineConfig)
+    def configTestSuites = getTestStageModules(pipelineConfig)
     
     echo "DEBUG: configTestSuites = ${configTestSuites}"
     echo "DEBUG: configTestSuites.size() = ${configTestSuites.size()}"
@@ -886,7 +926,7 @@ def runModuleTests() {
     // Use enabled test suites from test configuration
     if (configTestSuites.size() > 0) {
         testModules = configTestSuites
-        echo "Using enabled test suites from test config: ${testModules.join(', ')}"
+        echo "Using test stage modules from test config: ${testModules.join(', ')}"
     } else {
         echo "WARNING: No enabled test suites found in test configuration"
     }

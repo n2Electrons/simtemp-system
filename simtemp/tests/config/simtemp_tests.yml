@@ -27,6 +27,7 @@ requirements:
 tests:
   jenkins_test:
     enabled: true
+    own_pipeline: true  # This module has its own dedicated pipeline stage
     repository: "n2Electrons-Infra"  # GitHub repository for this test module (has JENKINS secrets)
     description: "Tests for Jenkins integration and PR detection"
     pytest_file: null  # No pytest file - these are Jenkins-specific tests
