@@ -18,6 +18,18 @@ import groovy.transform.Field
 @Field def globalBuildStatus = 'success'
 @Field def globalTestStatus = 'success'
 
+// Function to clear all global variables to prevent cache issues
+def clearGlobalVariables() {
+    echo "🧹 Clearing global variables to prevent cache issues..."
+    globalBuildResults = [:]
+    globalTestResults = [:]
+    globalTestDetails = [:]
+    globalDetailedReport = [:]
+    globalBuildStatus = 'success'
+    globalTestStatus = 'success'
+    echo "✅ Global variables cleared successfully"
+}
+
 // Helper function to load pipeline configuration from YAML
 def loadPipelineConfig(configPath) {
     if (!configPath) {
@@ -681,14 +693,33 @@ def loadDetailedTestReport(pipelineConfig) {
     }
     
     def reportFile = "${WORKSPACE}/${reportsDirectory}/test_report_detailed.json"
+    echo "🔍 Looking for detailed test report at: ${reportFile}"
+    
     if (!fileExists(reportFile)) {
         echo "⚠️ Warning: Detailed test report not found at ${reportFile}"
+        echo "🔍 Checking if reports directory exists: ${WORKSPACE}/${reportsDirectory}"
         return null
+    }
+    
+    echo "📂 Report file found, checking timestamp..."
+    try {
+        // Show file timestamp for debugging
+        sh "ls -la '${reportFile}' || echo 'Cannot get file details'"
+    } catch (Exception e) {
+        echo "⚠️ Could not get file details: ${e.message}"
     }
     
     try {
         def reportJson = readJSON file: reportFile
-        echo "✅ Loaded detailed test report with ${reportJson.summary?.total_tests ?: 0} tests from ${reportJson.summary?.total_modules ?: 0} modules"
+        echo "✅ Loaded fresh detailed test report with ${reportJson.summary?.total_tests ?: 0} tests from ${reportJson.summary?.total_modules ?: 0} modules"
+        echo "📊 Report timestamp: ${reportJson.summary?.timestamp ?: 'not available'}"
+        
+        // Debug: show module names from the report
+        if (reportJson.modules) {
+            def moduleNames = reportJson.modules.keySet().join(', ')
+            echo "🔍 Module names in report: ${moduleNames}"
+        }
+        
         return reportJson
     } catch (Exception e) {
         echo "⚠️ Warning: Could not parse detailed test report: ${e.message}"
@@ -1083,11 +1114,13 @@ def runModuleTests() {
             echo "⚠️ Skipping report generation due to context limitations"
         }
         
-        // Load and process detailed test report for enhanced PR comments
-        echo "📊 Loading detailed test report for PR comment enhancement..."
+        // Clear any previous cached data and load fresh detailed test report
+        globalDetailedReport = [:]  // Clear any previous cached data
+        echo "📊 Loading fresh detailed test report for PR comment enhancement..."
         def detailedReport = loadDetailedTestReport(pipelineConfig)
         if (detailedReport) {
-            globalDetailedReport = detailedReport  // Store globally for PR comment
+            globalDetailedReport = detailedReport  // Store fresh report globally for PR comment
+            echo "🔄 Fresh detailed report loaded with ${detailedReport.summary?.total_tests ?: 0} tests from ${detailedReport.summary?.total_modules ?: 0} modules"
             def enhancedData = convertDetailedReportToPRFormat(detailedReport)
             if (enhancedData.testResults && enhancedData.testDetails) {
                 echo "✅ Enhanced test data loaded from detailed report"
@@ -1814,6 +1847,9 @@ pipeline {
             steps {
                 echo 'Code checked out from SCM'
                 script {
+                    // Clear global variables to prevent cache issues from previous runs
+                    clearGlobalVariables()
+                    
                     echo "=== Infrastructure Setup ==="
                     echo "Infrastructure path: ${env.INFRASTRUCTURE_PATH}"
                     echo "Pipeline config override: ${params.PIPELINE_CONFIG_PATH}"
