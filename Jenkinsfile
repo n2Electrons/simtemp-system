@@ -15,8 +15,8 @@ import groovy.transform.Field
 @Field def globalTestResults = [:]
 @Field def globalTestDetails = [:]
 @Field def globalDetailedReport = [:]
-@Field def globalBuildStatus = 'success'
-@Field def globalTestStatus = 'success'
+@Field def globalBuildStatus = 'unknown'    // Start neutral, will be set during execution
+@Field def globalTestStatus = 'unknown'     // Start neutral, will be set during execution
 
 // Function to clear all global variables to prevent cache issues
 def clearGlobalVariables() {
@@ -25,9 +25,9 @@ def clearGlobalVariables() {
     globalTestResults = [:]
     globalTestDetails = [:]
     globalDetailedReport = [:]
-    globalBuildStatus = 'success'
-    globalTestStatus = 'success'
-    echo "✅ Global variables cleared successfully"
+    globalBuildStatus = 'unknown'    // Start with neutral state, not success
+    globalTestStatus = 'unknown'     // Start with neutral state, not success
+    echo "✅ Global variables cleared successfully - status reset to 'unknown'"
 }
 
 // Helper function to load pipeline configuration from YAML
