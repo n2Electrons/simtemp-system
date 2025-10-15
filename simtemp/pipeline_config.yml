@@ -76,14 +76,6 @@ testing:
   test_report_generator: "simtemp/tests/create_test_report.py"
   timeout_minutes: 5
   
-  # Test suites specific to simtemp
-  test_suites:
-    kernel_driver:
-      enabled: true
-      description: "Kernel module functionality tests"
-      test_files:
-        - "simtemp/tests/test_kernel_driver.py"
-
 # Pipeline stages configuration
 stages:
   checkout:

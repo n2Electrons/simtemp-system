@@ -81,3 +81,39 @@ def get_sudo_prefix():
 
 # Dynamic sudo prefix based on environment detection
 SUDO = get_sudo_prefix()
+
+# Common subprocess parameters for shell commands
+SHELL_PARAMS = {
+    "shell": True,
+    "capture_output": True,
+    "text": True
+}
+
+
+def get_obj_path():
+    """
+    Get the absolute path to the directory containing nxp_simtemp.ko module.
+    
+    Returns:
+        str: Absolute path to the 'obj' directory containing the kernel module
+        
+    Raises:
+        FileNotFoundError: If the module file doesn't exist
+    """
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(test_dir)
+    obj_dir = os.path.join(project_root, 'kernel', 'obj')
+    module_path = os.path.join(obj_dir, 'nxp_simtemp.ko')
+    
+    # Validate that the module exists
+    if not os.path.exists(module_path):
+        raise FileNotFoundError(
+            f"Kernel module not found at {module_path}. "
+            f"Please build the module first."
+        )
+    
+    return obj_dir
+
+
+# Convenience variable for the object directory path
+obj_path = get_obj_path()

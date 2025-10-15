@@ -59,7 +59,7 @@ tests:
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Tests for the Temperature Simulator Driver (Infrastructure)"
     depends_on: ["nxp_simtemp"]  # Module dependency
-    pytest_file: "test_kernel_driver.py"  # Specific pytest file for this module
+    pytest_file: "test_f_k1_tc_001.py"  # Specific pytest file for this module
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
       MODULE_DIR: 'kernel'
@@ -79,7 +79,7 @@ tests:
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Extended Tests for the Temperature Simulator Driver"
     depends_on: ["nxp_simtemp"]  # Module dependency
-    pytest_file: "test_kernel_driver_suite.py"  # Specific pytest file for this module
+    pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this module
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
       MODULE_DIR: 'kernel'
@@ -87,13 +87,9 @@ tests:
       BUILD_DIR: 'obj'
     module_path: "${MODULE_DIR}/${BUILD_DIR}/${MODULE_NAME}"
     test_cases:
-      - name: "sysfs_entries"
-        description: "Validates creation of sysfs entries"
-        enabled: true
-        test_id: "F-K1-TC-002"
-        debug_info: "This test checks for sysfs entries created by the module"
-      - name: "driver_cleanup"
-        description: "Verifies clean driver unloading"
+      - name: "driver_load_unload"
+        description: "Load/unload kernel module without WARN/OOPS"
         enabled: true
         test_id: "F-K8-TC-001"
-        debug_info: "This test unloads the kernel module using rmmod"
+        debug_info: "This test verifies clean module load/unload operations"
+

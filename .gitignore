@@ -109,3 +109,4 @@ simtemp/tests/reports/*.json
 # Local configuration files that shouldn't be shared
 config/local_*.json
 *.local
+simtemp/kernel/obj/
