@@ -1395,13 +1395,16 @@ def sendConsolidatedPRComment() {
     // Join all lines into final comment
     def finalComment = commentLines.join('\n')
     
+    // Determine target repository for PR comments
+    def githubRepo = getPRTargetRepository(pipelineConfig)
+    
     // Send the comment using the basic sendPRComment function with target repository
     sendPRComment(overallStatus, finalComment, githubRepo)
 }
 
 // Function to determine the target repository for PR comments based on configuration
 def getPRTargetRepository(pipelineConfig) {
-    def targetRepo = env.GITHUB_REPO ?: "n2Electrons-Infra"  // Default fallback
+    def targetRepo = env.GITHUB_REPO
     
     try {
         // Check if repository configuration exists in pipeline config
@@ -1409,12 +1412,12 @@ def getPRTargetRepository(pipelineConfig) {
             targetRepo = pipelineConfig.repository.pr_target
             echo "Using PR target repository from pipeline config: ${targetRepo}"
         } else {
-            echo "No repository.pr_target configuration found in pipeline config, using default: ${targetRepo}"
+            echo "No repository.pr_target configuration found in pipeline config, using env.GITHUB_REPO: ${targetRepo}"
         }
         
     } catch (Exception e) {
         echo "ERROR: Failed to read repository configuration from pipeline config: ${e.message}"
-        echo "Using default repository for PR: ${targetRepo}"
+        echo "Using env.GITHUB_REPO for PR: ${targetRepo}"
     }
     
     return targetRepo
@@ -1967,6 +1970,7 @@ pipeline {
                     // Run PR comment test if enabled
                     if (params.PUBLISH_PR_COMMENT) {
                         echo "Testing PR comment functionality..."
+                        def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
                         postPRComment(pipelineConfig)
                     }
                 }
