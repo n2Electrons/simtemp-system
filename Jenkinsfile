@@ -779,6 +779,58 @@ def convertDetailedReportToPRFormat(detailedReport) {
     return [testResults: testResults, testDetails: testDetails]
 }
 
+// Helper function to parse test output and extract individual test results
+def parseTestOutput(testOutput) {
+    def moduleTestDetails = []
+    def lines = testOutput.split('\n')
+    
+    // Regular parsing for modules (jenkins_test handled in separate stage)
+    def inTestSuite = false
+    
+    for (def line : lines) {
+        if (line.contains('=== Test Suite for Module:')) {
+            inTestSuite = true
+        } else if (line.contains('=== Test Summary ===')) {
+            inTestSuite = false
+        } else if (inTestSuite) {
+            // Look for test execution patterns - updated to match actual output format
+            if (line.contains('Test ') && line.contains(':') && line =~ /Test\s+\d+:/) {
+                // Extract test name and description from format: "Test 1: Basic execution test"
+                def testMatch = line =~ /Test\s+(\d+):\s*(.+)/
+                if (testMatch) {
+                    def testNum = testMatch[0][1]
+                    def testDesc = testMatch[0][2]
+                    
+                    // Clean up test description - remove any status indicators and brackets
+                    def cleanDesc = testDesc.replaceAll(/\s*\[SKIPPED.*?\]/, '').trim()
+                    
+                    moduleTestDetails.add("Test ${testNum}: ${cleanDesc}")
+                }
+            } else if (line.contains('test passed') || line.contains('Test passed')) {
+                // Mark the last test as passed
+                if (moduleTestDetails.size() > 0) {
+                    def lastIndex = moduleTestDetails.size() - 1
+                    def lastTest = moduleTestDetails[lastIndex]
+                    if (lastTest.startsWith('Test ') && !lastTest.contains('✅') && !lastTest.contains('❌')) {
+                        moduleTestDetails[lastIndex] = lastTest + " ✅"
+                    }
+                }
+            } else if (line.contains('test failed') || line.contains('Test failed')) {
+                // Mark the last test as failed
+                if (moduleTestDetails.size() > 0) {
+                    def lastIndex = moduleTestDetails.size() - 1
+                    def lastTest = moduleTestDetails[lastIndex]
+                    if (lastTest.startsWith('Test ') && !lastTest.contains('✅') && !lastTest.contains('❌')) {
+                        moduleTestDetails[lastIndex] = lastTest + " ❌"
+                    }
+                }
+            }
+        }
+    }
+    
+    return moduleTestDetails
+}
+
 // Function to execute all module tests
 def runModuleTests() {
     // Load pipeline configuration
@@ -875,66 +927,21 @@ def runModuleTests() {
         echo "Using test runner: ${testRunner}"
         echo "Using test config: ${testConfigFile}"
             
-            def testScript = """cd ${WORKSPACE} && python3 ${testRunner}"""
-            
-            try {
-                testOutput = sh(script: testScript, returnStdout: true)
-                result = 0  // If no exception, tests passed
-            } catch (Exception e) {
-                // If exception occurs, capture the output and get the exit code
-                testOutput = sh(script: testScript, returnStdout: true, returnStatus: false) ?: ""
-                result = sh(script: testScript, returnStatus: true)
-            }
+        def testScript = """cd ${WORKSPACE} && python3 ${testRunner}"""
+        
+        try {
+            testOutput = sh(script: testScript, returnStdout: true)
+            result = 0  // If no exception, tests passed
+        } catch (Exception e) {
+            // If exception occurs, capture the output and get the exit code
+            testOutput = sh(script: testScript, returnStdout: true, returnStatus: false) ?: ""
+            result = sh(script: testScript, returnStatus: true)
         }
         
         testResults[moduleName] = result
         
         // Parse test output to extract individual test results
-        def moduleTestDetails = []
-        def lines = testOutput.split('\n')
-        
-        // Regular parsing for modules (jenkins_test handled in separate stage)
-        def inTestSuite = false
-        
-        for (def line : lines) {
-            if (line.contains('=== Test Suite for Module:')) {
-                inTestSuite = true
-            } else if (line.contains('=== Test Summary ===')) {
-                inTestSuite = false
-            } else if (inTestSuite) {
-                // Look for test execution patterns - updated to match actual output format
-                if (line.contains('Test ') && line.contains(':') && line =~ /Test\s+\d+:/) {
-                        // Extract test name and description from format: "Test 1: Basic execution test"
-                        def testMatch = line =~ /Test\s+(\d+):\s*(.+)/
-                        if (testMatch) {
-                            def testNum = testMatch[0][1]
-                            def testDesc = testMatch[0][2]
-                            
-                            // Clean up test description - remove any status indicators and brackets
-                            def cleanDesc = testDesc.replaceAll(/\s*\[SKIPPED.*?\]/, '').trim()
-                            
-                            moduleTestDetails.add("Test ${testNum}: ${cleanDesc}")
-                        }
-                    } else if (line.contains('test passed') || line.contains('Test passed')) {
-                        // Mark the last test as passed
-                        if (moduleTestDetails.size() > 0) {
-                            def lastIndex = moduleTestDetails.size() - 1
-                            def lastTest = moduleTestDetails[lastIndex]
-                            if (lastTest.startsWith('Test ') && !lastTest.contains('✅') && !lastTest.contains('❌')) {
-                                moduleTestDetails[lastIndex] = lastTest + " ✅"
-                            }
-                        }
-                    } else if (line.contains('test failed') || line.contains('Test failed')) {
-                        // Mark the last test as failed
-                        if (moduleTestDetails.size() > 0) {
-                            def lastIndex = moduleTestDetails.size() - 1
-                            def lastTest = moduleTestDetails[lastIndex]
-                            if (lastTest.startsWith('Test ') && !lastTest.contains('✅') && !lastTest.contains('❌')) {
-                                moduleTestDetails[lastIndex] = lastTest + " ❌"
-                            }
-                        }
-                    }
-            }
+        def moduleTestDetails = parseTestOutput(testOutput)
         
         testDetails[moduleName] = moduleTestDetails
         
