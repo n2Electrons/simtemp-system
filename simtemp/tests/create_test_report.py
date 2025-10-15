@@ -428,37 +428,16 @@ class DetailedTestReportGenerator:
         return "unknown"
 
     def collect_test_results(self):
-        """Collect test results from test configuration and any available test detail files"""
+        """Collect test results by executing each test suite and generating incremental detail files"""
         start_time = time.time()
         
         # Show detailed configuration overview at the start
         self.show_test_configuration_overview()
         
-        # First, collect results from test_details_*.json files if they exist
-        detail_files = self.find_test_detail_files()
-        for file_path in detail_files:
-            module_name = self.extract_module_name(file_path)
-            test_details = self.load_test_details(file_path)
-            
-            if test_details:
-                self.test_results["modules"][module_name] = test_details
-                self.test_results["summary"]["total_modules"] += 1
-                
-                if "tests" in test_details:
-                    for test in test_details["tests"]:
-                        self.test_results["summary"]["total_tests"] += 1
-                        status = test.get("status", "unknown").lower()
-                        if status == "passed":
-                            self.test_results["summary"]["passed_tests"] += 1
-                        elif status == "failed":
-                            self.test_results["summary"]["failed_tests"] += 1
-                        elif status == "skipped":
-                            self.test_results["summary"]["skipped_tests"] += 1
-        
-        # If no detail files found, generate results from test configuration
-        if self.test_results["summary"]["total_modules"] == 0:
-            self.logger.info("No test detail files found, generating from test configuration")
-            self.generate_from_config()
+        # Always generate fresh results from test configuration
+        # This ensures we always run pytest and capture current test state
+        self.logger.info("Generating fresh test results from test configuration")
+        self.generate_from_config()
         
         self.test_results["summary"]["runtime"] = time.time() - start_time
         self.logger.info(f"Collected results from {self.test_results['summary']['total_modules']} modules")
@@ -649,8 +628,44 @@ class DetailedTestReportGenerator:
             # Parse pytest output
             self.parse_pytest_output(result.stdout, module_data)
             
+            # Generate incremental test detail file for this suite
+            self.generate_suite_detail_file(suite_name, module_data, result)
+            
         except Exception as e:
             self.logger.error(f"Error running pytest for {suite_name}: {e}")
+
+    def generate_suite_detail_file(self, suite_name, module_data, pytest_result):
+        """Generate an incremental test detail file for this specific suite"""
+        try:
+            import datetime
+            
+            # Create timestamp for incremental filename
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            detail_filename = f"test_details_{suite_name}_{timestamp}.json"
+            detail_filepath = os.path.join(self.input_dir, detail_filename)
+            
+            # Prepare detailed test results for this suite
+            suite_details = {
+                "name": suite_name,
+                "description": module_data.get('description', ''),
+                "enabled": module_data.get('enabled', True),
+                "tests": module_data.get('tests', []),
+                "execution_info": {
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "pytest_exit_code": pytest_result.returncode,
+                    "pytest_stdout": pytest_result.stdout,
+                    "pytest_stderr": pytest_result.stderr
+                }
+            }
+            
+            # Write the incremental detail file
+            with open(detail_filepath, 'w') as f:
+                json.dump(suite_details, f, indent=2)
+                
+            self.logger.info(f"Generated incremental test detail file: {detail_filename}")
+            
+        except Exception as e:
+            self.logger.error(f"Error generating suite detail file for {suite_name}: {e}")
 
     def parse_pytest_output(self, pytest_output, module_data):
         """Parse pytest output to extract test results"""
