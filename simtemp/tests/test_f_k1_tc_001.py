@@ -25,11 +25,18 @@ def test_insmod_registers_driver(capsys: pytest.CaptureFixture[str]):
     
     print(f"Testing module: {module_path}")
     
+    # Cleanup silently
+    cleanup_result = subprocess.run(
+        f"{SUDO}rmmod nxp_simtemp", **SHELL_PARAMS
+    )
+    if cleanup_result.returncode == 0:
+        print("Pre-existing module unloaded")
+    
     # Print module info (modinfo output is useful for debugging)
     try:
         modinfo = subprocess.run(
             ['modinfo', module_path], capture_output=True,
-            text=True, timeout=10 # Not all tests need long timeout
+            text=True, timeout=10  # Not all tests need long timeout
         )
         if modinfo.returncode == 0:
             print("\nModule information:")
