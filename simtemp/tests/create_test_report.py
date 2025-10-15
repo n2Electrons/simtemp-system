@@ -541,7 +541,23 @@ class DetailedTestReportGenerator:
             pytest_file = module_config.get('pytest_file')
             if pytest_file is None:
                 # Module explicitly configured to not run pytest
-                self.logger.info(f"Module {suite_name} configured with pytest_file: null - skipping pytest execution")
+                self.logger.info(f"Module {suite_name} configured with pytest_file: null - checking for test details file")
+                
+                # Special handling for jenkins_test module - look for test_details_jenkins_test.json
+                if suite_name == "jenkins_test":
+                    self.logger.info("Special handling for jenkins_test module - looking for test details file")
+                    jenkins_details_file = os.path.join(self.input_dir, "test_details_jenkins_test.json")
+                    if os.path.exists(jenkins_details_file):
+                        self.logger.info(f"Found Jenkins test details file: {jenkins_details_file}")
+                        try:
+                            with open(jenkins_details_file, 'r') as f:
+                                jenkins_results = json.load(f)
+                                self.logger.info(f"Loaded Jenkins test results: {jenkins_results}")
+                                self.match_jenkins_results_to_config(module_data, jenkins_results)
+                        except Exception as e:
+                            self.logger.error(f"Could not parse Jenkins test details file: {e}")
+                    else:
+                        self.logger.warning(f"Jenkins test details file not found at: {jenkins_details_file}")
                 return
             elif not pytest_file:
                 # Fall back to finding all test files (old behavior)
@@ -771,6 +787,48 @@ class DetailedTestReportGenerator:
                         elif status == "skipped":
                             self.test_results["summary"]["skipped_tests"] += 1
                         break
+
+    def match_jenkins_results_to_config(self, module_data, jenkins_results):
+        """Match Jenkins test results to configured test cases"""
+        self.logger.info("Matching Jenkins test results to configuration")
+        
+        if not isinstance(jenkins_results, dict):
+            self.logger.warning("Jenkins results is not a dictionary")
+            return
+            
+        # Look for tests array in Jenkins results
+        jenkins_tests = jenkins_results.get('tests', [])
+        self.logger.info(f"Found {len(jenkins_tests)} tests in Jenkins results")
+        
+        for jenkins_test in jenkins_tests:
+            test_name = jenkins_test.get('name', '')
+            test_status = jenkins_test.get('status', 'unknown').lower()
+            test_duration = jenkins_test.get('duration', 0)
+            test_message = jenkins_test.get('message', '')
+            
+            self.logger.info(f"Processing Jenkins test: {test_name} -> {test_status}")
+            
+            # Find matching configured test
+            for configured_test in module_data['tests']:
+                if configured_test['name'] == test_name:
+                    old_status = configured_test['status']
+                    configured_test['status'] = test_status
+                    configured_test['duration'] = test_duration
+                    configured_test['message'] = test_message
+                    
+                    self.logger.info(f"Updated test '{test_name}': {old_status} -> {test_status}")
+                    
+                    # Update summary counts
+                    if old_status == 'unknown':
+                        if test_status == "passed":
+                            self.test_results["summary"]["passed_tests"] += 1
+                        elif test_status == "failed":
+                            self.test_results["summary"]["failed_tests"] += 1
+                        elif test_status == "skipped":
+                            self.test_results["summary"]["skipped_tests"] += 1
+                    break
+            else:
+                self.logger.warning(f"No configured test found for Jenkins test: {test_name}")
 
     def generate_json_report(self):
         """Generate JSON test report"""
