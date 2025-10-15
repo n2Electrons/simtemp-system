@@ -6,8 +6,8 @@
     "failed_tests": 0,
     "skipped_tests": 0,
     "not_implemented_tests": 6,
-    "timestamp": "2025-10-14T13:40:22.021761",
-    "runtime": 7.014969110488892
+    "timestamp": "2025-10-14T23:04:51.302308",
+    "runtime": 4.153627872467041
   },
   "modules": {
     "jenkins_test": {
@@ -48,8 +48,8 @@
           "message": "Test defined in configuration but no pytest implementation found"
         },
         {
-          "name": "test_insmod_registers_driver               [100%]",
-          "description": "Actual pytest test: test_insmod_registers_driver               [100%]",
+          "name": "test_insmod_registers_driver [100%]",
+          "description": "Actual pytest test: test_insmod_registers_driver [100%]",
           "test_id": "",
           "status": "passed",
           "duration": 0,
@@ -59,7 +59,7 @@
     },
     "kernel_driver": {
       "name": "kernel_driver",
-      "description": "Tests for the  Temperature Simulator Driver",
+      "description": "Tests for the Temperature Simulator Driver",
       "enabled": true,
       "tests": [
         {

@@ -372,7 +372,7 @@ def getEnabledTestSuites(pipelineConfig) {
 
 // Helper function to get repository configuration for a specific test module
 def getModuleRepository(pipelineConfig, moduleName) {
-    def defaultRepo = env.GITHUB_REPO ?: "simtemp-system"
+    def defaultRepo = env.GITHUB_REPO ?: "n2Electrons-Infra"
     
     // Get the test config file path from pipeline config or use discovered one
     def testConfigFile = pipelineConfig.testing?.test_config_file ?: env.TEST_CONFIG_PATH
@@ -1731,7 +1731,7 @@ pipeline {
         // Uso de valores por defecto simplificados para garantizar el funcionamiento de los comentarios en PRs
         // Basado en el commit 00a13a1 que funcionaba correctamente
         GITHUB_OWNER = "${params.GITHUB_OWNER ?: 'n2Electrons'}"
-        GITHUB_REPO = "${params.GITHUB_REPO ?: 'simtemp-system'}"
+        GITHUB_REPO = "${params.GITHUB_REPO ?: 'n2Electrons-Infra'}"
         
         // Infrastructure submodule path (path to this infrastructure within parent repo)
         INFRASTRUCTURE_PATH = "${params.INFRASTRUCTURE_PATH ?: 'infrastructure'}"

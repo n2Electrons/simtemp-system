@@ -11,6 +11,7 @@
   "F-K1": 58,
   "F-K1-TC-001": 61,
   "F-K1-TC-002": 62,
+  "F-K8-TC-001": 72,
   "fix-jenkins-tests": 6,
   "req-trigger-jenkins": 5
 }
