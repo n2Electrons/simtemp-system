@@ -324,6 +324,80 @@ class DetailedTestReportGenerator:
                 return f'<span class="test-id-no-link">[{test_id}]</span>'
         return test_id
 
+    def show_test_configuration_overview(self):
+        """Show a comprehensive overview of all test suites and their configuration"""
+        self.logger.info("=" * 80)
+        self.logger.info("TEST CONFIGURATION OVERVIEW")
+        self.logger.info("=" * 80)
+        
+        if not self.test_config or 'tests' not in self.test_config:
+            self.logger.warning("No test configuration found!")
+            return
+            
+        script_dir = Path(__file__).parent
+        
+        for suite_name, suite_config in self.test_config['tests'].items():
+            enabled = suite_config.get('enabled', True)
+            pytest_file = suite_config.get('pytest_file')
+            own_pipeline = suite_config.get('own_pipeline', False)
+            repository = suite_config.get('repository', 'Not specified')
+            description = suite_config.get('description', 'No description')
+            
+            self.logger.info(f"\nTEST SUITE: {suite_name}")
+            self.logger.info(f"   Enabled: {enabled}")
+            self.logger.info(f"   Own Pipeline: {own_pipeline}")
+            self.logger.info(f"   Repository: {repository}")
+            self.logger.info(f"   Description: {description}")
+            
+            # Show pytest file information
+            if pytest_file is None:
+                self.logger.info(f"   Pytest file: null (no pytest execution)")
+            elif not pytest_file:
+                self.logger.info(f"   Pytest file: auto-discover test_*.py files")
+            else:
+                pytest_path = script_dir / pytest_file
+                exists_status = "EXISTS" if pytest_path.exists() else "NOT FOUND"
+                self.logger.info(f"   Pytest file: {pytest_file} [{exists_status}]")
+                
+                # Show pytest file content summary if it exists
+                if pytest_path.exists():
+                    try:
+                        with open(pytest_path, 'r') as f:
+                            content = f.read()
+                            test_functions = [line.strip().split('(')[0].replace('def ', '')
+                                            for line in content.split('\n')
+                                            if line.strip().startswith('def test_')]
+                            
+                            if test_functions:
+                                self.logger.info(f"   Pytest functions found:")
+                                for func in test_functions:
+                                    self.logger.info(f"      - {func}")
+                            else:
+                                self.logger.info(f"   No test functions found in {pytest_file}")
+                    except Exception as e:
+                        self.logger.info(f"   Could not read {pytest_file}: {e}")
+            
+            # Show configured test cases
+            test_cases = suite_config.get('test_cases', [])
+            if test_cases:
+                self.logger.info(f"   Configured test cases ({len(test_cases)}):")
+                for i, test_case in enumerate(test_cases, 1):
+                    test_name = test_case.get('name', 'Unknown')
+                    test_id = test_case.get('test_id', 'No ID')
+                    test_enabled = test_case.get('enabled', True)
+                    test_desc = test_case.get('description', '')
+                    
+                    status = "ENABLED" if test_enabled else "DISABLED"
+                    self.logger.info(f"      {i}. [{status}] {test_name} (ID: {test_id})")
+                    if test_desc:
+                        self.logger.info(f"         Description: {test_desc}")
+            else:
+                self.logger.info(f"   No test cases configured")
+        
+        self.logger.info("\n" + "=" * 80)
+        self.logger.info("STARTING TEST EXECUTION")
+        self.logger.info("=" * 80)
+
     def find_test_detail_files(self):
         """Find all test_details_{module}.json files in the input directory"""
         pattern = os.path.join(self.input_dir, "test_details_*.json")
@@ -356,6 +430,9 @@ class DetailedTestReportGenerator:
     def collect_test_results(self):
         """Collect test results from test configuration and any available test detail files"""
         start_time = time.time()
+        
+        # Show detailed configuration overview at the start
+        self.show_test_configuration_overview()
         
         # First, collect results from test_details_*.json files if they exist
         detail_files = self.find_test_detail_files()
@@ -498,21 +575,64 @@ class DetailedTestReportGenerator:
                 test_file_path = script_dir / pytest_file
                 if test_file_path.exists():
                     test_files = [test_file_path]
-                    self.logger.info(f"Using specific pytest file for {suite_name}: {pytest_file}")
+                    self.logger.info(f"FOUND pytest file for {suite_name}: {pytest_file}")
+                    self.logger.info(f"Full path: {test_file_path}")
+                    
+                    # Show test file contents summary
+                    try:
+                        with open(test_file_path, 'r') as f:
+                            content = f.read()
+                            test_functions = [line.strip() for line in content.split('\n')
+                                            if line.strip().startswith('def test_')]
+                            self.logger.info(f"Test functions found in {pytest_file}:")
+                            for test_func in test_functions:
+                                self.logger.info(f"   - {test_func}")
+                            if not test_functions:
+                                self.logger.warning(f"No test functions found in {pytest_file}")
+                    except Exception as e:
+                        self.logger.warning(f"Could not read test file contents: {e}")
+                        
                 else:
                     self.logger.error(f"Configured pytest file {pytest_file} not found for module {suite_name}")
+                    self.logger.error(f"   Searched at: {test_file_path}")
                     return
-            
+                    
             if not test_files:
                 self.logger.warning("No test files found")
                 return
                 
             # Convert to relative paths from project root
-            project_root = script_dir.parent.parent  
+            project_root = script_dir.parent.parent
             test_file_paths = [str(f.relative_to(project_root)) for f in test_files]
             
             self.logger.info(f"Project root: {project_root}")
             self.logger.info(f"Test file paths for {suite_name}: {test_file_paths}")
+            
+            # Show configured test cases for this module
+            if module_data and 'tests' in module_data:
+                self.logger.info(f"Configured test cases for {suite_name}:")
+                for test_case in module_data['tests']:
+                    test_name = test_case.get('name', 'Unknown')
+                    test_id = test_case.get('test_id', 'No ID')
+                    enabled = test_case.get('enabled', True)
+                    status = "ENABLED" if enabled else "DISABLED"
+                    self.logger.info(f"   [{status}] {test_name} (ID: {test_id})")
+            
+            # First, run pytest in collect-only mode to see what tests will be discovered
+            collect_cmd = ["python3", "-m", "pytest", "--collect-only", "-q"] + test_file_paths
+            self.logger.info(f"Discovering tests with: {' '.join(collect_cmd)}")
+            
+            try:
+                collect_result = subprocess.run(collect_cmd, capture_output=True, text=True, timeout=30, cwd=project_root)
+                if collect_result.returncode == 0:
+                    self.logger.info("Tests discovered by pytest:")
+                    for line in collect_result.stdout.split('\n'):
+                        if '::test_' in line and line.strip():
+                            self.logger.info(f"   {line.strip()}")
+                else:
+                    self.logger.warning(f"Test discovery failed: {collect_result.stderr}")
+            except Exception as e:
+                self.logger.warning(f"Could not run test discovery: {e}")
             
             # Run pytest with verbose output from the project root directory
             cmd = ["python3", "-m", "pytest", "-v", "--tb=short"] + test_file_paths
