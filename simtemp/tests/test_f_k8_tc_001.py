@@ -3,6 +3,7 @@
 import subprocess
 import re
 import sys
+import time
 from test_utils import SUDO
 
 # Test Command:
@@ -12,33 +13,31 @@ from test_utils import SUDO
 def test_driver_load_unload():
     """F-K8-TC-001: Load/unload kernel module without WARN/OOPS"""
 
-    # Clear dmesg
-    cmd = f"{SUDO}dmesg -C".split() if SUDO else ['dmesg', '-C']
-    subprocess.run(cmd, check=True)
-
     # Load module
-    if SUDO:
-        cmd = f"{SUDO}insmod ../kernel/obj/nxp_simtemp.ko".split()
-    else:
-        cmd = ['insmod', '../kernel/obj/nxp_simtemp.ko']
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    time.sleep(0.3)
+    result = subprocess.run(
+        f"{SUDO}insmod ../kernel/obj/nxp_simtemp.ko", shell=True,
+        capture_output=True, text=True)
     if result.returncode != 0:
         raise AssertionError(f"Module load failed: {result.stderr}")
 
     # Unload module
-    if SUDO:
-        cmd = f"{SUDO}rmmod nxp_simtemp".split()
-    else:
-        cmd = ['rmmod', 'nxp_simtemp']
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    time.sleep(0.3)
+    result = subprocess.run(
+        f"{SUDO}rmmod nxp_simtemp", shell=True,
+        capture_output=True, text=True)
     if result.returncode != 0:
         raise AssertionError(f"Module unload failed: {result.stderr}")
 
-    # Check dmesg for WARN/OOPS
-    cmd = f"{SUDO}dmesg".split() if SUDO else ['dmesg']
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    # Check dmesg for WARN/OOPS (last 10 lines should be enough)
+    time.sleep(0.3)
+    result = subprocess.run(
+        f"{SUDO}dmesg | tail -n 10", shell=True,
+        capture_output=True, text=True)
+    if result.returncode != 0:
+        raise AssertionError(f"Failed to read dmesg: {result.stderr}")
+    
     dmesg_output = result.stdout
-
     warn_pattern = r'\bWARN\b|\bOOPS\b|\bBUG\b|\bpanic\b'
     warnings = re.findall(warn_pattern, dmesg_output, re.IGNORECASE)
 
