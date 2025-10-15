@@ -27,7 +27,7 @@ requirements:
 tests:
   jenkins_test:
     enabled: true
-    repository: "simtemp-system"  # GitHub repository for this test module
+    repository: "n2Electrons-Infra"  # GitHub repository for this test module
     description: "Tests for Jenkins integration and PR detection"
     env:
       SOURCE_FILE: 'jenkins/diagnostics.groovy'
