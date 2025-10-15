@@ -79,7 +79,7 @@ tests:
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Extended Tests for the Temperature Simulator Driver"
     depends_on: ["nxp_simtemp"]  # Module dependency
-    pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this module
+    pytest_file: "test_f_k8_tc_001.py test_f_k1_tc_002.py"  # Multiple pytest files for this module
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
       MODULE_DIR: 'kernel'
@@ -98,5 +98,4 @@ tests:
         test_id: "F-K1-TC-002"  # Maps to test plan ID from issue #62
         debug_info: "This test verifies Device Tree overlay functionality and fails without real DT infrastructure"
         github_issue: 62  # Links to GitHub issue #62
-        pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this test case
 
