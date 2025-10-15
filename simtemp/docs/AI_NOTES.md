@@ -116,4 +116,18 @@ This section documents the AI-assisted creation of comprehensive GitHub integrat
 | **6** | "Create a very simple script in simtemp/scripts/ which updates traceability.yml and execute the github scripts to update links into traceability.yml as well" | Created comprehensive update script that integrates GitHub search and traceability.yml updates in a single command, providing end-to-end automation. | Developed `update_traceability_with_github.py` (later converted to bash); tested 3-step process: GitHub search → traceability update → summary display; verified GitHub links populated correctly. |
 | **7** | "The script should also execute generate_traceability_view.py and generate_statistics_report.py" | Enhanced the script to generate complete traceability reports (HTML view and statistics) as part of the automated workflow. | Extended script to 5-step process including report generation; tested HTML traceability view creation and Markdown statistics report generation; verified all output files created successfully. |
 
-✅ **End of AI_NOTES.md**
+---
+
+## Test Prompts
+
+### F-K1-TC-002
+
+This section documents the AI-assisted development process for test case F-K1-TC-002 (Device Tree overlay driver binding test) in the branch `f-k1-tc-002-dt-overlay`.
+
+| **#** | **Prompt (User Input)** | **Purpose / Outcome** | **Validation Performed** |
+|------|---------------------------|------------------------|---------------------------|
+| **1** | "Create TDD test for F-K1-TC-002 that satisfies the requirements of issue #62" | Implement test of Device Tree overlay for driver binding following TDD methodology | Created comprehensive test that validates DT overlay functionality and satisfies issue #62 requirements |
+| **3** | "Improve test to use modular sub-tests with sysfs paths dictionary" | Create modular structure with sub-test functions and sysfs_paths dictionary for better organization | Implemented modular functions `_test_*` with centralized sysfs path management via dictionary |
+| **4** | "The test must FAIL when there is no real Device Tree overlay infrastructure" | Ensure realistic test behavior that fails appropriately without real DT infrastructure | Implemented `_validate_real_dt_overlay_or_fail()` that guarantees test failure when no real DT overlay is present |
+
+**End of AI_NOTES.md**
