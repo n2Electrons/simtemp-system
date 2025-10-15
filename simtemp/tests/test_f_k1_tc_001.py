@@ -41,7 +41,6 @@ def test_insmod_registers_driver(capsys: pytest.CaptureFixture[str]):
             f"Failed to load driver:\n"
             f"Output: {result.stdout}\n"
             f"Error: {result.stderr}\n"
-            f"Recent dmesg output:\n{dmesg.stdout}"
         )
         
     # Verify module is loaded
@@ -49,7 +48,6 @@ def test_insmod_registers_driver(capsys: pytest.CaptureFixture[str]):
     if lsmod.returncode != 0:
         pytest.fail(
             f"Module not found in lsmod after loading.\n"
-            f"Recent dmesg output:\n{dmesg.stdout}"
         )
     else:
         print(f"\nModule loaded successfully:\n{lsmod.stdout}")
