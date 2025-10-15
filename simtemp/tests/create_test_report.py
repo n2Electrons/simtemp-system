@@ -688,7 +688,7 @@ class DetailedTestReportGenerator:
         lines = pytest_output.split('\n')
         
         for line in lines:
-            # Look for test result lines like: "test_kernel_driver.py::test_insmod_registers_driver PASSED"
+            # Look for test result lines like: "test_f_k1_tc_001.py::test_insmod_registers_driver PASSED"
             if '::test_' in line and (' PASSED' in line or ' FAILED' in line or ' SKIPPED' in line):
                 parts = line.split('::')
                 if len(parts) >= 2:

@@ -24,7 +24,7 @@ simtemp/
 │   ├── config/             # Test configuration
 │   ├── results/            # Test results (generated)
 │   ├── run_tests.sh        # Test runner script
-│   └── test_kernel_driver.py  # Python test cases
+│   └── test_f_k1_tc_001.py  # Python test cases
 ├── scripts/                 # Utility scripts
 │   └── test_jenkins_kernel_pipeline.py  # CI/CD simulation
 ├── pipeline_config.yml      # Jenkins pipeline configuration
@@ -139,7 +139,7 @@ cd simtemp
 
 # Run specific test
 cd tests
-python3 -m pytest test_kernel_driver.py::test_insmod_registers_driver -v
+python3 -m pytest test_f_k1_tc_001.py::test_insmod_registers_driver -v
 ```
 
 ### CI/CD Pipeline Simulation

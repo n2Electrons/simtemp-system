@@ -123,7 +123,7 @@ Execute the automated test suite:
 ./tests/run_tests.sh
 ```
 
-Expected result: `PASSED test_kernel_driver.py::test_insmod_registers_driver`
+Expected result: `PASSED test_f_k1_tc_001.py::test_insmod_registers_driver`
 
 ## Troubleshooting
 
