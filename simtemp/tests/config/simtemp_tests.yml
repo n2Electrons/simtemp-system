@@ -32,7 +32,7 @@ tests:
     description: "Tests for Jenkins integration and PR detection"
     pytest_file: null  # No pytest file - these are Jenkins-specific tests
     env:
-      SOURCE_FILE: 'jenkins/diagnostics.groovy'
+      SOURCE_FILE: 'deployment/jenkins/diagnostics.groovy'
       MODULE_DIR: 'jenkins'
       MODULE_NAME: 'diagnostics.groovy'
     test_cases:

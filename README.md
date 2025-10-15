@@ -64,21 +64,37 @@ gh auth login
 ```
 simtemp-system/
 │
-├── docker/                           # Docker configuration for development
-│   ├── driver/                       # Linux kernel driver container
-│   │   ├── Dockerfile                # Driver container image
-│   │   ├── src/                      # simtemp driver source
-│   │   │   ├── simtemp.c             # Main kernel module
-│   │   │   ├── simtemp.h             # Header definitions
-│   │   │   ├── simtemp_ioctl.h       # IOCTL interface
-│   │   │   ├── Makefile              # Kernel build configuration
-│   │   │   └── Kbuild                # Kernel build rules
-│   │   ├── dts/                      # Device Tree Source
-│   │   │   └── simtemp.dtsi          # DT binding definition
-│   │   └── config/                   # Container configuration
+├── deployment/                       # Deployment and infrastructure
+│   ├── docker/                       # Docker configuration for development
+│   │   ├── driver/                   # Linux kernel driver container
+│   │   │   ├── Dockerfile            # Driver container image
+│   │   │   ├── src/                  # simtemp driver source
+│   │   │   │   ├── simtemp.c         # Main kernel module
+│   │   │   │   ├── simtemp.h         # Header definitions
+│   │   │   │   ├── simtemp_ioctl.h   # IOCTL interface
+│   │   │   │   ├── Makefile          # Kernel build configuration
+│   │   │   │   └── Kbuild            # Kernel build rules
+│   │   │   ├── dts/                  # Device Tree Source
+│   │   │   │   └── simtemp.dtsi      # DT binding definition
+│   │   │   └── config/               # Container configuration
+│   │   │
+│   │   ├── docker-compose.yml        # Container orchestration
+│   │   └── .env                      # Environment variables
 │   │
-│   ├── docker-compose.yml            # Container orchestration
-│   └── .env                          # Environment variables
+│   ├── jenkins/                      # Jenkins CI/CD configurations
+│   │   ├── diagnostics.groovy        # Jenkins diagnostics script
+│   │   └── pipeline_helpers/         # Pipeline utility scripts
+│   │
+│   └── qemu/                         # QEMU infrastructure for DT overlay testing
+│       ├── dtb/                      # Device Tree binaries
+│       │   ├── imx6ul-simtemp.dts    # Base Device Tree source
+│       │   └── imx6ul-simtemp.dtb    # Compiled Device Tree binary
+│       ├── overlay/                  # Device Tree overlays
+│       │   ├── simtemp-test-overlay.dts   # Test overlay source
+│       │   └── simtemp-test-overlay.dtbo  # Compiled overlay binary
+│       ├── images/                   # QEMU system images
+│       ├── kernel/                   # Kernel files for emulation
+│       └── simtemp-dt-overlay.sh     # DT overlay testing script
 │
 ├── user/                             # User space applications
 │   ├── cli/                          # CLI application (required by Challenge 2025)
@@ -220,6 +236,53 @@ struct simtemp_sample {
 - **Containerized kernel development**: Isolated Linux environment
 - **Module compilation**: Out-of-tree build with proper headers
 - **Device simulation**: `/dev/simtemp` and sysfs in container
+
+## QEMU Infrastructure for Device Tree Overlay Testing
+
+This project includes a comprehensive QEMU-based testing infrastructure for Device Tree overlay validation, specifically supporting F-K1-TC-002 test case development.
+
+### QEMU Environment
+
+- **QEMU ARM installed**: With mcimx6ul-evk machine support for i.MX6UL emulation
+- **Cross-compilation toolchain**: gcc-arm-linux-gnueabihf for ARM development  
+- **Device Tree compiler**: dtc for compiling .dts files to .dtb binaries
+- **Host kernel headers**: Using linux-headers-6.14.0-33-generic for compatibility
+
+### Device Tree Files
+
+- **Base DT**: `deployment/qemu/dtb/imx6ul-simtemp.dts` - i.MX6UL board with simtemp sensor node
+- **Overlay DT**: `deployment/qemu/overlay/simtemp-test-overlay.dts` - Test overlay for F-K1-TC-002 validation  
+- **Compiled binaries**: Both .dtb and .dtbo files generated successfully with minor warnings
+
+### Test Infrastructure Script
+
+- **Script**: `deployment/qemu/simtemp-dt-overlay.sh` - Management script for DT overlay testing
+- **Normal mode**: `./deployment/qemu/simtemp-dt-overlay.sh test` - Test fails correctly (expected behavior)
+- **Development mode**: `./deployment/qemu/simtemp-dt-overlay.sh test-dev` - Mock infrastructure for testing test logic
+- **Purpose**: Verify F-K1-TC-002 can detect DT overlay infrastructure when present vs absent
+
+### QEMU Installation
+
+```bash
+sudo apt install -y qemu-system-arm qemu-user-static gcc-arm-linux-gnueabihf device-tree-compiler
+```
+
+### Available i.MX6 Machines
+
+- `mcimx6ul-evk` - Freescale i.MX6UL Evaluation Kit (Cortex-A7)
+- Support for Device Tree overlay infrastructure
+
+### Test Execution Modes
+
+```bash
+# Normal mode - test should FAIL (correct behavior)
+./deployment/qemu/simtemp-dt-overlay.sh test
+
+# Development mode - with mock infrastructure  
+./deployment/qemu/simtemp-dt-overlay.sh test-dev
+```
+
+**Note**: F-K1-TC-002 test is designed to fail without real Device Tree overlay infrastructure. This is the correct behavior and validates that the test can properly detect the presence or absence of DT overlay support.
 
 ## Advantages of this Structure
 

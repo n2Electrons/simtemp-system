@@ -521,7 +521,7 @@ def executeJenkinsTests() {
     echo "[INFO] Test 3: Jenkins PR processing test"
     try {
         // Load diagnostics module for better PR detection
-        def diagnostics = load('jenkins/diagnostics.groovy')
+        def diagnostics = load('deployment/jenkins/diagnostics.groovy')
         
         // Print environment diagnostics
         diagnostics.printEnvironmentDiagnostics()
