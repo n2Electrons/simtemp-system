@@ -102,6 +102,10 @@ coverage.xml
 docs/_build/
 .readthedocs.yml
 
+# Test reports and generated files
+simtemp/tests/reports/*.html
+simtemp/tests/reports/*.json
+
 # Local configuration files that shouldn't be shared
 config/local_*.json
 *.local

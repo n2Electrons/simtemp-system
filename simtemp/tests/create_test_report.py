@@ -949,6 +949,8 @@ class DetailedTestReportGenerator:
                     
                     # Map status to CSS class and icon
                     status_icon = ""
+                    status_text = status.upper()
+                    
                     if status in ["passed", "failed", "skipped"]:
                         css_class = status
                         if status == "passed":
@@ -959,7 +961,13 @@ class DetailedTestReportGenerator:
                             status_icon = "⏭️"
                     elif status == "not implemented":
                         css_class = "not-implemented"
-                        status_icon = "⚪"
+                        # Special handling for Jenkins tests
+                        if module_name == "jenkins_test":
+                            status_icon = "🔄"
+                            status_text = "CHECK PIPELINE REPORT"
+                        else:
+                            status_icon = "⚪"
+                            status_text = "NOT IMPLEMENTED"
                     elif status == "in progress":
                         css_class = "in-progress"
                         status_icon = "🟡"
@@ -975,7 +983,7 @@ class DetailedTestReportGenerator:
                     
                     html_content += f"""
         <div class="test {css_class}">
-            <strong>{status_icon} {test_title}</strong> - {status.upper()}
+            <strong>{status_icon} {test_title}</strong> - {status_text}
             <br><small>{test_desc}</small>
         </div>
 """
