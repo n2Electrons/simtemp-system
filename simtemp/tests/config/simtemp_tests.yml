@@ -27,6 +27,7 @@ requirements:
 tests:
   jenkins_test:
     enabled: true
+    repository: "simtemp-system"  # GitHub repository for this test module
     description: "Tests for Jenkins integration and PR detection"
     env:
       SOURCE_FILE: 'jenkins/diagnostics.groovy'
@@ -52,6 +53,7 @@ tests:
         
   kernel_driver:
     enabled: true
+    repository: "n2Electrons-Infra"  # GitHub repository for this test module  
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Tests for the Temperature Simulator Driver"
     depends_on: ["nxp_simtemp"]  # Module dependency

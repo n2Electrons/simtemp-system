@@ -370,6 +370,38 @@ def getEnabledTestSuites(pipelineConfig) {
     return enabledTestSuites
 }
 
+// Helper function to get repository configuration for a specific test module
+def getModuleRepository(pipelineConfig, moduleName) {
+    def defaultRepo = env.GITHUB_REPO ?: "simtemp-system"
+    
+    // Get the test config file path from pipeline config or use discovered one
+    def testConfigFile = pipelineConfig.testing?.test_config_file ?: env.TEST_CONFIG_PATH
+    if (!testConfigFile || !fileExists(testConfigFile)) {
+        echo "No test config file found, using default repository: ${defaultRepo}"
+        return defaultRepo
+    }
+    
+    try {
+        // Read and parse the YAML test configuration
+        def testConfigYaml = readYaml file: testConfigFile
+        
+        // Check if module configuration exists with repository setting
+        if (testConfigYaml.tests?."${moduleName}"?.repository) {
+            def moduleRepo = testConfigYaml.tests."${moduleName}".repository
+            echo "Found repository configuration for module '${moduleName}': ${moduleRepo}"
+            return moduleRepo
+        } else {
+            echo "No repository configured for module '${moduleName}', using default: ${defaultRepo}"
+            return defaultRepo
+        }
+        
+    } catch (Exception e) {
+        echo "ERROR: Failed to read repository config for module '${moduleName}': ${e.message}"
+        echo "Using default repository: ${defaultRepo}"
+        return defaultRepo
+    }
+}
+
 // Helper function to get test suites from stage configuration
 def getStageTestSuites(pipelineConfig) {
     def stageTestSuites = []
@@ -907,6 +939,10 @@ def runModuleTests() {
     for (def moduleName in enabledModules) {
         echo "🔍 DEBUG: Processing test module: ${moduleName}"
         
+        // Get repository configuration for this module
+        def moduleRepository = getModuleRepository(pipelineConfig, moduleName)
+        echo "Using repository '${moduleRepository}' for module '${moduleName}'"
+        
         def result = 0
         def testOutput = ""
         
@@ -1048,6 +1084,9 @@ def sendConsolidatedPRComment() {
         echo "DEBUG: PR comment disabled by parameter"
         return
     }
+    
+    // Load pipeline configuration to get module repositories
+    def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
     
     // Load GitHub issue mappings dynamically from configuration files
     def githubIssueMapping = loadGitHubIssueMappings()
@@ -1321,7 +1360,8 @@ def sendConsolidatedPRComment() {
 }
 
 // Function to send PR comment with job results
-def sendPRComment(status, details = '') {
+def sendPRComment(status, details = '', targetRepo = null) {
+    def githubRepo = targetRepo ?: env.GITHUB_REPO
     // Try to automatically detect PR number from various environment variables
     def prNumber = null
     
@@ -1377,7 +1417,7 @@ def sendPRComment(status, details = '') {
                             curl -s \\
                             -H "Authorization: token ${GITHUB_TOKEN}" \\
                             -H "Accept: application/vnd.github.v3+json" \\
-                            "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/pulls?state=open&head=${env.GITHUB_OWNER}:${cleanBranch}"
+                            "https://api.github.com/repos/${env.GITHUB_OWNER}/${githubRepo}/pulls?state=open&head=${env.GITHUB_OWNER}:${cleanBranch}"
                         """,
                         returnStdout: true
                     ).trim()
@@ -1401,7 +1441,7 @@ def sendPRComment(status, details = '') {
                             echo "Found PR #${prNumber} for branch '${cleanBranch}'"
                         } else {
                             // Try alternative approach without owner prefix
-                            def apiUrl = "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/pulls?state=open&head=${cleanBranch}"
+                            def apiUrl = "https://api.github.com/repos/${env.GITHUB_OWNER}/${githubRepo}/pulls?state=open&head=${cleanBranch}"
                             
                             response = sh(
                                 script: """
@@ -1429,7 +1469,7 @@ def sendPRComment(status, details = '') {
                             
                             // Last resort - get all PRs and filter
                             if (!prNumber) {
-                                def allPRsUrl = "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/pulls?state=open"
+                                def allPRsUrl = "https://api.github.com/repos/${env.GITHUB_OWNER}/${githubRepo}/pulls?state=open"
                                 
                                 response = sh(
                                     script: """
@@ -1569,7 +1609,7 @@ def sendPRComment(status, details = '') {
                     -H "Accept: application/vnd.github.v3+json" \\
                     -H "Content-Type: application/json" \\
                     -d @"${commentFile}" \\
-                    "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/issues/${prNumber}/comments"
+                    "https://api.github.com/repos/${env.GITHUB_OWNER}/${githubRepo}/issues/${prNumber}/comments"
                 """,
                 returnStdout: true
             ).trim()
@@ -1590,7 +1630,8 @@ def sendPRComment(status, details = '') {
 }
 
 // Function to test PR comment functionality
-def postPRComment() {
+def postPRComment(targetRepo = null) {
+    def githubRepo = targetRepo ?: env.GITHUB_REPO
     echo "Preparing PR comment..."
     
     def prNumber = null
@@ -1620,7 +1661,7 @@ def postPRComment() {
                     curl -s -w "%{http_code}" \\
                     -H "Authorization: token ${GITHUB_TOKEN}" \\
                     -H "Accept: application/vnd.github.v3+json" \\
-                    "https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}" \\
+                    "https://api.github.com/repos/${env.GITHUB_OWNER}/${githubRepo}" \\
                     -o /dev/null
                 """,
                 returnStdout: true
