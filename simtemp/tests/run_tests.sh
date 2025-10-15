@@ -52,7 +52,7 @@ python3 -m pytest \
     -v \
     --tb=short \
     -rA \
-    test_kernel_driver.py \
+    test_f_k1_tc_001.py \
     "$@"
 
 TEST_EXIT_CODE=$?
