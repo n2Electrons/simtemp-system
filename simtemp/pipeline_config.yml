@@ -16,6 +16,11 @@ global:
   fail_fast: true
   parallel_builds: false  # Kernel modules should be built sequentially
 
+# Repository configuration for multi-repo support
+repository:
+  # Repository where the current PR is located (for PR comments)
+  pr_target: "simtemp-system"
+  
 # Build tools and environment
 build_tools:
   c_compiler:

@@ -1395,8 +1395,29 @@ def sendConsolidatedPRComment() {
     // Join all lines into final comment
     def finalComment = commentLines.join('\n')
     
-    // Send the comment using the basic sendPRComment function
-    sendPRComment(overallStatus, finalComment)
+    // Send the comment using the basic sendPRComment function with target repository
+    sendPRComment(overallStatus, finalComment, githubRepo)
+}
+
+// Function to determine the target repository for PR comments based on configuration
+def getPRTargetRepository(pipelineConfig) {
+    def targetRepo = env.GITHUB_REPO ?: "n2Electrons-Infra"  // Default fallback
+    
+    try {
+        // Check if repository configuration exists in pipeline config
+        if (pipelineConfig.repository?.pr_target) {
+            targetRepo = pipelineConfig.repository.pr_target
+            echo "Using PR target repository from pipeline config: ${targetRepo}"
+        } else {
+            echo "No repository.pr_target configuration found in pipeline config, using default: ${targetRepo}"
+        }
+        
+    } catch (Exception e) {
+        echo "ERROR: Failed to read repository configuration from pipeline config: ${e.message}"
+        echo "Using default repository for PR: ${targetRepo}"
+    }
+    
+    return targetRepo
 }
 
 // Function to send PR comment with job results
@@ -1670,9 +1691,17 @@ def sendPRComment(status, details = '', targetRepo = null) {
 }
 
 // Function to test PR comment functionality
-def postPRComment(targetRepo = null) {
-    def githubRepo = targetRepo ?: env.GITHUB_REPO
+def postPRComment(pipelineConfig = null) {
     echo "Preparing PR comment..."
+    
+    // Determine target repository for PR comments
+    def githubRepo = env.GITHUB_REPO
+    if (pipelineConfig) {
+        githubRepo = getPRTargetRepository(pipelineConfig)
+        echo "Using target repository from config: ${githubRepo}"
+    } else {
+        echo "No pipeline config provided, using default repository: ${githubRepo}"
+    }
     
     def prNumber = null
     
@@ -1938,7 +1967,7 @@ pipeline {
                     // Run PR comment test if enabled
                     if (params.PUBLISH_PR_COMMENT) {
                         echo "Testing PR comment functionality..."
-                        postPRComment()
+                        postPRComment(pipelineConfig)
                     }
                 }
             }
