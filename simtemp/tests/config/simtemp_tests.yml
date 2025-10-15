@@ -59,7 +59,7 @@ tests:
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Tests for the Temperature Simulator Driver (Infrastructure)"
     depends_on: ["nxp_simtemp"]  # Module dependency
-    pytest_file: "test_kernel_driver.py"  # Specific pytest file for this module
+    pytest_file: "test_f_k1_tc_001.py"  # Specific pytest file for this module
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
       MODULE_DIR: 'kernel'
