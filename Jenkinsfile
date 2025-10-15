@@ -1003,7 +1003,7 @@ def runModuleTests() {
         echo "Using test runner: ${testRunner}"
         echo "Using test config: ${testConfigFile}"
             
-        def testScript = """cd ${WORKSPACE} && python3 ${testRunner}"""
+        def testScript = """cd ${WORKSPACE} && python3 ${testRunner} --verbose"""
         
         try {
             testOutput = sh(script: testScript, returnStdout: true)
