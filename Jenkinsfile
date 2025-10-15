@@ -424,7 +424,7 @@ def getTestStageModules(pipelineConfig) {
 
 // Helper function to get repository configuration for a specific test module
 def getModuleRepository(pipelineConfig, moduleName) {
-    def defaultRepo = env.GITHUB_REPO ?: "n2Electrons-Infra"
+    def defaultRepo = env.GITHUB_REPO ?: "simtemp-system"
     
     // Get the test config file path from pipeline config or use discovered one
     def testConfigFile = pipelineConfig.testing?.test_config_file ?: env.TEST_CONFIG_PATH
