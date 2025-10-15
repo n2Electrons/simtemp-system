@@ -139,7 +139,7 @@ cd simtemp
 
 # Run specific test
 cd tests
-python3 -m pytest test_f_k1_tc_001.py::test_insmod_registers_driver -v
+python3 -m pytest test_f_k1_tc_001.py::test_insmod_registers_driver -v --tb=short
 ```
 
 ### CI/CD Pipeline Simulation

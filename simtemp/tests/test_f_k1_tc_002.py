@@ -199,4 +199,4 @@ def _validate_real_dt_overlay_or_fail(sysfs_paths):
 
 
 if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    pytest.main([__file__, '-v', '--tb=short'])

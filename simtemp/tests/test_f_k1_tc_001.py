@@ -97,4 +97,4 @@ def test_insmod_registers_driver(capsys: pytest.CaptureFixture[str]):
 
 
 if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    pytest.main([__file__, '-v', '--tb=short'])

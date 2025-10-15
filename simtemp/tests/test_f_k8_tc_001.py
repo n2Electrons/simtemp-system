@@ -59,4 +59,4 @@ def test_driver_load_unload(capsys):
 
 
 if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    pytest.main([__file__, '-v', '--tb=short'])
