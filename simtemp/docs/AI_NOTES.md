@@ -174,3 +174,17 @@ This documentation captures the authentic conversation flow that led to a comple
 ---
 
 **End of AI_NOTES.md**
+
+---
+
+## QEMU Setup and Device Tree Overlay Testing Infrastructure
+
+This section documents the AI-assisted setup of QEMU emulation environment for Device Tree overlay testing, continuation of F-K1-TC-002 development.
+
+| **#** | **Prompt (User Input)** | **Purpose / Outcome** | **Validation Performed** |
+|------|---------------------------|------------------------|---------------------------|
+| **1** | "I need to install QEMU for an i.MX6 system. I've completed the F-K1-TC-002 test implementation and it's working correctly - it fails when there's no real Device Tree overlay infrastructure, which is the expected behavior. Now I want to set up a proper emulation environment for i.MX6 to enable real Device Tree overlay testing in the future. This is the next logical step to move from mock testing to actual hardware emulation." | Install QEMU with ARM support for i.MX6 emulation to enable real Device Tree overlay testing environment | Verified QEMU installation with mcimx6ul-evk machine support available, confirmed ARM cross-compilation toolchain installation |
+| **2** | "Can we make the kernel headers match those of this host? Instead of downloading an external kernel image for QEMU, I'd prefer to use the host system's kernel headers for consistency and compatibility. This approach should avoid version mismatches and simplify the development environment by leveraging the existing kernel infrastructure on my development machine." | Use host kernel headers instead of external kernel for compatibility and consistency | Installed linux-headers matching host kernel version (6.14.0-33-generic), avoided downloading external kernel |
+| **3** | "I don't want to simulate the test passing" | Ensure test still fails correctly without real DT overlay infrastructure - maintain test integrity | Confirmed F-K1-TC-002 fails as expected - this is the correct behavior. Mock infrastructure only for development testing |
+
+**End of AI_NOTES.md**
