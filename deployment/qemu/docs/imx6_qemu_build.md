@@ -188,10 +188,21 @@ mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs -o mode=0755 none /dev
 exec /bin/cttyhack /bin/sh
 ```
+alternative (working)
+```sh
+#!/bin/sh
+mount -t proc     proc /proc
+mount -t sysfs    sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs -o mode=0755 none /dev
+[ -c /dev/console ] || mknod -m 600 /dev/console c 5 1
+[ -c /dev/null ]    || mknod -m 666 /dev/null    c 1 3
+echo "=== initramfs ready ==="
+exec setsid /bin/sh </dev/console >/dev/console 2>&1
+```
 
 Then run:
 ```bash
-qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -no-reboot   -kernel linux-imx-5.10.72/arch/arm/boot/zImage   -dtb linux-imx-5.10.72/arch/arm/boot/dts/imx6q-sabrelite.dtb   -initrd rootfs.cpio.gz   -append "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 rdinit=/init loglevel=8"
+qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -no-reboot   -kernel linux-imx-5.10.72/arch/arm/boot/zImage   -dtb linux-imx-5.10.72/arch/arm/boot/dts/imx6q-sabresd.dtb   -initrd rootfs.cpio.gz   -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init loglevel=8"   -monitor telnet:127.0.0.1:45454,server,nowait
 ```
 
 **Notes**
@@ -201,13 +212,36 @@ qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -no-reboot   -ker
 ---
 ---
 
-## 4) Common issues
+## Avoid max11801_ts FIFO driver message
+### Option 1 — Disable the driver in the kernel
+```bash
+cd linux-imx-5.10.72
+./scripts/config --disable CONFIG_TOUCHSCREEN_MAX11801
+make olddefconfig
+make -j"$(nproc)" zImage dtbs
+```
 
-- **Error -8 in init:** BusyBox not static or wrong architecture. Rebuild BusyBox.  
-- **“VFS: Unable to mount root fs”** → missing `-initrd` or wrong `rdinit=/init`.  
-- **No console output:** wrong UART configuration.  
-- **Ctrl+C not working:** use **Ctrl+a, x** to exit QEMU.
+### Option 2 — Disable the DT node
+Decompile, edit, recompile the DTB and set the touchscreen node to status = "disabled";.
+```bash
+dtc -I dtb -O dts -o tmp.dts arch/arm/boot/dts/imx6q-sabresd.dtb   # or sabrelite.dtb
+sed -ri 's/(touchscreen@48[^\n]*\{)/\1\n\tstatus = "disabled";/' tmp.dts
+dtc -I dts -O dtb -o imx6q-sabresd.no-ts.dtb tmp.dts
+```
 
+### Option 3 — Blacklist the module (only if built as m)
+
+In your initramfs:
+```bash
+mkdir -p rootfs/etc/modprobe.d
+printf "blacklist max11801_ts\n" > rootfs/etc/modprobe.d/blacklist.conf
+# repack initramfs afterward
+```
+
+### Noise-only workaround
+```bash
+-append "... loglevel=4"
+```
 ---
 
 ## 5) Next step
