@@ -26,7 +26,7 @@ def test_qemu_driver_load_unload():
         if cleanup_qemu_processes():
             print("✓ Existing QEMU processes cleaned up")
         else:
-            print("⚠️ Warning: Some issues during QEMU cleanup")
+            print("Warning: Some issues during QEMU cleanup")
         
         # Path to the QEMU launch script
         qemu_script = os.path.join(
@@ -62,6 +62,7 @@ def test_qemu_driver_load_unload():
             print("Launching QEMU...")
             qemu_process = subprocess.Popen(
                 [qemu_script],
+                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -92,7 +93,7 @@ def test_qemu_driver_load_unload():
             print("✓ QEMU boot completed successfully")
             
             # Now perform kernel module testing within QEMU
-            print("\n🔧 Testing kernel module load/unload in QEMU...")
+            print("\nTesting kernel module load/unload in QEMU...")
             
             # Test sequence of commands to send to QEMU
             test_commands = [
@@ -121,7 +122,7 @@ def test_qemu_driver_load_unload():
                  "Check for warnings after rmmod"),
                 
                 # Verify module is unloaded
-                ("lsmod | grep nxp_simtemp || echo 'Module successfully unloaded'",
+                ("lsmod | grep nxp_simtemp || echo 'Module unloaded'",
                  "Verify module is unloaded"),
                 
                 # Load module again for final verification
@@ -146,9 +147,10 @@ def test_qemu_driver_load_unload():
                 # Read some output
                 output_collected = []
                 start_time = time.time()
-                while time.time() - start_time < 5:  # 5 second timeout per command
+                # 5 second timeout per command
+                while time.time() - start_time < 5:
                     if qemu_process.poll() is not None:
-                        print("⚠️ QEMU process terminated unexpectedly")
+                        print("QEMU process terminated unexpectedly")
                         break
                         
                     try:
