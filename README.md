@@ -132,6 +132,13 @@ simtemp-system/
 │       ├── signal_processing.m       # Signal processing utilities
 │       └── data_converter.m          # Data format converters
 │
+├── src/                              # Source code components
+│   └── hello/                        # Hello World ARM application
+│       ├── hello_world.c             # ARM Hello World source code
+│       ├── hello_world               # Compiled ARM binary
+│       ├── Makefile                  # ARM cross-compilation build
+│       └── README.md                 # Hello World documentation
+│
 ├── communication/                    # Communication interfaces
 │   ├── kernel-interface/             # Kernel driver communication
 │   │   ├── device_reader.py          # /dev/simtemp device reader

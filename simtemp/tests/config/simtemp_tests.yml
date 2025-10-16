@@ -93,3 +93,40 @@ tests:
         test_id: "F-K8-TC-001"
         debug_info: "This test verifies clean module load/unload operations"
 
+  qemu_integration:
+    enabled: true
+    repository: "simtemp-system"  # GitHub repository for this test module
+    debug_verbose: true  # Enable detailed debug output for this module
+    description: "QEMU i.MX6 Integration Tests for Jenkins CI/CD"
+    pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this module
+    env:
+      QEMU_DIR: 'deployment/qemu'
+      HELLO_SRC_DIR: 'src/hello'
+      KERNEL_IMAGE: 'deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage'
+      DTB_FILE: 'deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabrelite.dtb'
+      ROOTFS_IMAGE: 'deployment/qemu/rootfs-hello.cpio.gz'
+      # BUILD_SCRIPT removed - binaries are pre-compiled on host
+      TEST_SCRIPT: 'deployment/qemu/scripts/jenkins-hello-world-test.sh'
+    test_cases:
+      - name: "hello_world_qemu_boot"
+        description: "Verifies QEMU i.MX6 boots with Hello World program"
+        enabled: true
+        test_id: "F-K1-TC-002"
+        debug_info: "This test runs Hello World in QEMU i.MX6 emulation"
+        timeout_seconds: 45  # QEMU test specific timeout
+      - name: "arm_cross_compilation"
+        description: "Verifies ARM binaries are pre-compiled and ready"
+        enabled: true
+        test_id: "F-K1-TC-003"
+        debug_info: "This test validates pre-compiled ARM binaries exist and are correct"
+      - name: "device_tree_loading"
+        description: "Verifies Device Tree loading in QEMU"
+        enabled: true
+        test_id: "F-K1-TC-004"
+        debug_info: "This test confirms DTB loading and kernel recognition"
+      - name: "jenkins_integration_ready"
+        description: "Confirms Jenkins integration readiness"
+        enabled: true
+        test_id: "F-K1-TC-005"
+        debug_info: "This test validates Jenkins CI/CD pipeline integration"
+
