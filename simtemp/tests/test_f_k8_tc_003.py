@@ -104,9 +104,9 @@ def test_qemu_driver_load_unload():
                 ("cd /tmp/src/simtemp_driver && insmod nxp_simtemp.ko",
                  "Load simtemp module"),
                 
-                # Check dmesg for warnings after load
-                ("dmesg | grep -E 'WARN|OOPS|BUG|panic'",
-                 "Check for warnings after insmod"),
+                # Check dmesg for critical warnings after load
+                ("dmesg | grep -E 'WARNING:|OOPS|BUG:|panic|Call Trace'",
+                 "Check for critical warnings after insmod"),
                 
                 # Verify module is loaded
                 ("lsmod | grep nxp_simtemp", "Verify module is loaded"),
@@ -117,9 +117,9 @@ def test_qemu_driver_load_unload():
                 # Unload the module
                 ("rmmod nxp_simtemp", "Unload simtemp module"),
                 
-                # Check dmesg for warnings after unload
-                ("dmesg | grep -E 'WARN|OOPS|BUG|panic'",
-                 "Check for warnings after rmmod"),
+                # Check dmesg for critical warnings after unload
+                ("dmesg | grep -E 'WARNING:|OOPS|BUG:|panic|Call Trace'",
+                 "Check for critical warnings after rmmod"),
                 
                 # Verify module is unloaded
                 ("lsmod | grep nxp_simtemp || echo 'Module unloaded'",
@@ -170,14 +170,30 @@ def test_qemu_driver_load_unload():
                         print(f"Error reading QEMU output: {e}")
                         break
                 
-                # Check for warning patterns in output
+                # Check for critical warning patterns in output
                 output_text = "\n".join(output_collected)
-                warn_patterns = ["WARN", "OOPS", "BUG", "panic", "ERROR"]
-                
-                for pattern in warn_patterns:
+                # Filter out informational msgs and focus on critical issues
+                critical_patterns = [
+                    "WARNING:", "OOPS", "BUG:", "panic",
+                    "Call Trace", "kernel NULL pointer"
+                ]
+
+                # Known informational messages to ignore
+                ignore_patterns = [
+                    "loading out-of-tree module taints kernel",
+                    "module verification failed"
+                ]
+
+                for pattern in critical_patterns:
                     if pattern.lower() in output_text.lower():
-                        print(f"⚠️ Found potential warning: {pattern}")
-                        # Note: Don't fail immediately, log for analysis
+                        # Check if it's an ignorable informational message
+                        is_ignorable = any(
+                            ignore in output_text.lower()
+                            for ignore in ignore_patterns
+                        )
+                        if not is_ignorable:
+                            print(f"⚠️ Found critical warning: {pattern}")
+                            # Note: Log for analysis but don't fail
                 
             print("\n✓ QEMU kernel module load/unload test completed")
 

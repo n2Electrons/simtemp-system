@@ -651,13 +651,12 @@ class DetailedTestReportGenerator:
             self.logger.error(f"Error running pytest for {suite_name}: {e}")
 
     def generate_suite_detail_file(self, suite_name, module_data, pytest_result):
-        """Generate an incremental test detail file for this specific suite"""
+        """Generate a test detail file for this specific suite"""
         try:
             import datetime
             
-            # Create timestamp for incremental filename
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            detail_filename = f"test_details_{suite_name}_{timestamp}.json"
+            # Use fixed filename to avoid accumulation of files
+            detail_filename = f"test_details_{suite_name}.json"
             detail_filepath = os.path.join(self.input_dir, detail_filename)
             
             # Prepare detailed test results for this suite
@@ -678,7 +677,7 @@ class DetailedTestReportGenerator:
             with open(detail_filepath, 'w') as f:
                 json.dump(suite_details, f, indent=2)
                 
-            self.logger.info(f"Generated incremental test detail file: {detail_filename}")
+            self.logger.info(f"Generated test detail file: {detail_filename}")
             
         except Exception as e:
             self.logger.error(f"Error generating suite detail file for {suite_name}: {e}")

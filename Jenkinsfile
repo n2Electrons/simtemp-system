@@ -1067,6 +1067,18 @@ def runModuleTests() {
     // Generate detailed JSON test reports after all tests complete
     echo "🔧 Generating detailed JSON test reports..."
     try {
+        // Clean up old timestamped test detail files first
+        echo "🧹 Cleaning up old timestamped test detail files..."
+        try {
+            sh """
+                cd simtemp/tests
+                python3 cleanup_test_artifacts.py || echo "⚠️ Cleanup script failed, using fallback"
+                find /tmp -name 'test_details_*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].json' -delete 2>/dev/null || true
+            """
+        } catch (Exception e) {
+            echo "⚠️ Warning: Could not clean timestamped files: ${e.message}"
+        }
+        
         // Debug: Show test detail files before cleanup
         echo "📋 Test detail files in /tmp before cleanup:"
         try {
