@@ -7,6 +7,10 @@ import pytest
 from test_utils import SUDO, obj_path, SHELL_PARAMS
 from test_f_k1_tc_001 import insmod_module, rmmod_module
 
+# Execute with:
+# python3 -m pytest test_f_k1_tc_001.py -v
+# or
+# python3 -m pytest test_f_k1_tc_001.py -v -s
 
 def test_driver_load_unload(capsys):
     """F-K8-TC-001: Load/unload kernel module without WARN/OOPS"""
