@@ -484,7 +484,8 @@ def executeJenkinsTests() {
     echo "[INFO] Test 1: Jenkins connectivity test"
     try {
         def response = sh(script: "curl -s -w '%{http_code}' -o /dev/null http://localhost:8080/api/json || echo '000'", returnStdout: true).trim()
-        if (response == "200" || response == "403") { // 403 is also OK, means Jenkins is running but needs auth
+        if (response == "200" || response == "403") // 403 is also OK, means Jenkins is running but needs auth
+        {
             testOutput.add("Test 1: connectivity ✅")
             echo "[SUCCESS] Jenkins connectivity test passed"
         } else {
@@ -2002,14 +2003,6 @@ pipeline {
         }
 
         stage('Build Simtemp Driver for QEMU') {
-            when {
-                // Only run this stage if QEMU infrastructure is being tested
-                anyOf {
-                    expression { params.BUILD_MODULES?.contains('simtemp') }
-                    expression { params.TEST_MODULES?.contains('simtemp') }
-                    expression { env.CHANGE_TARGET } // Always run on PR builds
-                }
-            }
             steps {
                 script {
                     echo "=== Building Simtemp Driver for QEMU ARM Environment ==="
@@ -2023,28 +2016,32 @@ pipeline {
                         ]
                         
                         withEnv(buildEnv) {
-                            // Execute the simtemp driver build script
+                            // Execute the simtemp driver build script and check result
                             sh '''
-                                echo "� Building simtemp driver for QEMU environment..."
+                                set -e
+                                echo "Building simtemp driver for QEMU environment..."
                                 cd deployment/qemu
                                 
-                                # Verify build script exists and is executable
                                 if [ ! -x scripts/build_simtemp_driver.sh ]; then
-                                    echo "❌ Build script not found or not executable: scripts/build_simtemp_driver.sh"
+                                    echo "Build script not found or not executable: scripts/build_simtemp_driver.sh"
                                     ls -la scripts/
                                     exit 1
                                 fi
                                 
-                                # Execute the build script with environment variables
-                                echo "🔨 Running simtemp driver build script..."
+                                # Execute the build script
                                 ./scripts/build_simtemp_driver.sh
-                                
-                                echo "✅ Simtemp driver build completed successfully"
+                                BUILD_RESULT=$?
+                                if [ $BUILD_RESULT -eq 0 ]; then
+                                    echo "Simtemp driver build completed successfully"
+                                else
+                                    echo "Simtemp driver build failed with exit code $BUILD_RESULT"
+                                    exit $BUILD_RESULT
+                                fi
                             '''
                         }
                         
                     } catch (Exception e) {
-                        echo "❌ Failed to build simtemp driver for QEMU: ${e.message}"
+                        echo "Failed to build simtemp driver for QEMU: ${e.message}"
                         throw e
                     }
                 }
