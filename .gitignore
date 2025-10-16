@@ -113,5 +113,5 @@ simtemp/kernel/obj/
 
 # QEMU Build Artifacts and Binaries - Added for QEMU integration
 deployment/qemu/linux-imx-*/
-deployment/qemu/busybox/
-deployment/qemu/rootfs.*
+deployment/qemu/busybox*/
+deployment/qemu/rootfs*/
