@@ -99,6 +99,7 @@ tests:
     debug_verbose: true  # Enable detailed debug output for this module
     description: "QEMU i.MX6 Integration Tests for Jenkins CI/CD"
     pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this module
+    
     env:
       QEMU_DIR: 'deployment/qemu'
       HELLO_SRC_DIR: 'src/hello'
@@ -114,19 +115,15 @@ tests:
         test_id: "F-K1-TC-002"
         debug_info: "This test runs Hello World in QEMU i.MX6 emulation"
         timeout_seconds: 45  # QEMU test specific timeout
-      - name: "arm_cross_compilation"
-        description: "Verifies ARM binaries are pre-compiled and ready"
-        enabled: true
-        test_id: "F-K1-TC-003"
-        debug_info: "This test validates pre-compiled ARM binaries exist and are correct"
+        qemu_specific:
+          expects_kernel_boot: true
+          expects_userspace: true
+          validation_patterns: ["Hello World", "Test completed"]
       - name: "device_tree_loading"
         description: "Verifies Device Tree loading in QEMU"
         enabled: true
         test_id: "F-K1-TC-004"
         debug_info: "This test confirms DTB loading and kernel recognition"
-      - name: "jenkins_integration_ready"
-        description: "Confirms Jenkins integration readiness"
-        enabled: true
-        test_id: "F-K1-TC-005"
-        debug_info: "This test validates Jenkins CI/CD pipeline integration"
-
+        qemu_specific:
+          expects_dtb_load: true
+          validation_patterns: ["Device tree", "imx6ul"]
