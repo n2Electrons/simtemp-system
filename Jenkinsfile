@@ -1927,7 +1927,7 @@ pipeline {
             }
         }
 
-        stage('Jenkins_test') {
+        stage('Jenkins-Test') {
             steps {
                 script {
                     echo "=== Jenkins Integration Test Stage ==="

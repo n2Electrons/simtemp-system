@@ -25,37 +25,6 @@ requirements:
 
 # Test case configurations
 tests:
-  jenkins_test:
-    enabled: true
-    own_pipeline: true  # This module has its own dedicated pipeline stage
-    repository: "n2Electrons-Infra"  # GitHub repository for this test module (has JENKINS secrets)
-    description: "Tests for Jenkins integration and PR detection"
-    env:
-      SOURCE_FILE: 'deployment/jenkins/diagnostics.groovy'
-      MODULE_DIR: 'jenkins'
-      MODULE_NAME: 'diagnostics.groovy'
-    test_cases:
-      - name: "connectivity"
-        description: "Verifies connectivity to Jenkins server"
-        enabled: true
-        test_id: "F-J1-TC-001"
-        pytest_file: null  # No pytest file - Jenkins-specific test
-      - name: "authentication" 
-        description: "Verifies Jenkins authentication"
-        enabled: true
-        test_id: "F-J1-TC-002"
-        pytest_file: null  # No pytest file - Jenkins-specific test
-      - name: "pr_processing"
-        description: "Verifies PR detection functionality"
-        enabled: true
-        test_id: "F-J1-TC-003"
-        pytest_file: null  # No pytest file - Jenkins-specific test
-      - name: "github_api_connectivity"
-        description: "Validates GitHub API connectivity"
-        enabled: true
-        test_id: "F-J1-TC-004"
-        pytest_file: null  # No pytest file - Jenkins-specific test
-        
   kernel_driver_base:
     enabled: true
     repository: "n2Electrons-Infra"  # GitHub repository for this test module  
