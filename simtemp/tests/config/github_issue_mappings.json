@@ -10,6 +10,8 @@
   "F-J1-TC-004": 46,
   "F-K1": 58,
   "F-K1-TC-001": 61,
+  "f-k1-enabler-qemu-clean": 14,
+  "f-k1-enabler-qemu-infra": 13,
   "f-k8-tc-001-improve": 10,
   "f-k8-tc-001-loadunload": 7,
   "fix-jenkins-tests": 6,

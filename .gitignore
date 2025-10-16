@@ -110,3 +110,8 @@ simtemp/tests/reports/*.json
 config/local_*.json
 *.local
 simtemp/kernel/obj/
+
+# QEMU Build Artifacts and Binaries - Added for QEMU integration
+deployment/qemu/linux-imx-*/
+deployment/qemu/busybox*/
+deployment/qemu/rootfs*/
