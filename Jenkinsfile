@@ -2085,9 +2085,17 @@ pipeline {
             post {
                 always {
                     script {
-                        // Archive the compiled driver and updated rootfs
+                        // Archive artifacts based on build mode
                         try {
-                            archiveArtifacts artifacts: 'deployment/qemu/rootfs/tmp/src/simtemp_driver/*.ko', allowEmptyArchive: true, fingerprint: true
+                            // Only archive compiled .ko files if we're in compilation mode
+                            if (!usePrecompiled) {
+                                echo "Archiving compiled driver artifacts..."
+                                archiveArtifacts artifacts: 'deployment/qemu/rootfs/tmp/src/simtemp_driver/*.ko', allowEmptyArchive: true, fingerprint: true
+                            } else {
+                                echo "Precompiled mode: Skipping .ko artifact archiving (driver is in rootfs)"
+                            }
+                            
+                            // Always archive the rootfs (contains precompiled driver or newly compiled one)
                             archiveArtifacts artifacts: 'deployment/qemu/rootfs.cpio.gz', allowEmptyArchive: false, fingerprint: true
                             echo "✅ Simtemp driver artifacts archived"
                         } catch (Exception e) {
