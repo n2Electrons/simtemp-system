@@ -102,6 +102,10 @@ tests:
     debug_verbose: true  # Enable detailed debug output for this module
     description: "QEMU i.MX6 Integration Tests for Jenkins CI/CD"
     
+    # Driver compilation settings for QEMU tests
+    use_precompiled_driver: true  # Set to true to use prebuilt nxp_simtemp.ko instead of compiling from source
+    precompiled_path: "deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"  # Path to precompiled driver in repository
+    
     env:
       QEMU_DIR: 'deployment/qemu'
       HELLO_SRC_DIR: 'src/hello'
@@ -109,7 +113,6 @@ tests:
       DTB_FILE: 'deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabrelite.dtb'
       ROOTFS_IMAGE: 'deployment/qemu/rootfs-hello.cpio.gz'
       # BUILD_SCRIPT removed - binaries are pre-compiled on host
-      TEST_SCRIPT: 'deployment/qemu/scripts/jenkins-hello-world-test.sh'
     test_cases:
       - name: "basic_qemu_boot"
         description: "Verifies basic QEMU boot and kernel messages"

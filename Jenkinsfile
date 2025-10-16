@@ -286,6 +286,11 @@ def getTestConfigs(pipelineConfig) {
         
         echo "Test configurations loaded successfully from ${testConfigFile}"
         echo "Available test suites: ${testConfigs.tests.keySet().join(', ')}"
+        if (testConfigs.tests?.qemu_integration?.use_precompiled_driver) {
+            echo "Driver mode: Using precompiled driver from ${testConfigs.tests.qemu_integration.precompiled_path ?: 'default path'}"
+        } else {
+            echo "Driver mode: Compile from source"
+        }
         
         // Validate that we have at least one test configuration
         if (testConfigs.tests.isEmpty()) {
@@ -2002,18 +2007,43 @@ pipeline {
             }
         }
 
-        stage('Build Simtemp Driver for QEMU') {
+        stage('QEMU-Build') {
             steps {
                 script {
                     echo "=== Building Simtemp Driver for QEMU ARM Environment ==="
                     
                     try {
+                        // Load test configuration to check driver settings
+                        def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
+                        def testConfigs = getTestConfigs(pipelineConfig)
+                        
+                        // Check for precompiled driver settings in qemu_integration test suite
+                        def usePrecompiled = false
+                        def precompiledPath = null
+                        
+                        if (testConfigs.tests?.qemu_integration) {
+                            usePrecompiled = testConfigs.tests.qemu_integration.use_precompiled_driver ?: false
+                            precompiledPath = testConfigs.tests.qemu_integration.precompiled_path
+                        }
+                        
                         // Set build environment variables
                         def buildEnv = [
                             'ARCH=arm',
                             'CROSS_COMPILE=arm-linux-gnueabihf-',
                             'CFLAGS_EXTRA=-march=armv7-a -marm'
                         ]
+                        
+                        // Add precompiled driver settings if configured
+                        if (usePrecompiled) {
+                            buildEnv.add('USE_PRECOMPILED_DRIVER=true')
+                            if (precompiledPath) {
+                                buildEnv.add("PRECOMPILED_DRIVER_PATH=${precompiledPath}")
+                            }
+                            echo "Using precompiled driver mode for QEMU integration"
+                        } else {
+                            buildEnv.add('USE_PRECOMPILED_DRIVER=false')
+                            echo "Using compilation mode for QEMU integration"
+                        }
                         
                         withEnv(buildEnv) {
                             // Execute the simtemp driver build script and check result
