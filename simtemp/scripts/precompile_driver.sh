@@ -35,7 +35,7 @@ print_step() {
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
-PREBUILT_DIR="$PROJECT_ROOT/simtemp/kernel/prebuilt"
+PREBUILT_DIR="$PROJECT_ROOT/simtemp/kernel/prebuilt/simtemp-driver/"
 BUILD_SCRIPT="$PROJECT_ROOT/deployment/qemu/scripts/build_simtemp_driver.sh"
 COMPILED_DRIVER="$PROJECT_ROOT/deployment/qemu/rootfs/tmp/src/simtemp_driver/nxp_simtemp.ko"
 QEMU_PREBUILT_DIR="$PROJECT_ROOT/deployment/qemu/rootfs/tmp/prebuild/simtemp-driver"

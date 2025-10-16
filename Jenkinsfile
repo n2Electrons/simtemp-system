@@ -2024,6 +2024,12 @@ pipeline {
                         if (testConfigs.tests?.qemu_integration) {
                             usePrecompiled = testConfigs.tests.qemu_integration.use_precompiled_driver ?: false
                             precompiledPath = testConfigs.tests.qemu_integration.precompiled_path
+                            echo "DEBUG: qemu_integration found"
+                            echo "DEBUG: use_precompiled_driver = ${usePrecompiled}"
+                            echo "DEBUG: precompiled_path = ${precompiledPath}"
+                        } else {
+                            echo "DEBUG: qemu_integration test suite not found in testConfigs"
+                            echo "DEBUG: Available test suites: ${testConfigs.tests?.keySet()}"
                         }
                         
                         // Set build environment variables

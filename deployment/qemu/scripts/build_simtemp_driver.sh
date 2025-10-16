@@ -59,27 +59,47 @@ export CFLAGS_EXTRA="${CFLAGS_EXTRA:--march=armv7-a -marm}"
 print_info "Simtemp Driver Build Script for QEMU"
 print_info "====================================="
 
+# Debug: Show environment variables
+print_info "Environment variables:"
+print_info "  USE_PRECOMPILED_DRIVER: ${USE_PRECOMPILED_DRIVER:-not set}"
+print_info "  PRECOMPILED_DRIVER_PATH: ${PRECOMPILED_DRIVER_PATH:-not set}"
+
 # Check if we should use precompiled driver
 if [ "$USE_PRECOMPILED_DRIVER" = "true" ]; then
     print_info "Using precompiled driver mode"
     
-    # Check if precompiled driver exists
-    if [ ! -f "$PRECOMPILED_DRIVER_PATH" ]; then
-        print_error "Precompiled driver not found: $PRECOMPILED_DRIVER_PATH"
-        print_info "Available files in prebuilt directory:"
-        ls -la "$(dirname "$PRECOMPILED_DRIVER_PATH")" 2>/dev/null || print_warning "Prebuilt directory not found"
-        exit 1
+    # In QEMU context, the precompiled driver should already be in the rootfs
+    # We just need to verify it exists and copy it to the expected location
+    if [ -f "$PRECOMPILED_DRIVER_PATH" ]; then
+        print_success "Found precompiled driver in QEMU filesystem: $PRECOMPILED_DRIVER_PATH"
+        
+        # Create target directory and copy precompiled driver  
+        print_step "Preparing target directory..."
+        mkdir -p "$ROOTFS_DRIVER_DIR"
+        
+        print_step "Using precompiled simtemp driver from QEMU filesystem..."
+        cp "$PRECOMPILED_DRIVER_PATH" "$ROOTFS_DRIVER_DIR/nxp_simtemp.ko"
+        print_success "Precompiled driver copied to: $ROOTFS_DRIVER_DIR/nxp_simtemp.ko"
+    else
+        # If not found in QEMU path, try host path (fallback)
+        HOST_PRECOMPILED_PATH="$PROJECT_ROOT/simtemp/kernel/prebuilt/nxp_simtemp.ko"
+        if [ -f "$HOST_PRECOMPILED_PATH" ]; then
+            print_warning "QEMU path not found, using host precompiled driver: $HOST_PRECOMPILED_PATH"
+            
+            # Create target directory and copy precompiled driver
+            print_step "Preparing target directory..."
+            mkdir -p "$ROOTFS_DRIVER_DIR"
+            
+            print_step "Using precompiled simtemp driver from host..."
+            cp "$HOST_PRECOMPILED_PATH" "$ROOTFS_DRIVER_DIR/nxp_simtemp.ko"
+            print_success "Host precompiled driver copied to: $ROOTFS_DRIVER_DIR/nxp_simtemp.ko"
+        else
+            print_error "Precompiled driver not found in either location:"
+            print_error "  QEMU path: $PRECOMPILED_DRIVER_PATH"
+            print_error "  Host path: $HOST_PRECOMPILED_PATH"
+            exit 1
+        fi
     fi
-    
-    print_success "Found precompiled driver: $PRECOMPILED_DRIVER_PATH"
-    
-    # Create target directory and copy precompiled driver
-    print_step "Preparing target directory..."
-    mkdir -p "$ROOTFS_DRIVER_DIR"
-    
-    print_step "Using precompiled simtemp driver..."
-    cp "$PRECOMPILED_DRIVER_PATH" "$ROOTFS_DRIVER_DIR/nxp_simtemp.ko"
-    print_success "Precompiled driver copied to: $ROOTFS_DRIVER_DIR/nxp_simtemp.ko"
     
     # Show driver details
     print_info "Precompiled driver details:"
