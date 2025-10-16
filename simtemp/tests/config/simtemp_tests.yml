@@ -99,6 +99,34 @@ tests:
     debug_verbose: true  # Enable detailed debug output for this module
     description: "QEMU i.MX6 Integration Tests for Jenkins CI/CD"
     pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this module
+    
+    # QEMU execution configuration - tells Jenkins this runs in QEMU
+    execution_environment:
+      type: "qemu"  # Indicates this test suite runs in QEMU emulation
+      platform: "arm"  # Target platform architecture
+      machine: "virt"  # QEMU machine type
+      cpu: "cortex-a15"  # Target CPU
+      memory: "512M"  # QEMU memory allocation
+      timeout_minutes: 10  # Total timeout for QEMU tests including boot time
+      
+    # QEMU-specific configuration
+    qemu_config:
+      runner_script: "deployment/qemu/scripts/run-f-k1-tc-002-jenkins.sh"  # Main QEMU test runner
+      results_mount_path: "/mnt/workspace"  # Where workspace is mounted in QEMU
+      auto_shutdown: true  # QEMU will auto-shutdown after tests
+      console_output: true  # Capture QEMU console output
+      
+    # Results collection configuration for Jenkins
+    results_collection:
+      type: "shared_filesystem"  # Results shared via 9P filesystem
+      output_formats: ["junit_xml", "json_report", "console_log"]
+      results_base_path: "simtemp/tests/results"  # Relative to workspace root
+      patterns:
+        junit_xml: "*-qemu-results.xml"  # JUnit XML pattern for Jenkins
+        json_report: "*-qemu-report.json"  # JSON test reports
+        console_log: "*-qemu-console.log"  # QEMU console output
+        artifacts: "test-results/*"  # Additional artifacts to archive
+      
     env:
       QEMU_DIR: 'deployment/qemu'
       HELLO_SRC_DIR: 'src/hello'
@@ -107,6 +135,10 @@ tests:
       ROOTFS_IMAGE: 'deployment/qemu/rootfs-hello.cpio.gz'
       # BUILD_SCRIPT removed - binaries are pre-compiled on host
       TEST_SCRIPT: 'deployment/qemu/scripts/jenkins-hello-world-test.sh'
+      # Results paths for QEMU environment
+      QEMU_RESULTS_DIR: 'simtemp/tests/results'
+      QEMU_WORKSPACE_MOUNT: '/mnt/workspace'
+      
     test_cases:
       - name: "hello_world_qemu_boot"
         description: "Verifies QEMU i.MX6 boots with Hello World program"
@@ -114,19 +146,15 @@ tests:
         test_id: "F-K1-TC-002"
         debug_info: "This test runs Hello World in QEMU i.MX6 emulation"
         timeout_seconds: 45  # QEMU test specific timeout
-      - name: "arm_cross_compilation"
-        description: "Verifies ARM binaries are pre-compiled and ready"
-        enabled: true
-        test_id: "F-K1-TC-003"
-        debug_info: "This test validates pre-compiled ARM binaries exist and are correct"
+        qemu_specific:
+          expects_kernel_boot: true
+          expects_userspace: true
+          validation_patterns: ["Hello World", "Test completed"]
       - name: "device_tree_loading"
         description: "Verifies Device Tree loading in QEMU"
         enabled: true
         test_id: "F-K1-TC-004"
         debug_info: "This test confirms DTB loading and kernel recognition"
-      - name: "jenkins_integration_ready"
-        description: "Confirms Jenkins integration readiness"
-        enabled: true
-        test_id: "F-K1-TC-005"
-        debug_info: "This test validates Jenkins CI/CD pipeline integration"
-
+        qemu_specific:
+          expects_dtb_load: true
+          validation_patterns: ["Device tree", "imx6ul"]

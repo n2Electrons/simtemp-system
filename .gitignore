@@ -110,3 +110,28 @@ simtemp/tests/reports/*.json
 config/local_*.json
 *.local
 simtemp/kernel/obj/
+
+# QEMU Build Artifacts and Binaries - Added for QEMU integration
+deployment/qemu/linux-imx-*/
+deployment/qemu/busybox/
+deployment/qemu/images/
+deployment/qemu/scripts/initramfs/
+deployment/qemu/rootfs.*
+deployment/qemu/kernel-source/
+
+# QEMU Experimental/Development Scripts  
+deployment/qemu/*-simulation.sh
+deployment/qemu/*-nfs.sh  
+deployment/qemu/*-qemu.sh
+deployment/qemu/build-*.sh
+deployment/qemu/download-*.sh
+deployment/qemu/debug-*.sh
+deployment/qemu/minimal-*.sh
+
+# Test Results and Logs
+simtemp/tests/results/
+test-results/
+
+# Temporary test files in QEMU
+deployment/qemu/tests/test_*.py
+!deployment/qemu/tests/test-*.sh
