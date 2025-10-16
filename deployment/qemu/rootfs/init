@@ -1,23 +1,5 @@
 #!/bin/sh
-
-# Mount essential filesystems
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
-
-echo "=== ARM initramfs ready ==="
-echo "Linux i.MX6 ARM kernel boot successful!"
-echo "ARM BusyBox working perfectly!"
-echo "Device Tree overlay support ready!"
-echo ""
-
-# Run hello world test
-echo "Running Hello World test..."
-echo ""
-/bin/hello_world
-echo ""
-
-echo "Ready for DT overlay testing!"
-echo ""
-
-# Start interactive shell
+echo "=== initramfs ready ==="
 exec /bin/sh
