@@ -1989,6 +1989,96 @@ pipeline {
             }
         }
 
+        stage('Build Simtemp Driver for QEMU') {
+            when {
+                // Only run this stage if QEMU infrastructure is being tested
+                anyOf {
+                    expression { params.BUILD_MODULES?.contains('simtemp') }
+                    expression { params.TEST_MODULES?.contains('simtemp') }
+                    expression { env.CHANGE_TARGET } // Always run on PR builds
+                }
+            }
+            steps {
+                script {
+                    echo "=== Building Simtemp Driver for QEMU ARM Environment ==="
+                    
+                    try {
+                        // Set build environment variables
+                        def buildEnv = [
+                            'ARCH=arm',
+                            'CROSS_COMPILE=arm-linux-gnueabihf-',
+                            'CFLAGS_EXTRA=-march=armv7-a -marm'
+                        ]
+                        
+                        withEnv(buildEnv) {
+                            // Execute the simtemp driver build script
+                            sh '''
+                                echo "� Building simtemp driver for QEMU environment..."
+                                cd deployment/qemu
+                                
+                                # Verify build script exists and is executable
+                                if [ ! -x scripts/build_simtemp_driver.sh ]; then
+                                    echo "❌ Build script not found or not executable: scripts/build_simtemp_driver.sh"
+                                    ls -la scripts/
+                                    exit 1
+                                fi
+                                
+                                # Execute the build script with environment variables
+                                echo "🔨 Running simtemp driver build script..."
+                                ./scripts/build_simtemp_driver.sh
+                                
+                                echo "✅ Simtemp driver build completed successfully"
+                            '''
+                        }
+                        
+                    } catch (Exception e) {
+                        echo "❌ Failed to build simtemp driver for QEMU: ${e.message}"
+                        throw e
+                    }
+                }
+            }
+                                fi
+                                
+                                # Execute rootfs update
+                                echo "🔄 Running rootfs update script..."
+                                ./scripts/update_rootfs.sh
+                                
+                                # Verify new rootfs was created
+                                echo "✅ Rootfs update completed:"
+                                ls -lh rootfs.cpio.gz
+                            '''
+                        }
+                        
+                        echo "✅ Simtemp driver successfully compiled and integrated into QEMU rootfs"
+                        
+                    } catch (Exception e) {
+                        echo "❌ Failed to build simtemp driver for QEMU: ${e.message}"
+                        throw e
+                    }
+                }
+            }
+            post {
+                always {
+                    script {
+                        // Archive the compiled driver and updated rootfs
+                        try {
+                            archiveArtifacts artifacts: 'deployment/qemu/rootfs/tmp/src/simtemp_driver/*.ko', allowEmptyArchive: true, fingerprint: true
+                            archiveArtifacts artifacts: 'deployment/qemu/rootfs.cpio.gz', allowEmptyArchive: false, fingerprint: true
+                            echo "✅ Simtemp driver artifacts archived"
+                        } catch (Exception e) {
+                            echo "⚠️ Warning: Could not archive simtemp driver artifacts: ${e.message}"
+                        }
+                    }
+                }
+                success {
+                    echo "✅ Simtemp driver build stage completed successfully"
+                }
+                failure {
+                    echo "❌ Simtemp driver build stage failed"
+                }
+            }
+        }
+
         stage('Test') {
             steps {
                 script {

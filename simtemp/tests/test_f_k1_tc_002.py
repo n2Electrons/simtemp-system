@@ -5,7 +5,7 @@ Test cases for QEMU Device Tree overlay functionality.
 import os
 import pytest
 import subprocess
-import time
+from test_utils import wait_for_qemu_message, cleanup_qemu_processes
 
 
 # Test timeout in seconds (1 minute)
@@ -17,6 +17,13 @@ def test_qemu_initramfs_ready():
     Test case F-K1-TC-002: Test QEMU Device Tree overlay infrastructure.
     Expected Result: QEMU boots successfully and initramfs is ready.
     """
+    # Kill any existing QEMU processes to avoid port conflicts
+    print("Cleaning up any existing QEMU processes...")
+    if cleanup_qemu_processes():
+        print("✓ Existing QEMU processes cleaned up")
+    else:
+        print("⚠️ Warning: Some issues during QEMU cleanup")
+    
     # Path to the QEMU launch script
     qemu_script = os.path.join(
         os.path.dirname(__file__),
@@ -59,49 +66,24 @@ def test_qemu_initramfs_ready():
         )
 
         # Wait for initramfs ready message with timeout
-        start_time = time.time()
-        output_lines = []
-        found_ready = False
-
         print("Waiting for initramfs ready message...")
-
-        while time.time() - start_time < QEMU_TIMEOUT:
-            # Check if process is still running
-            if qemu_process.poll() is not None:
-                # Process has terminated
-                stdout, stderr = qemu_process.communicate()
-                output_lines.extend(stdout.splitlines() if stdout else [])
-                fail_msg = (f"QEMU process terminated unexpectedly. "
-                            f"Exit code: {qemu_process.returncode}\n"
-                            f"Output: {chr(10).join(output_lines)}")
-                pytest.fail(fail_msg)
-
-            # Read output line by line with short timeout
-            try:
-                line = qemu_process.stdout.readline()
-                if line:
-                    line = line.strip()
-                    output_lines.append(line)
-                    print(f"QEMU: {line}")
-
-                    # Check for the expected ready message
-                    if "=== initramfs ready ===" in line:
-                        found_ready = True
-                        print("✓ initramfs ready message found!")
-                        break
-                else:
-                    # No output, sleep briefly
-                    time.sleep(0.1)
-
-            except Exception as e:
-                pytest.fail(f"Error reading QEMU output: {e}")
-
-        # Check results
-        if not found_ready:
-            timeout_msg = (f"Timeout waiting for initramfs ready message "
-                           f"after {QEMU_TIMEOUT} seconds.\n"
-                           f"QEMU output:\n{chr(10).join(output_lines)}")
-            pytest.fail(timeout_msg)
+        
+        try:
+            found_ready, output_lines = wait_for_qemu_message(
+                qemu_process,
+                "=== initramfs ready ===",
+                QEMU_TIMEOUT
+            )
+            
+            # Check results
+            if not found_ready:
+                timeout_msg = (f"Timeout waiting for initramfs ready message "
+                               f"after {QEMU_TIMEOUT} seconds.\n"
+                               f"QEMU output:\n{chr(10).join(output_lines)}")
+                pytest.fail(timeout_msg)
+                
+        except RuntimeError as e:
+            pytest.fail(str(e))
 
         print("✓ QEMU Device Tree overlay infrastructure test passed")
 
@@ -130,6 +112,13 @@ def test_qemu_initramfs_ready():
 
             except Exception as cleanup_error:
                 print(f"Warning: Error during QEMU cleanup: {cleanup_error}")
+        
+        # Additional cleanup: kill any remaining QEMU processes
+        print("Ensuring all QEMU processes are terminated...")
+        if cleanup_qemu_processes(force_kill=True):
+            print("✓ Final QEMU cleanup completed")
+        else:
+            print("⚠️ Warning: Some issues during final QEMU cleanup")
 
 
 if __name__ == '__main__':
