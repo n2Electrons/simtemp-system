@@ -98,6 +98,16 @@ stages:
     depends_on: ["build"]
     test_suites: ["kernel_driver"]
     
+  qemu_test:
+    enabled: true
+    timeout_minutes: 15
+    description: "Execute QEMU i.MX6UL kernel tests"
+    depends_on: ["build"]
+    test_suites: ["qemu_imx6ul"]
+    machine: "mcimx6ul-evk"
+    kernel_image: "deployment/qemu/build/install/boot/zImage"
+    dtb_file: "deployment/qemu/build/install/boot/imx6ul-14x14-evk.dtb"
+    
   cleanup:
     enabled: true
     timeout_minutes: 2
