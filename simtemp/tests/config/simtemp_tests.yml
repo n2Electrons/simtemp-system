@@ -30,7 +30,6 @@ tests:
     own_pipeline: true  # This module has its own dedicated pipeline stage
     repository: "n2Electrons-Infra"  # GitHub repository for this test module (has JENKINS secrets)
     description: "Tests for Jenkins integration and PR detection"
-    pytest_file: null  # No pytest file - these are Jenkins-specific tests
     env:
       SOURCE_FILE: 'deployment/jenkins/diagnostics.groovy'
       MODULE_DIR: 'jenkins'
@@ -40,18 +39,22 @@ tests:
         description: "Verifies connectivity to Jenkins server"
         enabled: true
         test_id: "F-J1-TC-001"
+        pytest_file: null  # No pytest file - Jenkins-specific test
       - name: "authentication" 
         description: "Verifies Jenkins authentication"
         enabled: true
         test_id: "F-J1-TC-002"
+        pytest_file: null  # No pytest file - Jenkins-specific test
       - name: "pr_processing"
         description: "Verifies PR detection functionality"
         enabled: true
         test_id: "F-J1-TC-003"
+        pytest_file: null  # No pytest file - Jenkins-specific test
       - name: "github_api_connectivity"
         description: "Validates GitHub API connectivity"
         enabled: true
         test_id: "F-J1-TC-004"
+        pytest_file: null  # No pytest file - Jenkins-specific test
         
   kernel_driver_base:
     enabled: true
@@ -59,7 +62,6 @@ tests:
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Tests for the Temperature Simulator Driver (Infrastructure)"
     depends_on: ["nxp_simtemp"]  # Module dependency
-    pytest_file: "test_f_k1_tc_001.py"  # Specific pytest file for this module
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
       MODULE_DIR: 'kernel'
@@ -71,6 +73,7 @@ tests:
         description: "Verifies driver registration via insmod"
         enabled: true
         test_id: "F-K1-TC-001"  # Maps to test plan ID
+        pytest_file: "test_f_k1_tc_001.py"  # Specific pytest file for this test case
         debug_info: "This test loads the kernel module using insmod"
 
   kernel_driver_suite:
@@ -79,7 +82,6 @@ tests:
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Extended Tests for the Temperature Simulator Driver"
     depends_on: ["nxp_simtemp"]  # Module dependency
-    pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this module
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
       MODULE_DIR: 'kernel'
@@ -91,6 +93,7 @@ tests:
         description: "Load/unload kernel module without WARN/OOPS"
         enabled: true
         test_id: "F-K8-TC-001"
+        pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this test case
         debug_info: "This test verifies clean module load/unload operations"
 
   qemu_integration:
@@ -98,7 +101,6 @@ tests:
     repository: "simtemp-system"  # GitHub repository for this test module
     debug_verbose: true  # Enable detailed debug output for this module
     description: "QEMU i.MX6 Integration Tests for Jenkins CI/CD"
-    pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this module
     
     env:
       QEMU_DIR: 'deployment/qemu'
@@ -113,6 +115,7 @@ tests:
         description: "Verifies basic QEMU boot and kernel messages"
         enabled: true
         test_id: "F-K1-TC-002"
+        pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this test case
         debug_info: "This test checks for successful QEMU boot and kernel log patterns"
         qemu_specific:
           expects_boot: true
@@ -121,6 +124,7 @@ tests:
         description: "Verifies Device Tree loading in QEMU"
         enabled: false
         test_id: "F-K1-TC-004"
+        pytest_file: "test_f_k1_tc_004.py"  # Specific pytest file for this test case
         debug_info: "This test confirms DTB loading and kernel recognition"
         qemu_specific:
           expects_dtb_load: true

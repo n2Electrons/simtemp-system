@@ -6,6 +6,7 @@ import os
 import subprocess
 import shutil
 import pytest
+from contextlib import contextmanager
 
 
 def setup_test_environment():
@@ -115,6 +116,177 @@ def get_obj_path():
     return obj_dir
 
 
+def restore_terminal():
+    """
+    Restore terminal to normal state after QEMU or other processes
+    that may have left it in raw mode.
+    
+    This function can be called manually if the terminal becomes
+    unresponsive after QEMU processes are terminated.
+    
+    Returns:
+        bool: True if terminal restoration was successful
+    """
+    try:
+        print("🔧 Restoring terminal state...")
+        
+        # Method 1: stty sane (most reliable)
+        result1 = subprocess.run(["stty", "sane"], check=False,
+                                 stdin=subprocess.DEVNULL,
+                                 capture_output=True)
+
+        # Method 2: tput reset (complementary)
+        result2 = subprocess.run(["tput", "reset"], check=False,
+                                 stdin=subprocess.DEVNULL,
+                                 capture_output=True)
+
+        # Method 3: echo control sequences to reset terminal
+        # This sends ANSI reset sequences directly
+        reset_sequences = [
+            "\033c",        # Full reset
+            "\033[!p",      # Soft reset
+            "\033[?25h",    # Show cursor
+        ]
+
+        for seq in reset_sequences:
+            try:
+                subprocess.run(["echo", "-e", seq], check=False,
+                               stdout=subprocess.DEVNULL)
+            except Exception:
+                pass
+        
+        success = (result1.returncode == 0 or result2.returncode == 0)
+        
+        if success:
+            print("✅ Terminal state restored successfully")
+        else:
+            print("⚠️ Terminal restoration may have failed")
+            print("   Try running 'reset' command manually")
+            
+        return success
+        
+    except Exception as e:
+        print(f"❌ Error restoring terminal: {e}")
+        print("   Try running 'reset' or 'stty sane' manually")
+        return False
+
+
+@contextmanager
+def preserve_working_directory():
+    """
+    Context manager that preserves the current working directory.
+    
+    Usage:
+        with preserve_working_directory():
+            # Change directories here
+            os.chdir('/some/other/path')
+            # Do work...
+        # Working directory is automatically restored here
+    """
+    original_cwd = os.getcwd()
+    try:
+        yield original_cwd
+    finally:
+        try:
+            os.chdir(original_cwd)
+            print(f"🔄 Restored working directory to: {original_cwd}")
+        except Exception as e:
+            print(f"⚠️ Failed to restore working directory: {e}")
+
+
+def get_initial_working_directory():
+    """
+    Get and store the initial working directory for tests.
+    
+    Returns:
+        str: The absolute path of the initial working directory
+    """
+    return os.getcwd()
+
+
+def restore_working_directory(original_dir=None):
+    """
+    Restore the working directory to the original location.
+    
+    Args:
+        original_dir: Directory to restore to. If None, tries to restore
+                     to the directory where tests were started.
+
+    Returns:
+        bool: True if restoration was successful, False otherwise
+    """
+    try:
+        if original_dir is None:
+            # Try to determine original directory from test context
+            test_dir = os.path.dirname(os.path.abspath(__file__))
+            original_dir = test_dir
+
+        current_dir = os.getcwd()
+
+        if current_dir != original_dir:
+            os.chdir(original_dir)
+            print(f"🔄 Working directory restored: {current_dir} → "
+                  f"{original_dir}")
+            return True
+        else:
+            print(f"✅ Already in correct directory: {original_dir}")
+            return True
+            
+    except Exception as e:
+        print(f"❌ Failed to restore working directory: {e}")
+        return False
+
+
+def test_cleanup():
+    """
+    Complete test cleanup function that should be called at the end of tests.
+    
+    This function performs:
+    1. QEMU process cleanup (preserving compiled binaries)
+    2. Terminal restoration
+    3. Working directory restoration
+    
+    Note: Compiled binaries are preserved by default for analysis
+    
+    Returns:
+        bool: True if all cleanup operations were successful
+    """
+    print("\n🧹 Performing test cleanup...")
+    
+    # Cleanup QEMU processes and restore terminal (preserve binaries)
+    cleanup_success = cleanup_qemu_processes(force_kill=True, restore_cwd=True,
+                                             preserve_binaries=True)
+    
+    if cleanup_success:
+        print("✅ Test cleanup completed successfully")
+    else:
+        print("⚠️ Some cleanup operations had issues")
+    
+    return cleanup_success
+
+
+@contextmanager
+def test_environment():
+    """
+    Context manager for test execution that ensures proper cleanup.
+    
+    Usage:
+        with test_environment():
+            # Your test code here
+            # Directory changes, QEMU processes, etc.
+            pass
+        # Automatic cleanup happens here
+    """
+    original_dir = os.getcwd()
+    print(f"🚀 Starting test in directory: {original_dir}")
+    
+    try:
+        yield original_dir
+    finally:
+        print("\n🔄 Test completed, performing cleanup...")
+        test_cleanup()
+
+
 # Convenience variable for the object directory path
 obj_path = get_obj_path()
 
@@ -149,6 +321,10 @@ def wait_for_qemu_message(qemu_process, target_message, timeout=60):
             if stdout:
                 output_lines.extend(stdout.splitlines())
             
+            # Restore terminal state since QEMU terminated
+            print("🔧 QEMU terminated, restoring terminal state...")
+            restore_terminal()
+            
             error_msg = (f"QEMU process terminated unexpectedly. "
                          f"Exit code: {qemu_process.returncode}\n"
                          f"Output: {chr(10).join(output_lines)}")
@@ -178,12 +354,15 @@ def wait_for_qemu_message(qemu_process, target_message, timeout=60):
     return False, output_lines
 
 
-def cleanup_qemu_processes(force_kill=False):
+def cleanup_qemu_processes(force_kill=False, restore_cwd=True,
+                           preserve_binaries=True):
     """
-    Clean up any existing QEMU processes.
+    Clean up any existing QEMU processes and restore terminal state.
     
     Args:
         force_kill: If True, use SIGKILL (-9), otherwise use SIGTERM
+        restore_cwd: If True, restore working directory to test directory
+        preserve_binaries: If True, preserve compiled binaries in QEMU dir
         
     Returns:
         bool: True if cleanup was successful, False if there were errors
@@ -191,11 +370,170 @@ def cleanup_qemu_processes(force_kill=False):
     import time
     
     try:
+        # Kill QEMU processes (but preserve compiled binaries)
         signal_flag = "-9" if force_kill else "-f"
         subprocess.run(["pkill", signal_flag, "qemu-system-arm"],
                        check=False)
         time.sleep(2 if not force_kill else 1)  # Wait for cleanup
+        
+        # Note: We preserve compiled binaries in QEMU directories for analysis
+        if preserve_binaries:
+            print("📁 Preserving compiled binaries in QEMU directories")
+        
+        # Restore terminal state after QEMU cleanup
+        # QEMU can leave terminal in raw mode, so we need to reset it
+        try:
+            # Method 1: Use stty to restore sane terminal settings
+            subprocess.run(["stty", "sane"], check=False,
+                           stdin=subprocess.DEVNULL,
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+
+            # Method 2: Reset terminal using tput (if available)
+            subprocess.run(["tput", "reset"], check=False,
+                           stdin=subprocess.DEVNULL,
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+
+        except Exception as term_e:
+            print(f"Warning: Could not restore terminal state: {term_e}")
+            print("You may need to run 'reset' or 'stty sane' manually "
+                  "if terminal is corrupted")
+
+        # Restore working directory if requested
+        if restore_cwd:
+            try:
+                restore_working_directory()
+            except Exception as cwd_e:
+                print(f"Warning: Could not restore working directory: {cwd_e}")
+
         return True
+
     except Exception as e:
         print(f"Warning: Error during QEMU cleanup: {e}")
         return False
+
+
+def cleanup_qemu_binaries(qemu_dir_path=None):
+    """
+    Optional function to clean up compiled binaries in QEMU directory.
+    This function is separate from cleanup_qemu_processes to allow
+    selective cleanup of binaries when needed.
+    
+    Args:
+        qemu_dir_path: Path to QEMU directory. If None, uses default path.
+        
+    Returns:
+        bool: True if cleanup was successful, False if there were errors
+    """
+    try:
+        if qemu_dir_path is None:
+            # Default QEMU simtemp driver path
+            test_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(test_dir))
+            qemu_dir_path = os.path.join(
+                project_root, "deployment", "qemu", "rootfs",
+                "tmp", "src", "simtemp_driver"
+            )
+        
+        if os.path.exists(qemu_dir_path):
+            print(f"🗑️ Cleaning compiled binaries in: {qemu_dir_path}")
+            
+            # List of compiled files to remove
+            binary_patterns = [
+                "*.ko",      # Kernel modules
+                "*.o",       # Object files
+                "*.mod",     # Module files
+                "*.mod.c",   # Generated module source
+                ".*.cmd",    # Command files
+                "modules.order",
+                "Module.symvers"
+            ]
+            
+            import glob
+            removed_count = 0
+            
+            for pattern in binary_patterns:
+                pattern_path = os.path.join(qemu_dir_path, pattern)
+                for file_path in glob.glob(pattern_path):
+                    try:
+                        os.remove(file_path)
+                        removed_count += 1
+                        print(f"  🗑️ Removed: {os.path.basename(file_path)}")
+                    except Exception as e:
+                        print(f"  ⚠️ Could not remove {file_path}: {e}")
+            
+            if removed_count > 0:
+                print(f"✅ Removed {removed_count} compiled files")
+            else:
+                print("ℹ️ No compiled files found to remove")
+            
+            return True
+        else:
+            print(f"ℹ️ QEMU directory not found: {qemu_dir_path}")
+            return True
+            
+    except Exception as e:
+        print(f"❌ Error during binary cleanup: {e}")
+        return False
+
+
+def list_qemu_binaries(qemu_dir_path=None):
+    """
+    List compiled binaries in QEMU directory without removing them.
+    Useful for verification and debugging.
+    
+    Args:
+        qemu_dir_path: Path to QEMU directory. If None, uses default path.
+        
+    Returns:
+        list: List of found binary files
+    """
+    try:
+        if qemu_dir_path is None:
+            # Default QEMU simtemp driver path
+            test_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(test_dir))
+            qemu_dir_path = os.path.join(
+                project_root, "deployment", "qemu", "rootfs",
+                "tmp", "src", "simtemp_driver"
+            )
+        
+        binary_files = []
+        
+        if os.path.exists(qemu_dir_path):
+            print(f"📁 Checking binaries in: {qemu_dir_path}")
+            
+            # List of binary patterns to look for
+            binary_patterns = [
+                "*.ko",      # Kernel modules
+                "*.o",       # Object files
+                "*.mod",     # Module files
+                "*.mod.c",   # Generated module source
+                ".*.cmd",    # Command files
+                "modules.order",
+                "Module.symvers"
+            ]
+            
+            import glob
+            
+            for pattern in binary_patterns:
+                pattern_path = os.path.join(qemu_dir_path, pattern)
+                for file_path in glob.glob(pattern_path):
+                    file_name = os.path.basename(file_path)
+                    file_size = os.path.getsize(file_path)
+                    binary_files.append(file_name)
+                    print(f"  📦 {file_name} ({file_size} bytes)")
+            
+            if binary_files:
+                print(f"✅ Found {len(binary_files)} binary/build files")
+            else:
+                print("ℹ️ No binary files found")
+        else:
+            print(f"⚠️ QEMU directory not found: {qemu_dir_path}")
+        
+        return binary_files
+        
+    except Exception as e:
+        print(f"❌ Error listing binaries: {e}")
+        return []

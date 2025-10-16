@@ -2037,26 +2037,6 @@ pipeline {
                     }
                 }
             }
-                                fi
-                                
-                                # Execute rootfs update
-                                echo "🔄 Running rootfs update script..."
-                                ./scripts/update_rootfs.sh
-                                
-                                # Verify new rootfs was created
-                                echo "✅ Rootfs update completed:"
-                                ls -lh rootfs.cpio.gz
-                            '''
-                        }
-                        
-                        echo "✅ Simtemp driver successfully compiled and integrated into QEMU rootfs"
-                        
-                    } catch (Exception e) {
-                        echo "❌ Failed to build simtemp driver for QEMU: ${e.message}"
-                        throw e
-                    }
-                }
-            }
             post {
                 always {
                     script {
