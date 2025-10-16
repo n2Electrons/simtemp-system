@@ -158,15 +158,15 @@ def restore_terminal():
         success = (result1.returncode == 0 or result2.returncode == 0)
         
         if success:
-            print("✅ Terminal state restored successfully")
+            print("Terminal state restored successfully")
         else:
-            print("⚠️ Terminal restoration may have failed")
+            print("Terminal restoration may have failed")
             print("   Try running 'reset' command manually")
             
         return success
         
     except Exception as e:
-        print(f"❌ Error restoring terminal: {e}")
+        print(f"Error restoring terminal: {e}")
         print("   Try running 'reset' or 'stty sane' manually")
         return False
 
@@ -189,9 +189,9 @@ def preserve_working_directory():
     finally:
         try:
             os.chdir(original_cwd)
-            print(f"🔄 Restored working directory to: {original_cwd}")
+            print(f"Restored working directory to: {original_cwd}")
         except Exception as e:
-            print(f"⚠️ Failed to restore working directory: {e}")
+            print(f"Failed to restore working directory: {e}")
 
 
 def get_initial_working_directory():
@@ -225,15 +225,15 @@ def restore_working_directory(original_dir=None):
 
         if current_dir != original_dir:
             os.chdir(original_dir)
-            print(f"🔄 Working directory restored: {current_dir} → "
+            print(f"Working directory restored: {current_dir} → "
                   f"{original_dir}")
             return True
         else:
-            print(f"✅ Already in correct directory: {original_dir}")
+            print(f"Already in correct directory: {original_dir}")
             return True
             
     except Exception as e:
-        print(f"❌ Failed to restore working directory: {e}")
+        print(f"Failed to restore working directory: {e}")
         return False
 
 
@@ -251,16 +251,16 @@ def test_cleanup():
     Returns:
         bool: True if all cleanup operations were successful
     """
-    print("\n🧹 Performing test cleanup...")
+    print("\nPerforming test cleanup...")
     
     # Cleanup QEMU processes and restore terminal (preserve binaries)
     cleanup_success = cleanup_qemu_processes(force_kill=True, restore_cwd=True,
                                              preserve_binaries=True)
     
     if cleanup_success:
-        print("✅ Test cleanup completed successfully")
+        print("Test cleanup completed successfully")
     else:
-        print("⚠️ Some cleanup operations had issues")
+        print("Some cleanup operations had issues")
     
     return cleanup_success
 
@@ -278,12 +278,12 @@ def test_environment():
         # Automatic cleanup happens here
     """
     original_dir = os.getcwd()
-    print(f"🚀 Starting test in directory: {original_dir}")
+    print(f"Starting test in directory: {original_dir}")
     
     try:
         yield original_dir
     finally:
-        print("\n🔄 Test completed, performing cleanup...")
+        print("\nTest completed, performing cleanup...")
         test_cleanup()
 
 
@@ -378,7 +378,7 @@ def cleanup_qemu_processes(force_kill=False, restore_cwd=True,
         
         # Note: We preserve compiled binaries in QEMU directories for analysis
         if preserve_binaries:
-            print("📁 Preserving compiled binaries in QEMU directories")
+            print("Preserving compiled binaries in QEMU directories")
         
         # Restore terminal state after QEMU cleanup
         # QEMU can leave terminal in raw mode, so we need to reset it
@@ -459,22 +459,22 @@ def cleanup_qemu_binaries(qemu_dir_path=None):
                     try:
                         os.remove(file_path)
                         removed_count += 1
-                        print(f"  🗑️ Removed: {os.path.basename(file_path)}")
+                        print(f"  Removed: {os.path.basename(file_path)}")
                     except Exception as e:
-                        print(f"  ⚠️ Could not remove {file_path}: {e}")
+                        print(f"  Could not remove {file_path}: {e}")
             
             if removed_count > 0:
-                print(f"✅ Removed {removed_count} compiled files")
+                print(f"Removed {removed_count} compiled files")
             else:
-                print("ℹ️ No compiled files found to remove")
+                print("ℹNo compiled files found to remove")
             
             return True
         else:
-            print(f"ℹ️ QEMU directory not found: {qemu_dir_path}")
+            print(f"ℹQEMU directory not found: {qemu_dir_path}")
             return True
             
     except Exception as e:
-        print(f"❌ Error during binary cleanup: {e}")
+        print(f"Error during binary cleanup: {e}")
         return False
 
 

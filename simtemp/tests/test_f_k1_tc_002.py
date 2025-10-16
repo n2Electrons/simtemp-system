@@ -22,7 +22,7 @@ def test_qemu_initramfs_ready():
         if cleanup_qemu_processes():
             print("✓ Existing QEMU processes cleaned up")
         else:
-            print("⚠️ Warning: Some issues during QEMU cleanup")
+            print("Warning: Some issues during QEMU cleanup")
         
         # Path to the QEMU launch script
         qemu_script = os.path.join(

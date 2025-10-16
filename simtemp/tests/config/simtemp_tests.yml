@@ -129,3 +129,14 @@ tests:
         qemu_specific:
           expects_dtb_load: true
           validation_patterns: ["Device tree", "imx6ul"]
+      - name: "qemu_module_load_unload"
+        description: "Load/unload kernel module in QEMU without WARN/OOPS"
+        enabled: true
+        test_id: "F-K8-TC-003"
+        pytest_file: "test_f_k8_tc_003.py"  # Specific pytest file for this test case
+        debug_info: "This test verifies clean module load/unload operations in QEMU environment"
+        qemu_specific:
+          expects_boot: true
+          expects_module_load: true
+          validation_patterns: ["initramfs ready", "nxp_simtemp"]
+          module_operations: ["insmod", "rmmod", "lsmod"]
