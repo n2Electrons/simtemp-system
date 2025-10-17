@@ -64,7 +64,7 @@ source_code:
   modules:
     nxp_simtemp:
       enabled: true
-      description: " Temperature Simulator Kernel Module"
+      description: " Temperature Simulator Kernel Module (x86_64 Host)"
       source_dir: "simtemp/kernel"
       source_files:
         - "nxp_simtemp.c"
@@ -73,12 +73,29 @@ source_code:
       binary_name: "obj/nxp_simtemp.ko"
       build_targets:
         - "clean"
-        - "all"
+        - "host-signed"
       artifacts:
         - "obj/nxp_simtemp.ko"
         - "obj/*.mod"
         - "obj/Module.symvers"
         - "obj/modules.order"
+    
+    nxp_simtemp_arm:
+      enabled: false  # Enable only for ARM builds
+      description: " Temperature Simulator Kernel Module (ARM Cross-compilation + QEMU Packaging)"
+      source_dir: "simtemp/kernel"
+      source_files:
+        - "nxp_simtemp.c"
+        - "Kbuild"
+      makefile: "simtemp/kernel/Makefile"
+      binary_name: "obj/nxp_simtemp.ko"
+      build_targets:
+        - "clean"
+        - "nxp-arm"
+      artifacts:
+        - "obj/nxp_simtemp.ko"
+        - "deployment/qemu/rootfs.cpio.gz"
+        - "deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
 
 # Test configuration
 testing:

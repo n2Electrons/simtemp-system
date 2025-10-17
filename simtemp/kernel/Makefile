@@ -60,7 +60,12 @@ nxp-arm: prepare-nxp-arm $(OBJ_DIR)
 	fi
 	@echo "Signing NXP ARM module..."
 	$(MAKE) sign_module
-	@echo "✅ NXP ARM module built and signed successfully"
+	@echo "Copying binaries to QEMU rootfs for deployment..."
+	mkdir -p ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
+	cp $(OBJ_DIR)/nxp_simtemp.ko ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
+	@echo "Packaging updated rootfs..."
+	cd ../../deployment/qemu && ./scripts/update_rootfs.sh
+	@echo "✅ NXP ARM module built, signed, and packaged successfully"
 
 prepare-nxp-arm64:
 	@echo "Comming soon:"
