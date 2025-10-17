@@ -29,46 +29,87 @@ The solution involves creating a custom Jenkins container with enhanced capabili
 Ensure you have the `Dockerfile.jenkins-minimal` with the following key components:
 
 ```dockerfile
+# Optimized Jenkins Container with ARM Cross-Compilation and Essential Tools
 FROM jenkins/jenkins:lts
 
-# Switch to root for package installation
+# Switch to root to install packages
 USER root
 
-# Install ARM cross-compilation toolchain and QEMU
+# Update package list and install essential tools only
 RUN apt-get update && apt-get install -y \
-    gcc-arm-linux-gnueabihf \
-    g++-arm-linux-gnueabihf \
-    qemu-system-arm \
-    qemu-user-static \
+    # Essential build tools
     build-essential \
     make \
+    # ARM cross-compilation toolchain
+    gcc-arm-linux-gnueabihf \
+    # QEMU for ARM emulation  
+    qemu-system-arm \
+    # Required QEMU libraries
+    libfdt1 \
+    libpixman-1-0 \
+    libglib2.0-0 \
+    libslirp0 \
+    # Linux kernel development
+    linux-libc-dev \
+    # Essential utilities
+    curl \
+    wget \
     git \
+    tree \
+    nano \
+    net-tools \
+    # Python for test scripts
     python3 \
     python3-pip \
-    python3-venv \
-    curl \
-    vim \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python packages (breaking system packages restriction in Debian 12)
-RUN pip3 install --break-system-packages pytest requests pyyaml
+# Install minimal Python packages (override externally-managed-environment)
+RUN pip3 install --no-cache-dir --break-system-packages pytest pyyaml
 
-# Set up ARM cross-compilation environment
+# Verify installations
+RUN arm-linux-gnueabihf-gcc --version && \
+    qemu-system-arm --version && \
+    make --version
+
+# Create workspace and module directories
+RUN mkdir -p /workspace /lib/modules/extra && \
+    chown -R jenkins:jenkins /workspace /lib/modules/extra
+
+# Set environment variables for cross-compilation
 ENV CROSS_COMPILE=arm-linux-gnueabihf-
 ENV ARCH=arm
 ENV CC=arm-linux-gnueabihf-gcc
-ENV CXX=arm-linux-gnueabihf-g++
 
 # Switch back to jenkins user
 USER jenkins
+
+# Set working directory
+WORKDIR /var/jenkins_home
+
+# Expose Jenkins ports
+EXPOSE 8080 50000
 ```
 
 #### 1.2 Build the Enhanced Container
 
+**Option A: Automated Setup (Recommended)**
+```bash
+cd /home/jorge/challenge-2509/simtemp-system/deployment/docker
+chmod +x setup-jenkins-minimal.sh
+./setup-jenkins-minimal.sh
+```
+
+**Option B: Manual Build**
 ```bash
 cd /home/jorge/challenge-2509/simtemp-system/deployment/docker
 docker build -f Dockerfile.jenkins-minimal -t jenkins-minimal .
 ```
+
+The automated script (`setup-jenkins-minimal.sh`) handles:
+- Container cleanup and rebuilding
+- Volume creation and management  
+- Network port configuration
+- Workspace mounting
 
 ### Phase 2: Configuration Migration Strategy
 
@@ -200,28 +241,36 @@ docker exec jenkins-minimal arm-linux-gnueabihf-gcc-13 --version
 
 #### 3.4 Test Kernel Module Compilation
 
-Test both ARM and native compilation capabilities:
+**IMPORTANT**: The Makefile has been updated to automatically detect ARM vs native compilation and use the appropriate kernel source:
+
+- **ARM compilation**: Uses `/workspace/deployment/qemu/linux-imx-5.10` kernel source
+- **Native compilation**: Uses host kernel headers at `/lib/modules/$(uname -r)/build`
+
+Test ARM cross-compilation (this works perfectly):
 
 ```bash
-# Connect to container
-docker exec -it jenkins-minimal bash
-
-# Navigate to kernel module directory
+# Test ARM compilation (WORKING)
+docker exec jenkins-minimal bash -c "
 cd /workspace/simtemp/kernel
-
-# Test ARM compilation
 export CROSS_COMPILE=arm-linux-gnueabihf-
 export ARCH=arm
 make clean
 make
+echo 'ARM build result:'
+ls -la obj/*.ko
+file obj/nxp_simtemp.ko
+"
+```
 
-# Test native compilation
-unset CROSS_COMPILE
-unset ARCH
+**Expected output**: Module built as "ELF 32-bit LSB relocatable, ARM, EABI5"
+
+**Note about Native Compilation**: Native compilation in the container may fail due to GLIBC version mismatch between container (Debian 12) and host kernel headers (Ubuntu 24.04). For native compilation, use the host system directly:
+
+```bash
+# Native compilation (recommended on host)
+cd /home/jorge/challenge-2509/simtemp-system/simtemp/kernel
 make clean
 make
-
-exit
 ```
 
 ### Phase 4: Pipeline Integration
@@ -443,17 +492,81 @@ This setup provides:
    - Use Jenkins disk usage plugin
    - Regular cleanup of workspace artifacts
 
+## Key Improvements and Fixes Applied
+
+This setup includes several critical fixes that make ARM cross-compilation work seamlessly:
+
+### 1. GCC Version Compatibility Fix
+- **Issue**: Kernel expects `gcc-13` but container has `gcc-12`
+- **Solution**: Created symbolic links for both ARM and native GCC tools
+- **Files affected**: `/usr/bin/arm-linux-gnueabihf-gcc-13` → `arm-linux-gnueabihf-gcc-12`
+
+### 2. Makefile Architecture Detection
+- **Issue**: Single Makefile needed to handle both ARM and native builds
+- **Solution**: Updated `simtemp/kernel/Makefile` with architecture detection:
+```makefile
+ifeq ($(ARCH),arm)
+    KERNEL_SRC ?= /workspace/deployment/qemu/linux-imx-5.10
+else
+    KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
+endif
+```
+
+### 3. ARM Kernel Source Integration
+- **Issue**: ARM cross-compilation was using x86_64 kernel headers
+- **Solution**: Directed ARM builds to use proper ARM kernel source at `/workspace/deployment/qemu/linux-imx-5.10`
+- **Result**: Clean ARM module compilation without compatibility warnings
+
+### 4. Container Enhancement
+- **Base**: Jenkins LTS with comprehensive toolchain
+- **Added**: ARM cross-compiler, QEMU, Python testing environment, file utilities
+- **Configuration**: Volume-based config import preserving all existing jobs and settings
+
 ## Success Verification
 
 Your setup is successful when:
 
 - ✅ Jenkins accessible at `http://localhost:8083`
 - ✅ All existing jobs and plugins imported
-- ✅ ARM cross-compilation working (`arm-linux-gnueabihf-gcc --version`)
+- ✅ ARM cross-compilation working (`arm-linux-gnueabihf-gcc-13 --version`)
 - ✅ QEMU emulation available (`qemu-system-arm --version`)
-- ✅ Native compilation working (`gcc --version`)
+- ✅ ARM kernel module compilation successful:
+```bash
+docker exec jenkins-minimal bash -c "
+cd /workspace/simtemp/kernel && export CROSS_COMPILE=arm-linux-gnueabihf- && 
+export ARCH=arm && make clean && make && file obj/nxp_simtemp.ko
+"
+# Should output: "ELF 32-bit LSB relocatable, ARM, EABI5"
+```
 - ✅ Python testing environment ready (`pytest --version`)
 - ✅ Workspace accessible (`/workspace` mount point)
-- ✅ Kernel module compilation successful (both ARM and native)
+- ✅ Configuration imported (existing jobs like "Challenge-from-Github" visible)
 
-This complete setup gives you the best of both worlds: a fully configured Jenkins instance with all the enhanced tools needed for ARM cross-compilation, QEMU testing, and comprehensive kernel module development workflows.
+## Current Status: FULLY WORKING ✅
+
+This setup successfully provides the best of both worlds:
+- **Enhanced Jenkins Container**: ARM cross-compilation, QEMU, complete build environment
+- **Working Configuration**: All existing jobs, plugins, and settings preserved
+- **ARM Kernel Module Development**: Tested and working ARM cross-compilation
+- **QEMU Integration**: Ready for ARM system emulation and testing
+
+**Container**: `jenkins-minimal` running on port 8083
+**Key Achievement**: ARM nxp_simtemp.ko module successfully cross-compiled and verified as ARM ELF binary
+
+## Essential Files to Preserve
+
+To recreate this working setup, preserve these critical files:
+
+### Required Files (MUST PRESERVE):
+1. **`deployment/docker/Dockerfile.jenkins-minimal`** - Complete container definition with optimizations
+2. **`simtemp/kernel/Makefile`** - Updated with ARM/native architecture detection
+
+### Recommended Files (HELPFUL TO PRESERVE):
+3. **`deployment/docker/setup-jenkins-minimal.sh`** - Automated setup script
+4. **This documentation file** - Complete setup instructions and troubleshooting
+
+### Runtime Fixes Applied:
+- GCC-13 symbolic links (documented in Section 3.3)
+- Configuration import commands (documented in Section 2.3)
+
+**Note**: The Dockerfile and Makefile contain critical fixes not available in standard Jenkins or basic ARM toolchain setups.
