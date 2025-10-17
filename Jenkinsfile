@@ -1338,8 +1338,8 @@ def sendConsolidatedPRComment() {
                             def parts = detail.split(':', 2) // Split into max 2 parts
                             if (parts.length >= 2) {
                                 def testName = parts[1].trim().replaceAll(' ✅', '').replaceAll(' ❌', '')
-                                def status = detail.contains('✅') ? '✅' : '❌'
-                                testPassed = detail.contains('✅')
+                                def status = (detail.toLowerCase().contains('passed')) ? '✅' : ((detail.toLowerCase().contains('failed')) ? '❌' : '❔')
+                                testPassed = status == '✅'
                                 testLine = "- ${status} **${testName}**"
                             }
                         }
