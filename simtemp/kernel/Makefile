@@ -18,10 +18,13 @@ NXP_KERNEL_SRC := $(shell \
 		echo "/home/jorge/challenge-2509/simtemp-system/deployment/qemu/linux-imx-5.10"; \
 	fi)
 
-# Current /lib/modules/$(uname -r) 6.14.0-33-generic is un-stable in the implementation
-# So decided to build host sytem with 6.14.0-32-generic
+# Host kernel source detection - supports both Ubuntu host and Debian Jenkins container
 HOST_KERNEL_SRC := $(shell \
-	if [ -d "/lib/modules/6.14.0-32-generic/build" ]; then \
+	if [ -f "/.dockerenv" ] && [ -d "/usr/src/linux-headers-6.1.0-40-amd64" ]; then \
+		echo "/usr/src/linux-headers-6.1.0-40-amd64"; \
+	elif [ -f "/.dockerenv" ]; then \
+		find /usr/src -name "linux-headers-*-amd64" -type d | head -1; \
+	elif [ -d "/lib/modules/6.14.0-32-generic/build" ]; then \
 		echo "/lib/modules/6.14.0-32-generic/build"; \
 	elif [ -d "/lib/modules/$$(uname -r)/build" ]; then \
 		echo "/lib/modules/$$(uname -r)/build"; \
@@ -40,7 +43,9 @@ SIGNING_DER := /var/jenkins_home/kernel_enroll/MOK.der
 
 obj-m := nxp_simtemp.o
 
-# Default 'all' target removed to prevent unexpected behavior with auto-detection
+# Default target - Host build (Jenkins CI/CD compatible)
+all: host-signed
+
 # Use explicit targets: 'make host' for native x86_64, 'make nxp-arm' for cross-compilation
 
 # NXP i.MX cross-compilation targets
