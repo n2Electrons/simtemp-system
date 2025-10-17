@@ -89,7 +89,7 @@ tests:
       ROOTFS_IMAGE: 'deployment/qemu/rootfs-hello.cpio.gz'
       # BUILD_SCRIPT removed - binaries are pre-compiled on host
     test_cases:
-      - name: "basic_qemu_boot"
+      - name: "test_basic_qemu_boot"
         description: "Verifies basic QEMU boot and kernel messages"
         enabled: true
         test_id: "F-K1-TC-002"
