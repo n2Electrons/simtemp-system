@@ -47,7 +47,7 @@ tests:
         enabled: true
         test_id: "F-K1-TC-001"  # Maps to test plan ID
         pytest_file: "test_f_k1_tc_001.py"  # Specific pytest file for this test case
-        verbose_output: true  # Enable pytest -s flag to show print statements
+        verbose_output: false  # Enable pytest -s flag to show print statements
         debug_info: "This test loads the kernel module using insmod"
 
   kernel_driver_suite:
@@ -72,7 +72,7 @@ tests:
         debug_info: "This test verifies clean module load/unload operations"
 
   qemu_integration:
-    enabled: false
+    enabled: true
     repository: "simtemp-system"  # GitHub repository for this test module
     debug_verbose: true  # Enable detailed debug output for this module
     description: "QEMU i.MX6 Integration Tests for Jenkins CI/CD"
