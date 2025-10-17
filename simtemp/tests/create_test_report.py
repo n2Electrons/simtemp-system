@@ -429,40 +429,40 @@ class DetailedTestReportGenerator:
 
     def collect_test_results(self):
         """Collect test results by executing each test suite and generating incremental detail files"""
-        self.logger.info("COLLECT_TEST_RESULTS: Starting test collection process")
+        self.logger.info("TestRunner: Starting test collection process")
         start_time = time.time()
         
         # Show detailed configuration overview at the start
-        self.logger.info("COLLECT_TEST_RESULTS: Showing test configuration overview")
+        self.logger.info("TestRunner: Showing test configuration overview")
         self.show_test_configuration_overview()
         
         # Always generate fresh results from test configuration
         # This ensures we always run pytest and capture current test state
-        self.logger.info("COLLECT_TEST_RESULTS: Generating fresh test results from test configuration")
+        self.logger.info("TestRunner: Generating fresh test results from test configuration")
         self.generate_from_config()
         
         self.test_results["summary"]["runtime"] = time.time() - start_time
-        self.logger.info(f"COLLECT_TEST_RESULTS: Completed - collected results from {self.test_results['summary']['total_modules']} modules in {self.test_results['summary']['runtime']:.2f}s")
+        self.logger.info(f"TestRunner: Completed - collected results from {self.test_results['summary']['total_modules']} modules in {self.test_results['summary']['runtime']:.2f}s")
 
     def generate_from_config(self):
         """Generate test results structure from test configuration"""
-        self.logger.info("GENERATE_FROM_CONFIG: Starting config processing")
+        self.logger.info("TestRunner: Starting config processing")
         
         if not self.test_config or 'tests' not in self.test_config:
-            self.logger.error("GENERATE_FROM_CONFIG: No test configuration available")
+            self.logger.error("TestRunner: No test configuration available")
             return
         
         total_suites = len(self.test_config['tests'])
-        self.logger.info(f"GENERATE_FROM_CONFIG: Processing {total_suites} test suites")
+        self.logger.info(f"TestRunner: Processing {total_suites} test suites")
             
         for test_suite_name, test_suite_config in self.test_config['tests'].items():
-            self.logger.info(f"GENERATE_FROM_CONFIG: Processing suite '{test_suite_name}'")
+            self.logger.info(f"TestRunner: Processing suite '{test_suite_name}'")
             
             if not test_suite_config.get('enabled', True):
-                self.logger.info(f"GENERATE_FROM_CONFIG: Skipping disabled suite '{test_suite_name}'")
+                self.logger.info(f"TestRunner: Skipping disabled suite '{test_suite_name}'")
                 continue
                 
-            self.logger.info(f"GENERATE_FROM_CONFIG: Suite '{test_suite_name}' is enabled")
+            self.logger.info(f"TestRunner: Suite '{test_suite_name}' is enabled")
             
             module_data = {
                 "name": test_suite_name,
@@ -473,7 +473,7 @@ class DetailedTestReportGenerator:
             
             # Add test cases from configuration
             test_cases = test_suite_config.get('test_cases', [])
-            self.logger.info(f"GENERATE_FROM_CONFIG: Found {len(test_cases)} test cases for module {test_suite_name}")
+            self.logger.info(f"TestRunner: Found {len(test_cases)} test cases for module {test_suite_name}")
             
             for test_case in test_cases:
                 test_name = test_case.get('name', 'unnamed')
@@ -533,24 +533,24 @@ class DetailedTestReportGenerator:
 
     def capture_pytest_results(self, suite_name, module_data):
         """Run pytest and capture results to update test status"""
-        self.logger.info(f"CAPTURE_PYTEST_RESULTS: Starting for suite '{suite_name}'")
+        self.logger.info(f"TestRunner: Starting for suite '{suite_name}'")
         
         try:
             import subprocess
             
             # Run pytest with JSON output
-            self.logger.info(f"CAPTURE_PYTEST_RESULTS: Looking for pytest config for module {suite_name}")
+            self.logger.info(f"TestRunner: Looking for pytest config for module {suite_name}")
             
             # Get the specific pytest file for this module from configuration
             module_config = None
             for test_suite_name, test_suite_config in self.test_config.get('tests', {}).items():
                 if test_suite_name == suite_name:
                     module_config = test_suite_config
-                    self.logger.info(f"CAPTURE_PYTEST_RESULTS: Found config for suite '{suite_name}'")
+                    self.logger.info(f"TestRunner: Found config for suite '{suite_name}'")
                     break
             
             if not module_config:
-                self.logger.warning(f"CAPTURE_PYTEST_RESULTS: No configuration found for module {suite_name}")
+                self.logger.warning(f"TestRunner: No configuration found for module {suite_name}")
                 return
                 
             # Initialize test_files to avoid UnboundLocalError
@@ -558,7 +558,7 @@ class DetailedTestReportGenerator:
                 
             # Check if this module has a specific pytest file configured
             pytest_file = module_config.get('pytest_file')
-            self.logger.info(f"CAPTURE_PYTEST_RESULTS: pytest_file value for {suite_name}: {repr(pytest_file)}")
+            self.logger.info(f"TestRunner: pytest_file value for {suite_name}: {repr(pytest_file)}")
             
             if pytest_file is None:
                 # Check if pytest_file was explicitly set to null vs. not defined
@@ -606,14 +606,14 @@ class DetailedTestReportGenerator:
                 else:
                     # pytest_file not defined at suite level - collect from test cases
                     self.logger.info(
-                        f"CAPTURE_PYTEST_RESULTS: No pytest_file key found at suite level for {suite_name} "
+                        f"TestRunner: No pytest_file key found at suite level for {suite_name} "
                         "- collecting from test cases"
                     )
                     # Continue to collection logic below
             elif not pytest_file:
                 # Empty string or false-y value - collect from test cases
                 self.logger.info(
-                    f"CAPTURE_PYTEST_RESULTS: Empty pytest file at suite level for {suite_name} "
+                    f"TestRunner: Empty pytest file at suite level for {suite_name} "
                     "- collecting from test cases"
                 )
                 # Continue to collection logic below
@@ -662,63 +662,63 @@ class DetailedTestReportGenerator:
             if pytest_file is None and 'pytest_file' not in module_config or not pytest_file:
                 # No pytest file at suite level - collect from test cases
                 self.logger.info(
-                    f"CAPTURE_PYTEST_RESULTS: No pytest file at suite level for {suite_name} "
+                    f"TestRunner: No pytest file at suite level for {suite_name} "
                     "- collecting from test cases"
                 )
                 
                 # Collect unique pytest files from test cases
                 test_case_files = set()
                 test_cases = module_config.get('test_cases', [])
-                self.logger.info(f"CAPTURE_PYTEST_RESULTS: Found {len(test_cases)} test cases to examine")
+                self.logger.info(f"TestRunner: Found {len(test_cases)} test cases to examine")
                 
                 for test_case in test_cases:
                     test_case_name = test_case.get('name', 'unnamed')
                     test_case_enabled = test_case.get('enabled', True)
                     case_pytest_file = test_case.get('pytest_file')
                     
-                    self.logger.info(f"CAPTURE_PYTEST_RESULTS: Examining test case '{test_case_name}' - enabled: {test_case_enabled}, pytest_file: {case_pytest_file}")
+                    self.logger.info(f"TestRunner: Examining test case '{test_case_name}' - enabled: {test_case_enabled}, pytest_file: {case_pytest_file}")
                     
                     # Only include enabled test cases
                     if test_case_enabled:
                         if case_pytest_file:
                             test_case_files.add(case_pytest_file)
-                            self.logger.info(f"CAPTURE_PYTEST_RESULTS: Added pytest file '{case_pytest_file}' from enabled test case '{test_case_name}'")
+                            self.logger.info(f"TestRunner: Added pytest file '{case_pytest_file}' from enabled test case '{test_case_name}'")
                         else:
-                            self.logger.info(f"CAPTURE_PYTEST_RESULTS: Test case '{test_case_name}' is enabled but has no pytest_file")
+                            self.logger.info(f"TestRunner: Test case '{test_case_name}' is enabled but has no pytest_file")
                     else:
-                        self.logger.info(f"CAPTURE_PYTEST_RESULTS: Skipping disabled test case '{test_case_name}'")
+                        self.logger.info(f"TestRunner: Skipping disabled test case '{test_case_name}'")
                 
-                self.logger.info(f"CAPTURE_PYTEST_RESULTS: Collected {len(test_case_files)} unique pytest files: {list(test_case_files)}")
+                self.logger.info(f"TestRunner: Collected {len(test_case_files)} unique pytest files: {list(test_case_files)}")
                 
                 if test_case_files:
                     script_dir = Path(__file__).parent
                     test_files = []
-                    self.logger.info(f"CAPTURE_PYTEST_RESULTS: Looking for pytest files in directory: {script_dir}")
+                    self.logger.info(f"TestRunner: Looking for pytest files in directory: {script_dir}")
                     
                     for file_name in test_case_files:
                         test_file_path = script_dir / file_name
-                        self.logger.info(f"CAPTURE_PYTEST_RESULTS: Checking if pytest file exists: {test_file_path}")
+                        self.logger.info(f"TestRunner: Checking if pytest file exists: {test_file_path}")
                         
                         if test_file_path.exists():
                             test_files.append(test_file_path)
                             self.logger.info(
-                                f"CAPTURE_PYTEST_RESULTS: Found pytest file from test case: {file_name}"
+                                f"TestRunner: Found pytest file from test case: {file_name}"
                             )
                         else:
                             self.logger.warning(
-                                f"CAPTURE_PYTEST_RESULTS: Pytest file from test case not found: "
+                                f"TestRunner: Pytest file from test case not found: "
                                 f"{file_name} (full path: {test_file_path})"
                             )
                     
                     if not test_files:
                         self.logger.warning(
-                            f"CAPTURE_PYTEST_RESULTS: No valid pytest files found for {suite_name} "
+                            f"TestRunner: No valid pytest files found for {suite_name} "
                             "from test cases"
                         )
                         return
                         
                     self.logger.info(
-                        f"CAPTURE_PYTEST_RESULTS: Using pytest files from test cases for {suite_name}: "
+                        f"TestRunner: Using pytest files from test cases for {suite_name}: "
                         f"{[f.name for f in test_files]}"
                     )
                 else:
@@ -726,7 +726,7 @@ class DetailedTestReportGenerator:
                     script_dir = Path(__file__).parent
                     test_files = list(script_dir.glob("test_*.py"))
                     self.logger.info(
-                        f"CAPTURE_PYTEST_RESULTS: No pytest files in test cases for {suite_name}, "
+                        f"TestRunner: No pytest files in test cases for {suite_name}, "
                         f"using all test files: {[f.name for f in test_files]}"
                     )
             else:
@@ -807,11 +807,35 @@ class DetailedTestReportGenerator:
             except Exception as e:
                 self.logger.warning(f"Could not run test discovery: {e}")
             
-            # Run pytest with verbose output from the project root directory
-            cmd = ["python3", "-m", "pytest", "-v", "--tb=short"] + test_file_paths
-            self.logger.info(f"Executing pytest command for {suite_name}: {' '.join(cmd)}")
+            # Build pytest command with configurable verbose output
+            cmd = ["python3", "-m", "pytest", "-v", "--tb=short"]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=project_root)
+            # Check if any test case in this suite has verbose_output enabled
+            verbose_enabled = False
+            test_cases = module_config.get('test_cases', [])
+            for test_case in test_cases:
+                enabled = test_case.get('enabled', True)
+                verbose = test_case.get('verbose_output', False)
+                if enabled and verbose:
+                    verbose_enabled = True
+                    break
+            
+            if verbose_enabled:
+                cmd.append("-s")  # Add -s flag to show print statements
+                self.logger.info(
+                    f"Verbose output enabled for suite {suite_name}"
+                )
+            
+            cmd.extend(test_file_paths)
+            
+            self.logger.info(
+                f"Executing pytest command for {suite_name}: {' '.join(cmd)}"
+            )
+            
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=60,
+                cwd=project_root
+            )
             
             self.logger.info(f"Pytest exit code for {suite_name}: {result.returncode}")
             if result.stdout:

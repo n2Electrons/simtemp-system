@@ -2,6 +2,10 @@
 # This file controls which tests are executed and their configurations
 #
 # Copyright (c) Jorge Rodriguez Moreno
+#
+# Test Case Configuration Options:
+#   verbose_output: true/false - Controls pytest -s flag to show/hide print statements
+#                               Set to true for debugging specific test cases
 
 version: "1.0"
 
@@ -43,6 +47,7 @@ tests:
         enabled: true
         test_id: "F-K1-TC-001"  # Maps to test plan ID
         pytest_file: "test_f_k1_tc_001.py"  # Specific pytest file for this test case
+        verbose_output: true  # Enable pytest -s flag to show print statements
         debug_info: "This test loads the kernel module using insmod"
 
   kernel_driver_suite:
@@ -63,6 +68,7 @@ tests:
         enabled: true
         test_id: "F-K8-TC-001"
         pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this test case
+        verbose_output: false  # Disable verbose output for this test
         debug_info: "This test verifies clean module load/unload operations"
 
   qemu_integration:
@@ -88,6 +94,7 @@ tests:
         enabled: true
         test_id: "F-K1-TC-002"
         pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this test case
+        verbose_output: true  # Enable verbose output for debugging QEMU boot
         debug_info: "This test checks for successful QEMU boot and kernel log patterns"
         qemu_specific:
           expects_boot: true
