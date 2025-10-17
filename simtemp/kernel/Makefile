@@ -1,19 +1,5 @@
 # Kernel module build configuration
-# Default to native x86_64 compilation
-# For ARM cross-compilation, use: make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
-
-# Detect if we're cross-compiling for ARM
-ifeq ($(ARCH),arm)
-    # Use ARM kernel source for cross-compilation
-    KERNEL_SRC ?= /workspace/deployment/qemu/linux-imx-5.10.72
-    $(info [ARM Cross-Compile] Using kernel source: $(KERNEL_SRC))
-    $(info [ARM Cross-Compile] ARCH=$(ARCH), CROSS_COMPILE=$(CROSS_COMPILE))
-else
-    # Use host kernel headers for native x86_64 compilation (default)
-    KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
-    $(info [Native x86_64 Build] Using kernel headers: $(KERNEL_SRC))
-endif
-
+KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
 OBJ_DIR := obj
 SRC_FILE := nxp_simtemp.c
 
