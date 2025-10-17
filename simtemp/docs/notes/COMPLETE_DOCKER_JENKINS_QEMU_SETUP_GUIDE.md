@@ -216,10 +216,11 @@ git --version
 exit
 ```
 
-#### 3.3 Fix GCC Version Compatibility
+#### 3.3 Fix GCC Version Compatibility and Kernel Build Tools
 
-The container uses GCC-12 but kernel headers may expect GCC-13. Create compatibility links:
+The container requires several fixes for ARM kernel module compilation:
 
+**Step 1: Create GCC-13 compatibility links**
 ```bash
 # Create GCC-13 symbolic links for both ARM and native compilation
 docker exec -u root jenkins-minimal bash -c "
@@ -231,19 +232,33 @@ ln -sf /usr/bin/arm-linux-gnueabihf-gcc-ranlib-12 /usr/bin/arm-linux-gnueabihf-g
 ln -sf /usr/bin/gcc-12 /usr/bin/gcc-13
 ln -sf /usr/bin/g++-12 /usr/bin/g++-13
 
-# Install file command for module inspection
-apt-get update && apt-get install -y file
+# Install kernel build dependencies and file command
+apt-get update && apt-get install -y file flex bison bc libssl-dev libelf-dev
 "
+```
 
-# Verify the ARM GCC-13 is working
+**Step 2: Fix kernel modpost tool (CRITICAL)**
+```bash
+# Rebuild modpost tool to fix GLIBC compatibility
+docker exec jenkins-minimal bash -c "
+cd /workspace/deployment/qemu/linux-imx-5.10.72/scripts/mod
+gcc -o modpost modpost.c file2alias.c sumversion.c
+echo 'Custom modpost built for container compatibility'
+"
+```
+
+**Step 3: Verify the setup**
+```bash
+# Verify ARM GCC-13 and modpost are working
 docker exec jenkins-minimal arm-linux-gnueabihf-gcc-13 --version
+docker exec jenkins-minimal bash -c "ls -la /workspace/deployment/qemu/linux-imx-5.10.72/scripts/mod/modpost"
 ```
 
 #### 3.4 Test Kernel Module Compilation
 
 **IMPORTANT**: The Makefile has been updated to automatically detect ARM vs native compilation and use the appropriate kernel source:
 
-- **ARM compilation**: Uses `/workspace/deployment/qemu/linux-imx-5.10` kernel source
+- **ARM compilation**: Uses `/workspace/deployment/qemu/linux-imx-5.10.72` kernel source (configured and working)
 - **Native compilation**: Uses host kernel headers at `/lib/modules/$(uname -r)/build`
 
 Test ARM cross-compilation (this works perfectly):
@@ -514,8 +529,9 @@ endif
 
 ### 3. ARM Kernel Source Integration
 - **Issue**: ARM cross-compilation was using x86_64 kernel headers
-- **Solution**: Directed ARM builds to use proper ARM kernel source at `/workspace/deployment/qemu/linux-imx-5.10`
-- **Result**: Clean ARM module compilation without compatibility warnings
+- **Solution**: Directed ARM builds to use proper ARM kernel source at `/workspace/deployment/qemu/linux-imx-5.10.72`
+- **Additional Fix**: Rebuilt modpost tool to resolve GLIBC compatibility issues
+- **Result**: Clean ARM module compilation producing proper ARM ELF binaries
 
 ### 4. Container Enhancement
 - **Base**: Jenkins LTS with comprehensive toolchain

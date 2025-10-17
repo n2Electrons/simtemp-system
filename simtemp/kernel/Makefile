@@ -2,7 +2,7 @@
 # Detect if we're cross-compiling for ARM
 ifeq ($(ARCH),arm)
     # Use ARM kernel source for cross-compilation
-    KERNEL_SRC ?= /workspace/deployment/qemu/linux-imx-5.10
+    KERNEL_SRC ?= /workspace/deployment/qemu/linux-imx-5.10.72
 else
     # Use host kernel headers for native compilation
     KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
