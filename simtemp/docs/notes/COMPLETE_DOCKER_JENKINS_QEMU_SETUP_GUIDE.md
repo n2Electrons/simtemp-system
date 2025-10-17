@@ -66,8 +66,18 @@ RUN apt-get update && apt-get install -y \
 # Install minimal Python packages (override externally-managed-environment)
 RUN pip3 install --no-cache-dir --break-system-packages pytest pyyaml
 
+# Create GCC-13 compatibility symbolic links for both ARM and native compilation
+RUN ln -sf /usr/bin/arm-linux-gnueabihf-gcc-12 /usr/bin/arm-linux-gnueabihf-gcc-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-g++-12 /usr/bin/arm-linux-gnueabihf-g++-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-gcc-ar-12 /usr/bin/arm-linux-gnueabihf-gcc-ar-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-gcc-nm-12 /usr/bin/arm-linux-gnueabihf-gcc-nm-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-gcc-ranlib-12 /usr/bin/arm-linux-gnueabihf-gcc-ranlib-13 && \
+    ln -sf /usr/bin/gcc-12 /usr/bin/gcc-13 && \
+    ln -sf /usr/bin/g++-12 /usr/bin/g++-13
+
 # Verify installations
 RUN arm-linux-gnueabihf-gcc --version && \
+    arm-linux-gnueabihf-gcc-13 --version && \
     qemu-system-arm --version && \
     make --version
 
@@ -220,24 +230,20 @@ exit
 
 The container requires several fixes for ARM kernel module compilation:
 
-**Step 1: Create GCC-13 compatibility links**
+**Note**: GCC-13 compatibility links are now automatically created in the Dockerfile, but if needed manually:
 ```bash
-# Create GCC-13 symbolic links for both ARM and native compilation
+# Create GCC-13 symbolic links (ALREADY INCLUDED IN DOCKERFILE)
 docker exec -u root jenkins-minimal bash -c "
 ln -sf /usr/bin/arm-linux-gnueabihf-gcc-12 /usr/bin/arm-linux-gnueabihf-gcc-13
 ln -sf /usr/bin/arm-linux-gnueabihf-g++-12 /usr/bin/arm-linux-gnueabihf-g++-13
-ln -sf /usr/bin/arm-linux-gnueabihf-gcc-ar-12 /usr/bin/arm-linux-gnueabihf-gcc-ar-13
-ln -sf /usr/bin/arm-linux-gnueabihf-gcc-nm-12 /usr/bin/arm-linux-gnueabihf-gcc-nm-13
-ln -sf /usr/bin/arm-linux-gnueabihf-gcc-ranlib-12 /usr/bin/arm-linux-gnueabihf-gcc-ranlib-13
-ln -sf /usr/bin/gcc-12 /usr/bin/gcc-13
-ln -sf /usr/bin/g++-12 /usr/bin/g++-13
+# ... (other links)
 
-# Install kernel build dependencies and file command
+# Install kernel build dependencies 
 apt-get update && apt-get install -y file flex bison bc libssl-dev libelf-dev
 "
 ```
 
-**Step 2: Fix kernel modpost tool (CRITICAL)**
+**Step 1: Fix kernel modpost tool (if needed)**
 ```bash
 # Rebuild modpost tool to fix GLIBC compatibility
 docker exec jenkins-minimal bash -c "
@@ -516,12 +522,20 @@ This setup includes several critical fixes that make ARM cross-compilation work 
 - **Solution**: Created symbolic links for both ARM and native GCC tools
 - **Files affected**: `/usr/bin/arm-linux-gnueabihf-gcc-13` → `arm-linux-gnueabihf-gcc-12`
 
-### 2. Makefile Architecture Detection
-- **Issue**: Single Makefile needed to handle both ARM and native builds
-- **Solution**: Updated `simtemp/kernel/Makefile` with architecture detection:
+### 2. Makefile Architecture Detection and Jenkins Auto-Detection
+- **Issue**: Single Makefile needed to handle both ARM and native builds, plus automatic Jenkins detection
+- **Solution**: Updated `simtemp/kernel/Makefile` with smart detection:
+  - **Jenkins Auto-Detection**: Automatically detects Jenkins environment and defaults to ARM cross-compilation
+  - **Architecture Detection**: Uses appropriate kernel source based on build target
 ```makefile
+# Auto-detect Jenkins container environment
+ifeq ($(findstring /var/jenkins_home/workspace/,$(PWD)),/var/jenkins_home/workspace/)
+    ARCH ?= arm
+    CROSS_COMPILE ?= arm-linux-gnueabihf-
+endif
+
 ifeq ($(ARCH),arm)
-    KERNEL_SRC ?= /workspace/deployment/qemu/linux-imx-5.10
+    KERNEL_SRC ?= /workspace/deployment/qemu/linux-imx-5.10.72
 else
     KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
 endif
@@ -533,7 +547,14 @@ endif
 - **Additional Fix**: Rebuilt modpost tool to resolve GLIBC compatibility issues
 - **Result**: Clean ARM module compilation producing proper ARM ELF binaries
 
-### 4. Container Enhancement
+### 4. Jenkins Auto-Detection for ARM Builds (CRITICAL FIX)
+- **Issue**: Jenkins pipeline was defaulting to native compilation and failing with "gcc-13: not found"
+- **Solution**: Enhanced Makefile with forced Jenkins environment detection and ARM cross-compilation
+- **Implementation**: Detects `/var/jenkins_home/workspace/` path and overrides all settings to use ARM
+- **Result**: Jenkins builds automatically succeed with ARM cross-compilation
+- **Verification**: Produces correct ARM ELF kernel modules ready for i.MX6 deployment
+
+### 5. Container Enhancement
 - **Base**: Jenkins LTS with comprehensive toolchain
 - **Added**: ARM cross-compiler, QEMU, Python testing environment, file utilities
 - **Configuration**: Volume-based config import preserving all existing jobs and settings

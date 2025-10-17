@@ -35,8 +35,18 @@ RUN apt-get update && apt-get install -y \
 # Install minimal Python packages (override externally-managed-environment)
 RUN pip3 install --no-cache-dir --break-system-packages pytest pyyaml
 
+# Create GCC-13 compatibility symbolic links for both ARM and native compilation
+RUN ln -sf /usr/bin/arm-linux-gnueabihf-gcc-12 /usr/bin/arm-linux-gnueabihf-gcc-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-g++-12 /usr/bin/arm-linux-gnueabihf-g++-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-gcc-ar-12 /usr/bin/arm-linux-gnueabihf-gcc-ar-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-gcc-nm-12 /usr/bin/arm-linux-gnueabihf-gcc-nm-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-gcc-ranlib-12 /usr/bin/arm-linux-gnueabihf-gcc-ranlib-13 && \
+    ln -sf /usr/bin/gcc-12 /usr/bin/gcc-13 && \
+    ln -sf /usr/bin/g++-12 /usr/bin/g++-13
+
 # Verify installations
 RUN arm-linux-gnueabihf-gcc --version && \
+    arm-linux-gnueabihf-gcc-13 --version && \
     qemu-system-arm --version && \
     make --version
 

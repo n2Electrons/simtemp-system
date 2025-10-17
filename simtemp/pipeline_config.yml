@@ -15,6 +15,17 @@ global:
   timeout_minutes: 15
   fail_fast: true
   parallel_builds: false  # Kernel modules should be built sequentially
+  
+  # ARM cross-compilation environment
+  cross_compilation:
+    enabled: true
+    target_arch: "arm"
+    toolchain_prefix: "arm-linux-gnueabihf-"
+    kernel_source: "/workspace/deployment/qemu/linux-imx-5.10.72"
+    environment_vars:
+      ARCH: "arm"
+      CROSS_COMPILE: "arm-linux-gnueabihf-"
+      KERNEL_SRC: "/workspace/deployment/qemu/linux-imx-5.10.72"
 
 # Repository configuration for multi-repo support
 repository:

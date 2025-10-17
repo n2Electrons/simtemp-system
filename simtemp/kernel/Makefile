@@ -1,11 +1,25 @@
 # Kernel module build configuration
+# Auto-detect Jenkins container environment and force ARM cross-compilation
+ifeq ($(findstring /var/jenkins_home/workspace/,$(PWD)),/var/jenkins_home/workspace/)
+    $(info [Jenkins Auto-Detect] Detected Jenkins environment - using ARM cross-compilation)
+    # Force ARM compilation in Jenkins (override any settings)
+    override ARCH = arm
+    override CROSS_COMPILE = arm-linux-gnueabihf-
+    
+    # Export these variables for sub-makes
+    export ARCH
+    export CROSS_COMPILE
+endif
+
 # Detect if we're cross-compiling for ARM
 ifeq ($(ARCH),arm)
     # Use ARM kernel source for cross-compilation
     KERNEL_SRC ?= /workspace/deployment/qemu/linux-imx-5.10.72
+    $(info [ARM Build] Using kernel source: $(KERNEL_SRC))
 else
     # Use host kernel headers for native compilation
     KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
+    $(info [Native Build] Using kernel headers: $(KERNEL_SRC))
 endif
 
 OBJ_DIR := obj
