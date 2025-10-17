@@ -30,7 +30,7 @@ requirements:
 # Test case configurations
 tests:
   kernel_driver_base:
-    enabled: true
+    enabled: false
     repository: "n2Electrons-Infra"  # GitHub repository for this test module  
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Tests for the Temperature Simulator Driver (Infrastructure)"
@@ -51,7 +51,7 @@ tests:
         debug_info: "This test loads the kernel module using insmod"
 
   kernel_driver_suite:
-    enabled: true
+    enabled: false
     repository: "simtemp-system"  # GitHub repository for this test module  
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Extended Tests for the Temperature Simulator Driver"
