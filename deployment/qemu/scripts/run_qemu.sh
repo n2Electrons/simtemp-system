@@ -22,14 +22,14 @@ fi
 echo "Using QEMU binary: $QEMU_BIN"
 
 # Verify required files exist
-if [ ! -f "linux-imx-5.10.72/arch/arm/boot/zImage" ]; then
-    echo "Error: Kernel image not found: linux-imx-5.10.72/arch/arm/boot/zImage"
+if [ ! -f "linux-imx-5.10/arch/arm/boot/zImage" ]; then
+    echo "Error: Kernel image not found: linux-imx-5.10/arch/arm/boot/zImage"
     echo "Please ensure you're running this script from the deployment/qemu directory"
     exit 1
 fi
 
-if [ ! -f "linux-imx-5.10.72/arch/arm/boot/dts/imx6q-sabresd.dtb" ]; then
-    echo "Error: Device tree blob not found: linux-imx-5.10.72/arch/arm/boot/dts/imx6q-sabresd.dtb"
+if [ ! -f "linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb" ]; then
+    echo "Error: Device tree blob not found: linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
     exit 1
 fi
 
@@ -45,8 +45,8 @@ echo "To stop QEMU: Press Ctrl+C or use monitor command 'quit'"
 $QEMU_BIN -M sabrelite \
                 -cpu cortex-a9 \
                 -m 1024 -nographic -no-reboot \
-                -kernel linux-imx-5.10.72/arch/arm/boot/zImage \
-                -dtb linux-imx-5.10.72/arch/arm/boot/dts/imx6q-sabresd.dtb \
+                -kernel linux-imx-5.10/arch/arm/boot/zImage \
+                -dtb linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb \
                 -initrd rootfs.cpio.gz \
                 -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init loglevel=8" \
                 -monitor telnet:127.0.0.1:45454,server,nowait

@@ -28,7 +28,7 @@ Successfully implemented and tested a complete cross-compilation workflow for th
 ### 3. Cross-Compilation Environment
 - **Architecture**: ARM (armv7-a)
 - **Cross-Compiler**: arm-linux-gnueabihf-gcc
-- **Kernel Source**: linux-imx-5.10.72
+- **Kernel Source**: linux-imx-5.10
 - **Target**: i.MX6 Quad SABRE Smart Device Board (QEMU sabrelite)
 - **Build Flags**: `-march=armv7-a -marm`
 
@@ -63,7 +63,7 @@ deployment/qemu/
 ├── rootfs/
 │   ├── tmp/src/simtemp_driver/  # Driver compilation area
 │   └── lib/modules/extra/       # Module installation location
-├── linux-imx-5.10.72/          # Kernel source tree
+├── linux-imx-5.10/          # Kernel source tree
 └── rootfs.cpio.gz               # Generated rootfs with driver
 ```
 

@@ -1,5 +1,20 @@
 # Kernel module build configuration
-KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
+# Native x86_64 compilation only
+# Priority: 1) Generic headers (dev/testing), 2) linux-imx-5.10 (NXP production)
+KERNEL_SRC ?= $(shell \
+	if [ -d "/lib/modules/6.14.0-32-generic/build" ]; then \
+		echo "/lib/modules/6.14.0-32-generic/build"; \
+	elif [ -d "/lib/modules/6.8.0-85-generic/build" ]; then \
+		echo "/lib/modules/6.8.0-85-generic/build"; \
+	elif [ -d "/home/jorge/challenge-2509/simtemp-system/deployment/qemu/linux-imx-5.10" ]; then \
+		echo "/home/jorge/challenge-2509/simtemp-system/deployment/qemu/linux-imx-5.10"; \
+	elif [ -d "/home/jorge/challenge-2509/simtemp-system/deployment/qemu/build" ]; then \
+		echo "/home/jorge/challenge-2509/simtemp-system/deployment/qemu/build"; \
+	elif [ -d "/lib/modules/$(shell uname -r)/build" ]; then \
+		echo "/lib/modules/$(shell uname -r)/build"; \
+	else \
+		find /lib/modules -name "build" -type d | head -1; \
+	fi)
 OBJ_DIR := obj
 SRC_FILE := nxp_simtemp.c
 
@@ -9,11 +24,22 @@ SIGNING_DER := /var/jenkins_home/kernel_enroll/MOK.der
 
 obj-m := nxp_simtemp.o
 
-all: $(OBJ_DIR) 
+all: $(OBJ_DIR)
 	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) modules
-	@mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true
-	@echo "Module built successfully"
-	@$(MAKE) sign_module
+	@echo "Build completed - checking for artifacts..."
+	@ls -la *.ko *.o *.mod* 2>/dev/null || echo "Some files missing"
+	@if [ -f nxp_simtemp.ko ]; then \
+		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
+		echo "Module built successfully"; \
+		$(MAKE) sign_module; \
+	else \
+		echo "ERROR: nxp_simtemp.ko was not created"; \
+		exit 1; \
+	fi
+
+# Alternative simple build without moving files
+simple:
+	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) modules
 
 # Create obj directory
 $(OBJ_DIR):

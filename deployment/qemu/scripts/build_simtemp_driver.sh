@@ -45,7 +45,7 @@ PROJECT_ROOT="$(dirname "$(dirname "$QEMU_DIR")")"
 SIMTEMP_SRC_DIR="$PROJECT_ROOT/simtemp/kernel"
 ROOTFS_DRIVER_DIR="$QEMU_DIR/rootfs/tmp/src/simtemp_driver"
 # Allow kernel source directory to be overridden by env variable
-KERNEL_SRC_DIR="${KERNEL_SRC_DIR:-$QEMU_DIR/linux-imx-5.10.72}"
+KERNEL_SRC_DIR="${KERNEL_SRC_DIR:-$QEMU_DIR/linux-imx-5.10}"
 
 # Precompiled driver settings
 USE_PRECOMPILED_DRIVER="${USE_PRECOMPILED_DRIVER:-false}"

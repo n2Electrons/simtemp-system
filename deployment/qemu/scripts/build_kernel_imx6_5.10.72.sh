@@ -8,7 +8,7 @@ REPO=https://github.com/nxp-imx/linux-imx.git
 BRANCH=lf-5.10.72-2.2.0
 ARCH=arm
 CROSS_COMPILE=arm-linux-gnueabihf-
-KDIR=linux-imx-5.10.72
+KDIR=linux-imx-5.10
 
 # ===========================
 # HOST DEPENDENCIES (Ubuntu)
