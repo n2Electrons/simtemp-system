@@ -11,7 +11,7 @@ from test_utils import (wait_for_qemu_message, cleanup_qemu_processes,
 # Test timeout in seconds (1 minute)
 QEMU_TIMEOUT = 60
 
-def test_qemu_initramfs_ready():
+def basic_qemu_boot():
     """
     Test case F-K1-TC-002: Test QEMU Device Tree overlay infrastructure.
     Expected Result: QEMU boots successfully and initramfs is ready.
