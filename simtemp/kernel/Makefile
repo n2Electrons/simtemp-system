@@ -1,5 +1,4 @@
 # Kernel module build configuration
-# Native x86_64 compilation only
 KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
 OBJ_DIR := obj
 SRC_FILE := nxp_simtemp.c

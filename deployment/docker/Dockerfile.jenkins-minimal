@@ -54,10 +54,7 @@ RUN arm-linux-gnueabihf-gcc --version && \
 RUN mkdir -p /workspace /lib/modules/extra && \
     chown -R jenkins:jenkins /workspace /lib/modules/extra
 
-# Set environment variables for cross-compilation
-ENV CROSS_COMPILE=arm-linux-gnueabihf-
-ENV ARCH=arm
-ENV CC=arm-linux-gnueabihf-gcc
+# Cross-compilation variables removed - native x86_64 only
 
 # Switch back to jenkins user
 USER jenkins
