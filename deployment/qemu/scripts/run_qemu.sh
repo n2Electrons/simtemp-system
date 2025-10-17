@@ -21,20 +21,48 @@ fi
 
 echo "Using QEMU binary: $QEMU_BIN"
 
-# Verify required files exist
-if [ ! -f "linux-imx-5.10/arch/arm/boot/zImage" ]; then
-    echo "Error: Kernel image not found: linux-imx-5.10/arch/arm/boot/zImage"
-    echo "Please ensure you're running this script from the deployment/qemu directory"
+# Use environment variables if provided, otherwise auto-detect paths
+KERNEL_IMAGE_PATH="${KERNEL_IMAGE:-}"
+DTB_FILE_PATH="${DTB_FILE:-}"
+ROOTFS_IMAGE_PATH="${ROOTFS_IMAGE:-}"
+
+# Verify required files exist - check environment variables first, then relative paths
+if [ -n "$KERNEL_IMAGE_PATH" ] && [ -f "$KERNEL_IMAGE_PATH" ]; then
+    KERNEL_IMAGE="$KERNEL_IMAGE_PATH"
+elif [ -f "linux-imx-5.10/arch/arm/boot/zImage" ]; then
+    KERNEL_IMAGE="linux-imx-5.10/arch/arm/boot/zImage"
+elif [ -f "deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage" ]; then
+    KERNEL_IMAGE="deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage"
+else
+    echo "Error: Kernel image not found"
+    echo "Tried env KERNEL_IMAGE: $KERNEL_IMAGE_PATH"
+    echo "Tried: linux-imx-5.10/arch/arm/boot/zImage"
+    echo "Tried: deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage"
+    echo "Please ensure kernel is compiled or run from correct directory"
     exit 1
 fi
 
-if [ ! -f "linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb" ]; then
-    echo "Error: Device tree blob not found: linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
+DTB_FILE=""
+if [ -f "linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb" ]; then
+    DTB_FILE="linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
+elif [ -f "deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb" ]; then
+    DTB_FILE="deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
+else
+    echo "Error: Device tree blob not found"
+    echo "Tried: linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
+    echo "Tried: deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
     exit 1
 fi
 
-if [ ! -f "rootfs.cpio.gz" ]; then
-    echo "Error: Root filesystem not found: rootfs.cpio.gz"
+ROOTFS_IMAGE=""
+if [ -f "rootfs.cpio.gz" ]; then
+    ROOTFS_IMAGE="rootfs.cpio.gz"
+elif [ -f "deployment/qemu/rootfs.cpio.gz" ]; then
+    ROOTFS_IMAGE="deployment/qemu/rootfs.cpio.gz"
+else
+    echo "Error: Root filesystem not found"
+    echo "Tried: rootfs.cpio.gz"
+    echo "Tried: deployment/qemu/rootfs.cpio.gz"
     exit 1
 fi
 
@@ -45,8 +73,8 @@ echo "To stop QEMU: Press Ctrl+C or use monitor command 'quit'"
 $QEMU_BIN -M sabrelite \
                 -cpu cortex-a9 \
                 -m 1024 -nographic -no-reboot \
-                -kernel linux-imx-5.10/arch/arm/boot/zImage \
-                -dtb linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb \
-                -initrd rootfs.cpio.gz \
+                -kernel "$KERNEL_IMAGE" \
+                -dtb "$DTB_FILE" \
+                -initrd "$ROOTFS_IMAGE" \
                 -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init loglevel=8" \
                 -monitor telnet:127.0.0.1:45454,server,nowait

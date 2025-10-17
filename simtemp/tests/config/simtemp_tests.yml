@@ -82,11 +82,12 @@ tests:
     precompiled_path: "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"  # Path to precompiled driver in repository
     
     env:
-      QEMU_DIR: 'deployment/qemu'
+      QEMU_PATH: 'deployment/qemu'
+      QEMU_DIR: 'deployment/qemu'  # Legacy compatibility
       HELLO_SRC_DIR: 'src/hello'
-      KERNEL_IMAGE: 'deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage'
-      DTB_FILE: 'deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabrelite.dtb'
-      ROOTFS_IMAGE: 'deployment/qemu/rootfs-hello.cpio.gz'
+      KERNEL_IMAGE: '${QEMU_PATH}/linux-imx-5.10/arch/arm/boot/zImage'
+      DTB_FILE: '${QEMU_PATH}/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabrelite.dtb'
+      ROOTFS_IMAGE: '${QEMU_PATH}/rootfs.cpio.gz'
       # BUILD_SCRIPT removed - binaries are pre-compiled on host
     test_cases:
       - name: "test_basic_qemu_boot"
