@@ -541,54 +541,136 @@ class DetailedTestReportGenerator:
             pytest_file = module_config.get('pytest_file')
             if pytest_file is None:
                 # Module explicitly configured to not run pytest
-                self.logger.info(f"Module {suite_name} configured with pytest_file: null - checking for test details file")
+                self.logger.info(
+                    f"Module {suite_name} configured with pytest_file: null "
+                    "- checking for test details file"
+                )
                 
-                # Special handling for jenkins_test module - look for test_details_jenkins_test.json
+                # Special handling for jenkins_test module
                 if suite_name == "jenkins_test":
-                    self.logger.info("Special handling for jenkins_test module - looking for test details file")
-                    jenkins_details_file = os.path.join(self.input_dir, "test_details_jenkins_test.json")
+                    self.logger.info(
+                        "Special handling for jenkins_test module "
+                        "- looking for test details file"
+                    )
+                    jenkins_details_file = os.path.join(
+                        self.input_dir, "test_details_jenkins_test.json"
+                    )
                     if os.path.exists(jenkins_details_file):
-                        self.logger.info(f"Found Jenkins test details file: {jenkins_details_file}")
+                        self.logger.info(
+                            f"Found Jenkins test details file: "
+                            f"{jenkins_details_file}"
+                        )
                         try:
                             with open(jenkins_details_file, 'r') as f:
                                 jenkins_results = json.load(f)
-                                self.logger.info(f"Loaded Jenkins test results: {jenkins_results}")
-                                self.match_jenkins_results_to_config(module_data, jenkins_results)
+                                self.logger.info(
+                                    f"Loaded Jenkins test results: "
+                                    f"{jenkins_results}"
+                                )
+                                self.match_jenkins_results_to_config(
+                                    module_data, jenkins_results
+                                )
                         except Exception as e:
-                            self.logger.error(f"Could not parse Jenkins test details file: {e}")
+                            self.logger.error(
+                                f"Could not parse Jenkins test details file: {e}"
+                            )
                     else:
-                        self.logger.warning(f"Jenkins test details file not found at: {jenkins_details_file}")
+                        self.logger.warning(
+                            f"Jenkins test details file not found at: "
+                            f"{jenkins_details_file}"
+                        )
                 return
             elif not pytest_file:
-                # Fall back to finding all test files (old behavior)
-                script_dir = Path(__file__).parent
-                test_files = list(script_dir.glob("test_*.py"))
-                self.logger.info(f"No specific pytest file configured for {suite_name}, using all test files: {[f.name for f in test_files]}")
+                # No pytest file at suite level - collect from test cases
+                self.logger.info(
+                    f"No pytest file at suite level for {suite_name} "
+                    "- collecting from test cases"
+                )
+                
+                # Collect unique pytest files from test cases
+                test_case_files = set()
+                test_cases = module_config.get('test_cases', [])
+                
+                for test_case in test_cases:
+                    # Only include enabled test cases
+                    if test_case.get('enabled', True):
+                        case_pytest_file = test_case.get('pytest_file')
+                        if case_pytest_file:
+                            test_case_files.add(case_pytest_file)
+                
+                if test_case_files:
+                    script_dir = Path(__file__).parent
+                    test_files = []
+                    for file_name in test_case_files:
+                        test_file_path = script_dir / file_name
+                        if test_file_path.exists():
+                            test_files.append(test_file_path)
+                            self.logger.info(
+                                f"Found pytest file from test case: {file_name}"
+                            )
+                        else:
+                            self.logger.warning(
+                                f"Pytest file from test case not found: "
+                                f"{file_name}"
+                            )
+                    
+                    if not test_files:
+                        self.logger.warning(
+                            f"No valid pytest files found for {suite_name} "
+                            "from test cases"
+                        )
+                        return
+                        
+                    self.logger.info(
+                        f"Using pytest files from test cases for {suite_name}: "
+                        f"{[f.name for f in test_files]}"
+                    )
+                else:
+                    # Fall back to finding all test files (old behavior)
+                    script_dir = Path(__file__).parent
+                    test_files = list(script_dir.glob("test_*.py"))
+                    self.logger.info(
+                        f"No pytest files in test cases for {suite_name}, "
+                        f"using all test files: {[f.name for f in test_files]}"
+                    )
             else:
                 # Use the specific pytest file for this module
                 script_dir = Path(__file__).parent
                 test_file_path = script_dir / pytest_file
                 if test_file_path.exists():
                     test_files = [test_file_path]
-                    self.logger.info(f"FOUND pytest file for {suite_name}: {pytest_file}")
+                    self.logger.info(
+                        f"FOUND pytest file for {suite_name}: {pytest_file}"
+                    )
                     self.logger.info(f"Full path: {test_file_path}")
                     
                     # Show test file contents summary
                     try:
                         with open(test_file_path, 'r') as f:
                             content = f.read()
-                            test_functions = [line.strip() for line in content.split('\n')
-                                            if line.strip().startswith('def test_')]
-                            self.logger.info(f"Test functions found in {pytest_file}:")
+                            test_functions = [
+                                line.strip() for line in content.split('\n')
+                                if line.strip().startswith('def test_')
+                            ]
+                            self.logger.info(
+                                f"Test functions found in {pytest_file}:"
+                            )
                             for test_func in test_functions:
                                 self.logger.info(f"   - {test_func}")
                             if not test_functions:
-                                self.logger.warning(f"No test functions found in {pytest_file}")
+                                self.logger.warning(
+                                    f"No test functions found in {pytest_file}"
+                                )
                     except Exception as e:
-                        self.logger.warning(f"Could not read test file contents: {e}")
+                        self.logger.warning(
+                            f"Could not read test file contents: {e}"
+                        )
                         
                 else:
-                    self.logger.error(f"Configured pytest file {pytest_file} not found for module {suite_name}")
+                    self.logger.error(
+                        f"Configured pytest file {pytest_file} not found "
+                        f"for module {suite_name}"
+                    )
                     self.logger.error(f"   Searched at: {test_file_path}")
                     return
                     

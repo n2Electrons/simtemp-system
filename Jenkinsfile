@@ -2019,15 +2019,37 @@ pipeline {
                         def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
                         def testConfigs = getTestConfigs(pipelineConfig)
                         
-                        // Set standard build environment variables (no precompiled driver settings here)
+                        // Check if QEMU integration tests are enabled
+                        def qemuEnabled = testConfigs.tests?.qemu_integration?.enabled ?: false
+                        def usePrecompiled = testConfigs.tests?.qemu_integration?.use_precompiled_driver ?: false
+                        
+                        echo "QEMU integration tests enabled: ${qemuEnabled}"
+                        
+                        if (!qemuEnabled) {
+                            echo "⚠️ QEMU integration tests are disabled - skipping QEMU driver build"
+                            echo "✅ Build stage completed (no QEMU build required)"
+                            return
+                        }
+                        
+                        // Set build environment variables for QEMU tests
                         def buildEnv = [
                             'ARCH=arm',
                             'CROSS_COMPILE=arm-linux-gnueabihf-',
-                            'CFLAGS_EXTRA=-march=armv7-a -marm',
-                            'USE_PRECOMPILED_DRIVER=false'  // Default to compilation mode for build stage
+                            'CFLAGS_EXTRA=-march=armv7-a -marm'
                         ]
                         
-                        echo "Build stage: Using compilation mode (precompiled driver settings applied only for QEMU tests)"
+                        // Add precompiled driver settings if configured
+                        if (usePrecompiled) {
+                            buildEnv.add('USE_PRECOMPILED_DRIVER=true')
+                            def precompiledPath = testConfigs.tests.qemu_integration.precompiled_path
+                            if (precompiledPath) {
+                                buildEnv.add("PRECOMPILED_DRIVER_PATH=${precompiledPath}")
+                            }
+                            echo "Build stage: Using precompiled driver mode for QEMU integration"
+                        } else {
+                            buildEnv.add('USE_PRECOMPILED_DRIVER=false')
+                            echo "Build stage: Using compilation mode for QEMU integration"
+                        }
                         
                         withEnv(buildEnv) {
                             // Execute the simtemp driver build script and check result
@@ -2063,9 +2085,19 @@ pipeline {
             post {
                 always {
                     script {
-                        // Archive artifacts based on build mode
+                        // Archive artifacts only if QEMU tests are enabled
                         try {
-                            // Only archive compiled .ko files if we're in compilation mode
+                            def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
+                            def testConfigs = getTestConfigs(pipelineConfig)
+                            def qemuEnabled = testConfigs.tests?.qemu_integration?.enabled ?: false
+                            def usePrecompiled = testConfigs.tests?.qemu_integration?.use_precompiled_driver ?: false
+                            
+                            if (!qemuEnabled) {
+                                echo "⚠️ QEMU tests disabled - skipping build artifacts archiving"
+                                return
+                            }
+                            
+                            // Archive artifacts based on build mode
                             if (!usePrecompiled) {
                                 echo "Archiving compiled driver artifacts..."
                                 archiveArtifacts artifacts: 'deployment/qemu/rootfs/tmp/src/simtemp_driver/*.ko', allowEmptyArchive: true, fingerprint: true
