@@ -68,7 +68,7 @@ tests:
         enabled: true
         test_id: "F-K8-TC-001"
         pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this test case
-        verbose_output: true  # Disable verbose output for this test
+        verbose_output: false  # Disable verbose output for this test
         debug_info: "This test verifies clean module load/unload operations"
 
   qemu_integration:
