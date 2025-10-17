@@ -21,7 +21,8 @@ fi
 
 echo "Using QEMU binary: $QEMU_BIN"
 
-# Debug: Show environment variables
+# Debug: Show environment and working directory  
+echo "DEBUG: Current working directory: $(pwd)"
 echo "DEBUG: KERNEL_IMAGE env var: '$KERNEL_IMAGE'"
 echo "DEBUG: DTB_FILE env var: '$DTB_FILE'"
 echo "DEBUG: ROOTFS_IMAGE env var: '$ROOTFS_IMAGE'"
@@ -35,6 +36,14 @@ echo "DEBUG: Resolved paths:"
 echo "  KERNEL_IMAGE_PATH: '$KERNEL_IMAGE_PATH'"
 echo "  DTB_FILE_PATH: '$DTB_FILE_PATH'"
 echo "  ROOTFS_IMAGE_PATH: '$ROOTFS_IMAGE_PATH'"
+
+# Auto-detect Jenkins workspace if available
+if [ -z "$KERNEL_IMAGE_PATH" ] && [ -f "/var/jenkins_home/workspace/simtemp-system/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage" ]; then
+    echo "DEBUG: Using Jenkins simtemp-system workspace"
+    KERNEL_IMAGE_PATH="/var/jenkins_home/workspace/simtemp-system/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage"
+    DTB_FILE_PATH="/var/jenkins_home/workspace/simtemp-system/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
+    ROOTFS_IMAGE_PATH="/var/jenkins_home/workspace/simtemp-system/deployment/qemu/rootfs.cpio.gz"
+fi
 
 # Verify required files exist - check environment variables first, then relative paths
 if [ -n "$KERNEL_IMAGE_PATH" ] && [ -f "$KERNEL_IMAGE_PATH" ]; then

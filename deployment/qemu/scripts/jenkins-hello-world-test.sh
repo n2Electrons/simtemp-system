@@ -9,7 +9,10 @@ QEMU_DIR="/home/jorge/challenge-2509/simtemp-system/deployment/qemu"
 KERNEL_IMAGE="$QEMU_DIR/linux-imx-5.10/arch/arm/boot/zImage"
 DTB_FILE="$QEMU_DIR/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabrelite.dtb"
 ROOTFS_IMAGE="$QEMU_DIR/rootfs-hello.cpio.gz"
-TEST_OUTPUT="$QEMU_DIR/jenkins-test-results.txt"
+
+# Use workspace directory for test outputs - avoids permission issues
+WORKSPACE_DIR="${WORKSPACE:-$(pwd)}"
+TEST_OUTPUT="$WORKSPACE_DIR/jenkins-test-results.txt"
 
 echo "============================================="
 echo "Jenkins QEMU Hello World Test"
@@ -79,8 +82,8 @@ timeout 30s qemu-system-arm \
             echo "  - Hello World program runs correctly"
             echo "  - Jenkins integration confirmed"
             
-            # Create JUnit XML for Jenkins
-            cat > junit-results.xml << EOF
+            # Create JUnit XML for Jenkins in workspace
+            cat > "$WORKSPACE_DIR/junit-results.xml" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuite name="QEMU Hello World Test" tests="4" failures="0" errors="0" time="30">
     <testcase name="Kernel Boot" classname="QEMUTest" time="5"/>
@@ -95,8 +98,8 @@ EOF
             echo "FAILURE: Hello World test did not complete successfully"
             echo "Check $TEST_OUTPUT for details"
             
-            # Create failure JUnit XML
-            cat > junit-results.xml << EOF
+            # Create failure JUnit XML in workspace
+            cat > "$WORKSPACE_DIR/junit-results.xml" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuite name="QEMU Hello World Test" tests="4" failures="1" errors="0" time="30">
     <testcase name="Kernel Boot" classname="QEMUTest" time="5"/>
