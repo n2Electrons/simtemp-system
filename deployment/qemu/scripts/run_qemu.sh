@@ -21,10 +21,20 @@ fi
 
 echo "Using QEMU binary: $QEMU_BIN"
 
+# Debug: Show environment variables
+echo "DEBUG: KERNEL_IMAGE env var: '$KERNEL_IMAGE'"
+echo "DEBUG: DTB_FILE env var: '$DTB_FILE'"
+echo "DEBUG: ROOTFS_IMAGE env var: '$ROOTFS_IMAGE'"
+
 # Use environment variables if provided, otherwise auto-detect paths
 KERNEL_IMAGE_PATH="${KERNEL_IMAGE:-}"
 DTB_FILE_PATH="${DTB_FILE:-}"
 ROOTFS_IMAGE_PATH="${ROOTFS_IMAGE:-}"
+
+echo "DEBUG: Resolved paths:"
+echo "  KERNEL_IMAGE_PATH: '$KERNEL_IMAGE_PATH'"
+echo "  DTB_FILE_PATH: '$DTB_FILE_PATH'"
+echo "  ROOTFS_IMAGE_PATH: '$ROOTFS_IMAGE_PATH'"
 
 # Verify required files exist - check environment variables first, then relative paths
 if [ -n "$KERNEL_IMAGE_PATH" ] && [ -f "$KERNEL_IMAGE_PATH" ]; then
