@@ -1039,7 +1039,7 @@ def runModuleTests() {
             error "test_config_file not specified in pipeline configuration testing section"
         }
         
-        echo "Using test runner: ${testRunner}"
+        echo "Using test runner [testRunner]: ${testRunner}"
         echo "Using test config: ${testConfigFile}"
             
         def testScript = """cd ${WORKSPACE} && python3 ${testRunner} --verbose"""
