@@ -54,9 +54,9 @@ except ImportError as e:  # pragma: no cover
     raise SystemExit("PyYAML required: pip install pyyaml") from e
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-DEFAULT_TRACE = BASE_DIR / 'simtemp' / 'reports' / 'traceability.yml'
+DEFAULT_TRACE = BASE_DIR / 'reports' / 'traceability.yml'
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPORTS_DIR = BASE_DIR / 'simtemp' / 'reports'
+REPORTS_DIR = BASE_DIR / 'reports'
 
 COMPLETED_STATUSES = {"implemented", "done", "completed", "verified"}
 

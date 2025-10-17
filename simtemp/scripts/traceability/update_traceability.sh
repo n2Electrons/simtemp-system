@@ -104,7 +104,9 @@ echo "==========================================================================
 echo "UPDATING TRACEABILITY.YML WITH GITHUB LINKS"
 echo "================================================================================"
 
-#Step 0: Generate traceability.yml
+# Step 0: Generate traceability.yml
+echo ""
+echo "STEP 0: Generate traceability.yml"
 GEN_CMD="python3 simtemp/scripts/traceability/generate_traceability_yaml.py"
 $GEN_CMD
 
@@ -197,6 +199,12 @@ if [[ -f "$STATISTICS_REPORT_SCRIPT" ]]; then
 else
     echo "Warning: Statistics report script not found, skipping"
 fi
+
+# Step 6: Generate_traceability_view.py / traceability_report.json
+echo ""
+echo "STEP 6: Generate_traceability_view.py / traceability_report.json"
+TRACEABILITY_VIEW_CMD="python3 simtemp/scripts/traceability/generate_traceability_view.py"
+$TRACEABILITY_VIEW_CMD
 
 # Final message
 echo ""

@@ -12,24 +12,24 @@ requirements:
   summary: Register as platform driver via DT or local device
   priority: Medium
   status: in-progress
-  github_link: ''
+  github_link: https://github.com/n2Electrons/challenge_2509/issues/58
   branches:
-  - f-k1-tc-002-dt-overlay
+  - f-k1-tc-002-qemu-dt
   tests:
   - id: F-K1-TC-001
     description: '`insmod` registers driver; sysfs entries created'
     expected: '`insmod` registers driver; sysfs entries created'
     status: planned
     automation: true
-    github_link: ''
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/61
     branch: ''
   - id: F-K1-TC-002
     description: DT overlay binds driver; properties parsed with no errors
     expected: DT overlay binds driver; properties parsed with no errors
     status: in-progress
     automation: true
-    github_link: ''
-    branch: f-k1-tc-002-dt-overlay
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/62
+    branch: f-k1-tc-002-qemu-dt
 - id: F-K2
   group: functional
   module: Kernel
@@ -517,14 +517,14 @@ requirements:
     expected: Struct/API match code
     status: planned
     automation: false
-    github_link: ''
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/64
     branch: ''
   - id: F-D2-TC-002
     description: Locking rationale consistent
     expected: Locking rationale consistent
     status: planned
     automation: false
-    github_link: ''
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/65
     branch: ''
 - id: F-D3
   group: functional
@@ -557,7 +557,7 @@ requirements:
   summary: Prompts and validation notes
   priority: Medium
   status: planned
-  github_link: ''
+  github_link: https://github.com/n2Electrons/challenge_2509/issues/57
   branches: []
   tests:
   - id: F-D4-TC-001
@@ -565,7 +565,7 @@ requirements:
     expected: Prompts recorded
     status: planned
     automation: false
-    github_link: ''
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/59
     branch: ''
   - id: F-D4-TC-002
     description: Mitigations listed

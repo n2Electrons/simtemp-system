@@ -2,7 +2,8 @@ metadata:
   generated_on: '2025-10-16'
   source_files:
   - simtemp/docs/TESTPLAN.md
-  notes: Regenerated from TESTPLAN.md via generate_traceability_yaml.py (preserving statuses).
+  notes: Regenerated from TESTPLAN.md via generate_traceability_yaml.py (preserving
+    statuses).
 requirements:
 - id: F-K1
   group: functional
@@ -13,7 +14,7 @@ requirements:
   status: in-progress
   github_link: https://github.com/n2Electrons/challenge_2509/issues/58
   branches:
-  - f-k1-tc-002-dt-overlay
+  - f-k1-tc-002-qemu-dt
   tests:
   - id: F-K1-TC-001
     description: '`insmod` registers driver; sysfs entries created'
@@ -28,7 +29,7 @@ requirements:
     status: in-progress
     automation: true
     github_link: https://github.com/n2Electrons/challenge_2509/issues/62
-    branch: f-k1-tc-002-dt-overlay
+    branch: f-k1-tc-002-qemu-dt
 - id: F-K2
   group: functional
   module: Kernel
@@ -40,15 +41,15 @@ requirements:
   branches: []
   tests:
   - id: F-K2-TC-001
-    description: Sampling jitter ≤ ±10 %
-    expected: Sampling jitter ≤ ±10 %
+    description: "Sampling jitter \u2264 \xB110 %"
+    expected: "Sampling jitter \u2264 \xB110 %"
     status: planned
     automation: true
     github_link: ''
     branch: ''
   - id: F-K2-TC-002
-    description: Updating `sampling_ms` changes rate ≤ 2 periods
-    expected: Updating `sampling_ms` changes rate ≤ 2 periods
+    description: "Updating `sampling_ms` changes rate \u2264 2 periods"
+    expected: "Updating `sampling_ms` changes rate \u2264 2 periods"
     status: planned
     automation: true
     github_link: ''
@@ -126,8 +127,8 @@ requirements:
   branches: []
   tests:
   - id: F-K5-TC-001
-    description: Alert within ≤ 2 periods; `stats.alerts++`
-    expected: Alert within ≤ 2 periods; `stats.alerts++`
+    description: "Alert within \u2264 2 periods; `stats.alerts++`"
+    expected: "Alert within \u2264 2 periods; `stats.alerts++`"
     status: planned
     automation: true
     github_link: ''
@@ -299,8 +300,8 @@ requirements:
     github_link: ''
     branch: ''
   - id: F-U2-TC-002
-    description: 100 Hz 5 s → no errors
-    expected: 100 Hz 5 s → no errors
+    description: "100 Hz 5 s \u2192 no errors"
+    expected: "100 Hz 5 s \u2192 no errors"
     status: planned
     automation: true
     github_link: ''
@@ -330,8 +331,8 @@ requirements:
     github_link: ''
     branch: ''
   - id: F-U3-TC-002
-    description: Poll wakes on alert ≤ 2 periods
-    expected: Poll wakes on alert ≤ 2 periods
+    description: "Poll wakes on alert \u2264 2 periods"
+    expected: "Poll wakes on alert \u2264 2 periods"
     status: planned
     automation: true
     github_link: ''
@@ -354,15 +355,15 @@ requirements:
   branches: []
   tests:
   - id: F-U4-TC-001
-    description: Self-test PASS (≤ 2 periods)
-    expected: Self-test PASS (≤ 2 periods)
+    description: "Self-test PASS (\u2264 2 periods)"
+    expected: "Self-test PASS (\u2264 2 periods)"
     status: planned
     automation: true
     github_link: ''
     branch: ''
   - id: F-U4-TC-002
-    description: High threshold → FAIL (exit ≠ 0)
-    expected: High threshold → FAIL (exit ≠ 0)
+    description: "High threshold \u2192 FAIL (exit \u2260 0)"
+    expected: "High threshold \u2192 FAIL (exit \u2260 0)"
     status: planned
     automation: true
     github_link: ''
@@ -378,8 +379,8 @@ requirements:
   branches: []
   tests:
   - id: F-U5-TC-001
-    description: GUI updates ≥ 5 Hz
-    expected: GUI updates ≥ 5 Hz
+    description: "GUI updates \u2265 5 Hz"
+    expected: "GUI updates \u2265 5 Hz"
     status: planned
     automation: false
     github_link: ''
@@ -409,8 +410,8 @@ requirements:
     github_link: ''
     branch: ''
   - id: F-S1-TC-002
-    description: Missing headers → clear error
-    expected: Missing headers → clear error
+    description: "Missing headers \u2192 clear error"
+    expected: "Missing headers \u2192 clear error"
     status: planned
     automation: true
     github_link: ''
@@ -440,8 +441,8 @@ requirements:
     github_link: ''
     branch: ''
   - id: F-S2-TC-002
-    description: Error → exit ≠ 0
-    expected: Error → exit ≠ 0
+    description: "Error \u2192 exit \u2260 0"
+    expected: "Error \u2192 exit \u2260 0"
     status: planned
     automation: true
     github_link: ''
@@ -464,15 +465,15 @@ requirements:
   branches: []
   tests:
   - id: F-S3-TC-001
-    description: Clean run → return 0
-    expected: Clean run → return 0
+    description: "Clean run \u2192 return 0"
+    expected: "Clean run \u2192 return 0"
     status: planned
     automation: true
     github_link: ''
     branch: ''
   - id: F-S3-TC-002
-    description: Missing tools → graceful skip
-    expected: Missing tools → graceful skip
+    description: "Missing tools \u2192 graceful skip"
+    expected: "Missing tools \u2192 graceful skip"
     status: planned
     automation: true
     github_link: ''
@@ -488,8 +489,8 @@ requirements:
   branches: []
   tests:
   - id: F-D1-TC-001
-    description: Fresh VM → success
-    expected: Fresh VM → success
+    description: "Fresh VM \u2192 success"
+    expected: "Fresh VM \u2192 success"
     status: planned
     automation: false
     github_link: ''
@@ -601,15 +602,15 @@ requirements:
   group: non-functional
   module: Non-Functional
   submodule: Performance
-  summary: Operate ≤ 100 Hz with low latency
+  summary: "Operate \u2264 100 Hz with low latency"
   priority: Medium
   status: planned
   github_link: ''
   branches: []
   tests:
   - id: N-F1-TC-001
-    description: Sampling stable ±10 %
-    expected: Sampling stable ±10 %
+    description: "Sampling stable \xB110 %"
+    expected: "Sampling stable \xB110 %"
     status: planned
     automation: true
     github_link: ''
@@ -639,15 +640,15 @@ requirements:
   branches: []
   tests:
   - id: N-F2-TC-001
-    description: 200 load/unload → 0 WARN/OOPS
-    expected: 200 load/unload → 0 WARN/OOPS
+    description: "200 load/unload \u2192 0 WARN/OOPS"
+    expected: "200 load/unload \u2192 0 WARN/OOPS"
     status: planned
     automation: true
     github_link: ''
     branch: ''
   - id: N-F2-TC-002
-    description: 6 h run → no leaks/crash
-    expected: 6 h run → no leaks/crash
+    description: "6 h run \u2192 no leaks/crash"
+    expected: "6 h run \u2192 no leaks/crash"
     status: planned
     automation: true
     github_link: ''
@@ -663,8 +664,8 @@ requirements:
   branches: []
   tests:
   - id: N-F3-TC-001
-    description: 8 threads → no deadlock
-    expected: 8 threads → no deadlock
+    description: "8 threads \u2192 no deadlock"
+    expected: "8 threads \u2192 no deadlock"
     status: planned
     automation: true
     github_link: ''
@@ -711,8 +712,8 @@ requirements:
   branches: []
   tests:
   - id: N-F5-TC-001
-    description: Invalid sysfs → `-EINVAL`
-    expected: Invalid sysfs → `-EINVAL`
+    description: "Invalid sysfs \u2192 `-EINVAL`"
+    expected: "Invalid sysfs \u2192 `-EINVAL`"
     status: planned
     automation: true
     github_link: ''
@@ -776,7 +777,7 @@ requirements:
   group: non-functional
   module: Non-Functional
   submodule: Traceability
-  summary: Req ↔ Test ↔ Code mapping
+  summary: "Req \u2194 Test \u2194 Code mapping"
   priority: Medium
   status: planned
   github_link: ''
@@ -807,8 +808,8 @@ requirements:
   branches: []
   tests:
   - id: N-F9-TC-001
-    description: '`checkpatch --strict` 0 errors, ≤ 3 warnings'
-    expected: '`checkpatch --strict` 0 errors, ≤ 3 warnings'
+    description: "`checkpatch --strict` 0 errors, \u2264 3 warnings"
+    expected: "`checkpatch --strict` 0 errors, \u2264 3 warnings"
     status: planned
     automation: true
     github_link: ''
@@ -831,8 +832,8 @@ requirements:
   branches: []
   tests:
   - id: N-F10-TC-001
-    description: Fresh VM → README success
-    expected: Fresh VM → README success
+    description: "Fresh VM \u2192 README success"
+    expected: "Fresh VM \u2192 README success"
     status: planned
     automation: true
     github_link: ''

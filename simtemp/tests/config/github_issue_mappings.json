@@ -13,6 +13,7 @@
   "f-k1-enabler-qemu": 15,
   "f-k1-enabler-qemu-clean": 14,
   "f-k1-enabler-qemu-infra": 13,
+  "f-k1-tc-002-qemu-dt": 16,
   "f-k8-tc-001-improve": 10,
   "f-k8-tc-001-loadunload": 7,
   "fix-jenkins-tests": 6,
