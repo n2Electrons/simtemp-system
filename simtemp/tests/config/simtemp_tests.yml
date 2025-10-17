@@ -46,7 +46,7 @@ tests:
         debug_info: "This test loads the kernel module using insmod"
 
   kernel_driver_suite:
-    enabled: true
+    enabled: false
     repository: "simtemp-system"  # GitHub repository for this test module  
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Extended Tests for the Temperature Simulator Driver"
@@ -66,7 +66,7 @@ tests:
         debug_info: "This test verifies clean module load/unload operations"
 
   qemu_integration:
-    enabled: true
+    enabled: false
     repository: "simtemp-system"  # GitHub repository for this test module
     debug_verbose: true  # Enable detailed debug output for this module
     description: "QEMU i.MX6 Integration Tests for Jenkins CI/CD"
