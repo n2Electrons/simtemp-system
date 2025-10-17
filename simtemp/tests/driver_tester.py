@@ -351,32 +351,38 @@ class DriverTestOrchestrator:
             self.logger.info(f"   Description: {description}")
             
             # Show pytest file information
-            if pytest_file is None:
-                self.logger.info(f"   Pytest file: null (no pytest execution)")
-            elif not pytest_file:
-                self.logger.info(f"   Pytest file: auto-discover test_*.py files")
+            # Distinguish between: (a) key not present (auto-discover), (b) key present and set to null (explicitly disabled), (c) empty string (auto-discover), (d) specific file
+            if 'pytest_file' not in suite_config:
+                self.logger.info(f"   Pytest file: auto-discover test_*.py files (not configured at suite level)")
             else:
-                pytest_path = script_dir / pytest_file
-                exists_status = "EXISTS" if pytest_path.exists() else "NOT FOUND"
-                self.logger.info(f"   Pytest file: {pytest_file} [{exists_status}]")
-                
-                # Show pytest file content summary if it exists
-                if pytest_path.exists():
-                    try:
-                        with open(pytest_path, 'r') as f:
-                            content = f.read()
-                            test_functions = [line.strip().split('(')[0].replace('def ', '')
-                                            for line in content.split('\n')
-                                            if line.strip().startswith('def test_')]
-                            
-                            if test_functions:
-                                self.logger.info(f"   Pytest functions found:")
-                                for func in test_functions:
-                                    self.logger.info(f"      - {func}")
-                            else:
-                                self.logger.info(f"   No test functions found in {pytest_file}")
-                    except Exception as e:
-                        self.logger.info(f"   Could not read {pytest_file}: {e}")
+                pytest_file_value = suite_config.get('pytest_file')
+                if pytest_file_value is None:
+                    # Explicit null in YAML means do not execute pytest for this suite
+                    self.logger.info(f"   Pytest file: null (no pytest execution)")
+                elif not pytest_file_value:
+                    self.logger.info(f"   Pytest file: auto-discover test_*.py files")
+                else:
+                    pytest_path = script_dir / pytest_file_value
+                    exists_status = "EXISTS" if pytest_path.exists() else "NOT FOUND"
+                    self.logger.info(f"   Pytest file: {pytest_file_value} [{exists_status}]")
+
+                    # Show pytest file content summary if it exists
+                    if pytest_path.exists():
+                        try:
+                            with open(pytest_path, 'r') as f:
+                                content = f.read()
+                                test_functions = [line.strip().split('(')[0].replace('def ', '')
+                                                for line in content.split('\n')
+                                                if line.strip().startswith('def test_')]
+
+                                if test_functions:
+                                    self.logger.info(f"   Pytest functions found:")
+                                    for func in test_functions:
+                                        self.logger.info(f"      - {func}")
+                                else:
+                                    self.logger.info(f"   No test functions found in {pytest_file_value}")
+                        except Exception as e:
+                            self.logger.info(f"   Could not read {pytest_file_value}: {e}")
             
             # Show configured test cases
             test_cases = suite_config.get('test_cases', [])
@@ -887,47 +893,66 @@ class DriverTestOrchestrator:
 
     def parse_pytest_output(self, pytest_output, module_data):
         """Parse pytest output to extract test results"""
-        lines = pytest_output.split('\n')
-        
+        lines = [l for l in pytest_output.split('\n') if l.strip()]
+
+        # Two common patterns to handle:
+        # 1) Same-line: path/to/test_file.py::test_name PASSED
+        # 2) Multi-line verbose: path/to/test_file.py::test_name\n    <prints>\nPASSED
+
         current_test = None
-        
-        for i, line in enumerate(lines):
-            # First, look for test execution lines: "file.py::test_name ..."
-            if '::test_' in line:
-                # Extract test name from the line
-                if '::' in line:
-                    parts = line.split('::')
-                    if len(parts) >= 2:
-                        test_file = parts[0].strip()
-                        # Get test name (first word after ::)
-                        test_part = (
-                            parts[1].split()[0] if parts[1].split() 
-                            else parts[1]
-                        )
-                        if test_part.startswith('test_'):
-                            current_test = {
-                                'file': test_file,
-                                'name': test_part
-                            }
-            
-            # Then look for status on this or next lines
-            elif (current_test and 
-                  line.strip() in ['PASSED', 'FAILED', 'SKIPPED']):
-                status = line.strip().lower()
+
+        for line in lines:
+            stripped = line.strip()
+
+            # Pattern 1: "file.py::test_name <STATUS>" on same line
+            m = re.match(r"^(?P<file>[^:\s]+)::(?P<test>test[^\s]+)\s+(?P<status>PASSED|FAILED|SKIPPED)$", stripped)
+            if m:
+                test_file = m.group('file')
+                test_name = m.group('test')
+                status = m.group('status').lower()
+                self.logger.info(f"Parsed test result: {test_file}::{test_name} -> {status}")
+                self.update_test_status(module_data, test_name, status)
+                continue
+
+            # Pattern 2: discovery/execution line with file::test (may have trailing text)
+            if '::test_' in stripped:
+                # Try to extract file and test token even if there's trailing text
+                m_id = re.search(r"(?P<file>[^:\s]+)::(?P<test>test[^\s:]*)", stripped)
+                if m_id:
+                    test_file = m_id.group('file')
+                    test_name = m_id.group('test')
+
+                    # If status is present on the same line, capture it
+                    m_status = re.search(r"\b(PASSED|FAILED|SKIPPED)\b", stripped)
+                    if m_status:
+                        status = m_status.group(1).lower()
+                        self.logger.info(f"Parsed test result: {test_file}::{test_name} -> {status}")
+                        self.update_test_status(module_data, test_name, status)
+                        current_test = None
+                        continue
+                    else:
+                        # No status yet; remember current test and continue
+                        current_test = {
+                            'file': test_file,
+                            'name': test_name
+                        }
+                        continue
+
+            # Pattern 3: status line following a previous test identifier
+            if current_test and stripped in ['PASSED', 'FAILED', 'SKIPPED']:
+                status = stripped.lower()
                 test_name = current_test['name']
                 test_file = current_test['file']
-                
-                self.logger.info(
-                    f"Parsed test result: {test_file}::{test_name} -> {status}"
-                )
-                
-                # Update matching test in module_data
+                self.logger.info(f"Parsed test result: {test_file}::{test_name} -> {status}")
                 self.update_test_status(module_data, test_name, status)
-                current_test = None  # Reset for next test
+                current_test = None
+                continue
+
+            # Otherwise ignore non-status lines (prints, tracebacks, etc.)
                     
-        # Also look for summary line like "1 passed in 4.85s"
-        for line in lines:
-            if ' passed in ' in line or ' failed' in line:
+        # Also look for summary lines (e.g., "1 passed in 4.85s")
+        for line in pytest_output.split('\n'):
+            if ' passed in ' in line or ' failed in ' in line or re.search(r"\d+ passed", line):
                 self.logger.info(f"Pytest summary: {line.strip()}")
 
     def update_test_status(self, module_data, test_name, status):
