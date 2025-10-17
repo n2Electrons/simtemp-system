@@ -841,14 +841,14 @@ def convertDetailedReportToPRFormat(detailedReport) {
                 def statusIcon = ""
                 switch (testStatus) {
                     case "passed":
-                        statusIcon = "PASSED"
+                        statusIcon = "✅"
                         break
                     case "failed":
-                        statusIcon = "FAILED"
+                        statusIcon = "❌"
                         moduleHasFailures = true
                         break
                     case "skipped":
-                        statusIcon = "SKIPPED"
+                        statusIcon = "⏭️"
                         break
                     case "not implemented":
                         statusIcon = "⚪"
