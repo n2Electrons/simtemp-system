@@ -82,9 +82,9 @@ WORKSPACE_ROOT=$(find_workspace_root)
 echo "Workspace root: $WORKSPACE_ROOT"
 
 # Define script paths
-GITHUB_SEARCH_SCRIPT="$WORKSPACE_ROOT/infra/scripts/github/github_pattern_search_cli.py"
-GITHUB_UPDATE_SCRIPT="$WORKSPACE_ROOT/infra/scripts/github/update_traceability_github_links.py"
-GITHUB_SUMMARY_SCRIPT="$WORKSPACE_ROOT/infra/scripts/github/github_pattern_search_summary.py"
+GITHUB_SEARCH_SCRIPT="$WORKSPACE_ROOT/infra_ext/infrastructure/scripts/github/github_pattern_search_cli.py"
+GITHUB_UPDATE_SCRIPT="$WORKSPACE_ROOT/infra_ext/infrastructure/scripts/github/update_traceability_github_links.py"
+GITHUB_SUMMARY_SCRIPT="$WORKSPACE_ROOT/infra_ext/infrastructure/scripts/github/github_pattern_search_summary.py"
 TRACEABILITY_VIEW_SCRIPT="$WORKSPACE_ROOT/simtemp/scripts/generate_traceability_view.py"
 STATISTICS_REPORT_SCRIPT="$WORKSPACE_ROOT/simtemp/scripts/generate_statistics_report.py"
 
@@ -103,6 +103,10 @@ fi
 echo "================================================================================"
 echo "UPDATING TRACEABILITY.YML WITH GITHUB LINKS"
 echo "================================================================================"
+
+#Step 0: Generate traceability.yml
+GEN_CMD="python3 simtemp/scripts/traceability/generate_traceability_yaml.py"
+$GEN_CMD
 
 # Step 1: Search GitHub for issues with patterns
 echo ""

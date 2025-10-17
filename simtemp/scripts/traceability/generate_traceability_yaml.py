@@ -61,10 +61,10 @@ except ImportError:
     sys.exit(2)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-REPORTS_DIR = BASE_DIR / 'simtemp' / 'reports'
+REPORTS_DIR = BASE_DIR / 'reports'
 TRACE_PATH = REPORTS_DIR / 'traceability.yml'
 
-TESTPLAN_PATH = BASE_DIR / 'simtemp' / 'docs' / 'TESTPLAN.md'
+TESTPLAN_PATH = BASE_DIR / 'docs' / 'TESTPLAN.md'
 
 TEST_ROW_RE = re.compile(r'^\|')
 # Updated to match the correct format: F-K#-TC-###, F-U#-TC-###, F-S#-TC-###, F-D#-TC-###, N-F#-TC-###
