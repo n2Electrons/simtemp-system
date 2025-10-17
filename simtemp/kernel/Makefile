@@ -1,5 +1,13 @@
 # Kernel module build configuration
-KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
+# Detect if we're cross-compiling for ARM
+ifeq ($(ARCH),arm)
+    # Use ARM kernel source for cross-compilation
+    KERNEL_SRC ?= /workspace/deployment/qemu/linux-imx-5.10
+else
+    # Use host kernel headers for native compilation
+    KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
+endif
+
 OBJ_DIR := obj
 SRC_FILE := nxp_simtemp.c
 
