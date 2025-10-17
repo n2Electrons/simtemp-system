@@ -135,29 +135,41 @@ def buildModule(String moduleName, def buildConfig) {
         
         dir(buildConfig.buildDir) {
             buildConfig.buildTargets.each { target ->
-                // Check if we need to override kernel headers path
-                def kernelHeadersPath = sh(
-                    script: '''
-                        if [ -d "/lib/modules/$(uname -r)/build" ]; then
-                            echo "/lib/modules/$(uname -r)/build"
-                        else
-                            # Find available kernel headers
-                            for kver in $(ls /lib/modules/ 2>/dev/null || echo ""); do
-                                if [ -d "/lib/modules/$kver/build" ]; then
-                                    echo "/lib/modules/$kver/build"
-                                    break
-                                fi
-                            done
-                        fi
-                    ''',
+                // Check if we're in ARM cross-compilation mode
+                def isArmBuild = sh(
+                    script: 'echo "${ARCH:-}"',
                     returnStdout: true
-                ).trim()
+                ).trim() == 'arm'
                 
-                if (kernelHeadersPath && kernelHeadersPath != "/lib/modules/\$(uname -r)/build") {
-                    echo "Using kernel headers: ${kernelHeadersPath}"
-                    sh "make KERNEL_SRC=${kernelHeadersPath} ${target}"
-                } else {
+                if (isArmBuild) {
+                    // For ARM builds, let Makefile handle kernel source selection
+                    echo "ARM cross-compilation detected - using Makefile kernel source detection"
                     sh "make ${target}"
+                } else {
+                    // For native x86_64 builds, check kernel headers path
+                    def kernelHeadersPath = sh(
+                        script: '''
+                            if [ -d "/lib/modules/$(uname -r)/build" ]; then
+                                echo "/lib/modules/$(uname -r)/build"
+                            else
+                                # Find available kernel headers
+                                for kver in $(ls /lib/modules/ 2>/dev/null || echo ""); do
+                                    if [ -d "/lib/modules/$kver/build" ]; then
+                                        echo "/lib/modules/$kver/build"
+                                        break
+                                    fi
+                                done
+                            fi
+                        ''',
+                        returnStdout: true
+                    ).trim()
+                    
+                    if (kernelHeadersPath && kernelHeadersPath != "/lib/modules/\$(uname -r)/build") {
+                        echo "Using kernel headers: ${kernelHeadersPath}"
+                        sh "make KERNEL_SRC=${kernelHeadersPath} ${target}"
+                    } else {
+                        sh "make ${target}"
+                    }
                 }
             }
             
