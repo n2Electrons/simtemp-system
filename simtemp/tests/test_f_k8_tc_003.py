@@ -9,7 +9,7 @@ import os
 import pytest
 import time
 from test_utils import (wait_for_qemu_message, cleanup_qemu_processes,
-                        test_environment)
+                        load_environment)
 
 # Test timeout in seconds
 QEMU_TIMEOUT = 90
@@ -20,7 +20,7 @@ def test_qemu_driver_load_unload():
     F-K8-TC-003: Test kernel module load/unload in QEMU environment.
     Expected Result: Module loads and unloads without kernel warnings/oops.
     """
-    with test_environment():
+    with load_environment():
         # Clean up any existing QEMU processes
         print("Cleaning up any existing QEMU processes...")
         if cleanup_qemu_processes():
@@ -224,8 +224,8 @@ def test_qemu_driver_load_unload():
                     print(f"Warning: Error during QEMU cleanup: "
                           f"{cleanup_error}")
             
-            # Additional cleanup handled by test_environment context manager
-            print("Additional cleanup will be handled by test_environment")
+            # Additional cleanup handled by load_environment context manager
+            print("Additional cleanup will be handled by load_environment")
 
 
 if __name__ == '__main__':

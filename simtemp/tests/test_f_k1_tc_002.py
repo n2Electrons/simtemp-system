@@ -6,7 +6,7 @@ import os
 import pytest
 import subprocess
 from test_utils import (wait_for_qemu_message, cleanup_qemu_processes,
-                        test_environment)
+                        load_environment)
 
 # Test timeout in seconds (1 minute)
 QEMU_TIMEOUT = 60
@@ -16,7 +16,7 @@ def test_qemu_initramfs_ready():
     Test case F-K1-TC-002: Test QEMU Device Tree overlay infrastructure.
     Expected Result: QEMU boots successfully and initramfs is ready.
     """
-    with test_environment():
+    with load_environment():
         # Kill any existing QEMU processes to avoid port conflicts
         print("Cleaning up any existing QEMU processes...")
         if cleanup_qemu_processes():
@@ -115,8 +115,8 @@ def test_qemu_initramfs_ready():
                     print(f"Warning: Error during QEMU cleanup: "
                           f"{cleanup_error}")
             
-            # Additional cleanup handled by test_environment context manager
-            print("Additional cleanup will be handled by test_environment")
+            # Additional cleanup handled by load_environment
+            print("Additional cleanup will be handled by load_environment")
 
 
 if __name__ == '__main__':

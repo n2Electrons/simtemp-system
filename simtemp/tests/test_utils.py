@@ -266,12 +266,12 @@ def test_cleanup():
 
 
 @contextmanager
-def test_environment():
+def load_environment():
     """
     Context manager for test execution that ensures proper cleanup.
     
     Usage:
-        with test_environment():
+        with load_environment():
             # Your test code here
             # Directory changes, QEMU processes, etc.
             pass
