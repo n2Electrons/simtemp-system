@@ -27,7 +27,7 @@ def clearGlobalVariables() {
     globalDetailedReport = [:]
     globalBuildStatus = 'unknown'    // Start with neutral state, not success
     globalTestStatus = 'unknown'     // Start with neutral state, not success
-    echo "✅ Global variables cleared successfully - status reset to 'unknown'"
+    echo "Global variables cleared successfully - status reset to 'unknown'"
 }
 
 // Helper function to load pipeline configuration from YAML
@@ -168,7 +168,7 @@ def buildModule(String moduleName, def buildConfig) {
         
         return 'success'
     } catch (Exception e) {
-        echo "❌ Module ${moduleName} build failed: ${e.message}"
+        echo "Module ${moduleName} build failed: ${e.message}"
         throw e
     }
 }
@@ -230,10 +230,10 @@ def buildModules() {
             
             // Execute the build
             buildResults[moduleName] = buildModule(moduleName, buildConfig)
-            echo "✅ Module ${moduleName} built successfully"
+            echo "Module ${moduleName} built successfully"
         } catch (Exception e) {
             buildResults[moduleName] = "failed: ${e.message}"
-            echo "❌ Module ${moduleName} build failed: ${e.message}"
+            echo "Module ${moduleName} build failed: ${e.message}"
             throw e
         }
     }
@@ -493,15 +493,15 @@ def executeJenkinsTests() {
         def response = sh(script: "curl -s -w '%{http_code}' -o /dev/null http://localhost:8080/api/json || echo '000'", returnStdout: true).trim()
         if (response == "200" || response == "403") // 403 is also OK, means Jenkins is running but needs auth
         {
-            testOutput.add("Test 1: connectivity ✅")
+            testOutput.add("Test 1: connectivity PASSED")
             echo "[SUCCESS] Jenkins connectivity test passed"
         } else {
-            testOutput.add("Test 1: connectivity ❌")
+            testOutput.add("Test 1: connectivity FAILED")
             echo "[ERROR] Jenkins connectivity test failed (HTTP ${response})"
             allPassed = false
         }
     } catch (Exception e) {
-        testOutput.add("Test 1: connectivity ❌")
+        testOutput.add("Test 1: connectivity FAILED")
         echo "[ERROR] Jenkins connectivity test failed: ${e.message}"
         allPassed = false
     }
@@ -512,15 +512,15 @@ def executeJenkinsTests() {
         // Try to access Jenkins with basic auth or check if auth is configured
         def authResponse = sh(script: "curl -s -w '%{http_code}' -o /dev/null http://localhost:8080/login || echo '000'", returnStdout: true).trim()
         if (authResponse == "200") {
-            testOutput.add("Test 2: authentication ✅")
+            testOutput.add("Test 2: authentication PASSED")
             echo "[SUCCESS] Jenkins authentication test passed"
         } else {
-            testOutput.add("Test 2: authentication ❌")
+            testOutput.add("Test 2: authentication FAILED")
             echo "[ERROR] Jenkins authentication test failed (HTTP ${authResponse})"
             allPassed = false
         }
     } catch (Exception e) {
-        testOutput.add("Test 2: authentication ❌")
+        testOutput.add("Test 2: authentication FAILED")
         echo "[ERROR] Jenkins authentication test failed: ${e.message}"
         allPassed = false
     }
@@ -551,7 +551,7 @@ def executeJenkinsTests() {
         
         if (prDiagnosticResults.success) {
             env.DETECTED_PR_NUMBER = prDiagnosticResults.prNumber
-            testOutput.add("Test 3: pr_processing ✅")
+            testOutput.add("Test 3: pr_processing PASSED")
             echo "[SUCCESS] Jenkins PR processing test passed - PR #${env.DETECTED_PR_NUMBER} detected via ${prDiagnosticResults.methods.findAll { it.value.success }.keySet().join(', ')}"
         } else {
             // Fall back to basic detection for backward compatibility
@@ -559,10 +559,10 @@ def executeJenkinsTests() {
             def buildInfo = env.BUILD_NUMBER ?: 'unknown'
             
             if (prInfo != 'unknown' && buildInfo != 'unknown') {
-                testOutput.add("Test 3: pr_processing ✅")
+                testOutput.add("Test 3: pr_processing PASSED")
                 echo "[SUCCESS] Jenkins PR processing test passed - branch: ${prInfo}, build: ${buildInfo}"
             } else {
-                testOutput.add("Test 3: pr_processing ❌")
+                testOutput.add("Test 3: pr_processing FAILED")
                 echo "[ERROR] Jenkins PR processing test failed - missing branch or build info"
                 allPassed = false
             }
@@ -570,15 +570,15 @@ def executeJenkinsTests() {
         
         // Report GitHub API connectivity results
         if (apiConnectivity) {
-            testOutput.add("Test 3b: github_api_connectivity ✅")
+            testOutput.add("Test 3b: github_api_connectivity PASSED")
             echo "[SUCCESS] GitHub API connectivity test passed"
         } else {
-            testOutput.add("Test 3b: github_api_connectivity ❌")
+            testOutput.add("Test 3b: github_api_connectivity FAILED")
             echo "[ERROR] GitHub API connectivity test failed"
             // Don't fail the entire test suite for API connectivity issues
         }
     } catch (Exception e) {
-        testOutput.add("Test 3: pr_processing ❌")
+        testOutput.add("Test 3: pr_processing FAILED")
         echo "[ERROR] Jenkins PR processing test failed: ${e.message}"
         allPassed = false
     }
@@ -600,9 +600,9 @@ def executeJenkinsTests() {
             if (line.contains('Test ') && line.contains(':')) {
                 def parts = line.split(':', 2)
                 if (parts.length >= 2) {
-                    // Extract test name correctly: "Test 1: connectivity ✅" -> "connectivity"
-                    def testName = parts[1].trim().replaceAll('✅|❌', '').trim()
-                    def status = line.contains('✅') ? 'passed' : 'failed'
+                    // Extract test name correctly: "Test 1: connectivity PASSED" -> "connectivity"
+                    def testName = parts[1].trim().replaceAll('PASSED|FAILED', '').trim()
+                    def status = line.contains('PASSED') ? 'passed' : 'failed'
                     
                     // Map test names to configured test IDs
                     def testId = ""
@@ -653,7 +653,7 @@ def runJenkinsTests() {
     def testResults = [:]
     def testDetails = [:]
     
-    echo "🚀 Executing Jenkins integration tests..."
+    echo "Executing Jenkins integration tests..."
     def testOutput = executeJenkinsTests()
     def result = testOutput.contains('FAILED') ? 1 : 0
     
@@ -664,9 +664,9 @@ def runJenkinsTests() {
     def lines = testOutput.split('\n')
     
     for (def line : lines) {
-        if (line.contains('Test ') && line.contains(':') && (line.contains('✅') || line.contains('❌'))) {
-            // Extract jenkins test results: "Test 1: connectivity ✅"
-            def testMatch = line =~ /Test\s+\d+:\s*(\w+)\s*(✅|❌)/
+        if (line.contains('Test ') && line.contains(':') && (line.contains('PASSED') || line.contains('FAILED'))) {
+            // Extract jenkins test results: "Test 1: connectivity PASSED"
+            def testMatch = line =~ /Test\s+\d+:\s*(\w+)\s*(PASSED|FAILED)/
             if (testMatch) {
                 def testName = testMatch[0][1]
                 def status = testMatch[0][2]
@@ -686,7 +686,7 @@ def runJenkinsTests() {
         globalTestStatus = 'failure'
         error "Jenkins integration tests failed with exit code: ${result}"
     } else {
-        echo "✅ Jenkins integration tests passed"
+        echo "Jenkins integration tests passed"
     }
     
     return [testResults: testResults, testDetails: testDetails]
@@ -696,16 +696,16 @@ def runJenkinsTests() {
 def loadDetailedTestReport(pipelineConfig) {
     def reportsDirectory = pipelineConfig.testing?.reports_directory
     if (!reportsDirectory) {
-        echo "⚠️ Warning: reports_directory not specified in pipeline configuration"
+        echo "Warning: reports_directory not specified in pipeline configuration"
         return null
     }
     
     def reportFile = "${WORKSPACE}/${reportsDirectory}/test_report_detailed.json"
-    echo "🔍 Looking for detailed test report at: ${reportFile}"
+    echo "Looking for detailed test report at: ${reportFile}"
     
     if (!fileExists(reportFile)) {
-        echo "⚠️ Warning: Detailed test report not found at ${reportFile}"
-        echo "🔍 Checking if reports directory exists: ${WORKSPACE}/${reportsDirectory}"
+        echo "Warning: Detailed test report not found at ${reportFile}"
+        echo "Checking if reports directory exists: ${WORKSPACE}/${reportsDirectory}"
         return null
     }
     
@@ -714,23 +714,23 @@ def loadDetailedTestReport(pipelineConfig) {
         // Show file timestamp for debugging
         sh "ls -la '${reportFile}' || echo 'Cannot get file details'"
     } catch (Exception e) {
-        echo "⚠️ Could not get file details: ${e.message}"
+        echo "Could not get file details: ${e.message}"
     }
     
     try {
         def reportJson = readJSON file: reportFile
-        echo "✅ Loaded fresh detailed test report with ${reportJson.summary?.total_tests ?: 0} tests from ${reportJson.summary?.total_modules ?: 0} modules"
-        echo "📊 Report timestamp: ${reportJson.summary?.timestamp ?: 'not available'}"
+        echo "Loaded fresh detailed test report with ${reportJson.summary?.total_tests ?: 0} tests from ${reportJson.summary?.total_modules ?: 0} modules"
+        echo "Report timestamp: ${reportJson.summary?.timestamp ?: 'not available'}"
         
         // Debug: show module names from the report
         if (reportJson.modules) {
             def moduleNames = reportJson.modules.keySet().join(', ')
-            echo "🔍 Module names in report: ${moduleNames}"
+            echo "Module names in report: ${moduleNames}"
         }
         
         return reportJson
     } catch (Exception e) {
-        echo "⚠️ Warning: Could not parse detailed test report: ${e.message}"
+        echo "Warning: Could not parse detailed test report: ${e.message}"
         return null
     }
 }
@@ -841,14 +841,14 @@ def convertDetailedReportToPRFormat(detailedReport) {
                 def statusIcon = ""
                 switch (testStatus) {
                     case "passed":
-                        statusIcon = "✅"
+                        statusIcon = "PASSED"
                         break
                     case "failed":
-                        statusIcon = "❌"
+                        statusIcon = "FAILED"
                         moduleHasFailures = true
                         break
                     case "skipped":
-                        statusIcon = "⏭️"
+                        statusIcon = "SKIPPED"
                         break
                     case "not implemented":
                         statusIcon = "⚪"
@@ -922,8 +922,8 @@ def parseTestOutput(testOutput) {
                 if (moduleTestDetails.size() > 0) {
                     def lastIndex = moduleTestDetails.size() - 1
                     def lastTest = moduleTestDetails[lastIndex]
-                    if (lastTest.startsWith('Test ') && !lastTest.contains('✅') && !lastTest.contains('❌')) {
-                        moduleTestDetails[lastIndex] = lastTest + " ✅"
+                    if (lastTest.startsWith('Test ') && !lastTest.contains('PASSED') && !lastTest.contains('FAILED')) {
+                        moduleTestDetails[lastIndex] = lastTest + " PASSED"
                     }
                 }
             } else if (line.contains('test failed') || line.contains('Test failed')) {
@@ -931,8 +931,8 @@ def parseTestOutput(testOutput) {
                 if (moduleTestDetails.size() > 0) {
                     def lastIndex = moduleTestDetails.size() - 1
                     def lastTest = moduleTestDetails[lastIndex]
-                    if (lastTest.startsWith('Test ') && !lastTest.contains('✅') && !lastTest.contains('❌')) {
-                        moduleTestDetails[lastIndex] = lastTest + " ❌"
+                    if (lastTest.startsWith('Test ') && !lastTest.contains('PASSED') && !lastTest.contains('FAILED')) {
+                        moduleTestDetails[lastIndex] = lastTest + " FAILED"
                     }
                 }
             }
@@ -1016,7 +1016,7 @@ def runModuleTests() {
     def overallResult = 0
     
     for (def moduleName in enabledModules) {
-        echo "🔍 DEBUG: Processing test module: ${moduleName}"
+        echo "DEBUG: Processing test module: ${moduleName}"
         
         // Get repository configuration for this module
         def moduleRepository = getModuleRepository(pipelineConfig, moduleName)
@@ -1026,14 +1026,14 @@ def runModuleTests() {
         def testOutput = ""
         
         // Regular module tests (jenkins_test is handled in separate stage)
-        echo "🔧 Executing regular module test for: ${moduleName}"
+        echo "Executing regular module test for: ${moduleName}"
         
         // Get test paths from pipeline configuration
-        def testRunner = pipelineConfig.testing?.test_report_generator
+        def testRunner = pipelineConfig.testing?.test_composer
         def testConfigFile = pipelineConfig.testing?.test_config_file
         
         if (!testRunner) {
-            error "test_report_generator not specified in pipeline configuration testing section"
+            error "test_composer not specified in pipeline configuration testing section"
         }
         if (!testConfigFile) {
             error "test_config_file not specified in pipeline configuration testing section"
@@ -1080,15 +1080,15 @@ def runModuleTests() {
         try {
             sh """
                 cd simtemp/tests
-                python3 cleanup_test_artifacts.py || echo "⚠️ Cleanup script failed, using fallback"
+                python3 cleanup_test_artifacts.py || echo "Cleanup script failed, using fallback"
                 find /tmp -name 'test_details_*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9].json' -delete 2>/dev/null || true
             """
         } catch (Exception e) {
-            echo "⚠️ Warning: Could not clean timestamped files: ${e.message}"
+            echo "Warning: Could not clean timestamped files: ${e.message}"
         }
         
         // Debug: Show test detail files before cleanup
-        echo "📋 Test detail files in /tmp before cleanup:"
+        echo "Test detail files in /tmp before cleanup:"
         try {
             sh "ls -la /tmp/test_details_*.json 2>/dev/null || echo 'No test detail files found'"
             
@@ -1098,10 +1098,10 @@ def runModuleTests() {
                 find /tmp -name 'test_details_*.json' -exec sh -c 'python3 -m json.tool "\$1" >/dev/null 2>&1 || rm -f "\$1"' _ {} \\; 2>/dev/null || true
             """
             
-            echo "📋 Test detail files after cleanup:"
+            echo "Test detail files after cleanup:"
             sh "ls -la /tmp/test_details_*.json 2>/dev/null || echo 'No test detail files found after cleanup'"
         } catch (Exception e) {
-            echo "⚠️ Warning: Could not execute debug commands - may be running outside node context: ${e.message}"
+            echo "Warning: Could not execute debug commands - may be running outside node context: ${e.message}"
         }
         
         // Get reports directory from pipeline configuration
@@ -1115,10 +1115,10 @@ def runModuleTests() {
         sh "rm -f ${WORKSPACE}/${reportsDirectory}/test_report_detailed.json || true"
         sh "rm -f ${WORKSPACE}/${reportsDirectory}/test_report_detailed.html || true"
         
-        // Use the simtemp test report generator with configuration-driven paths
-        def reportGenerator = pipelineConfig.testing?.test_report_generator
+        // Use the simtemp test composer with configuration-driven paths
+        def reportGenerator = pipelineConfig.testing?.test_composer
         if (!reportGenerator) {
-            error "test_report_generator not specified in pipeline configuration testing section"
+            error "test_composer not specified in pipeline configuration testing section"
         }
         
         try {
@@ -1126,21 +1126,21 @@ def runModuleTests() {
             echo "✅ JSON test reports generated successfully"
             
             // Debug: Show what files exist in reports directory
-            echo "📋 Files in ${reportsDirectory} directory:"
+            echo "Files in ${reportsDirectory} directory:"
             sh "ls -la ${WORKSPACE}/${reportsDirectory}/ || echo 'No reports directory found'"
         } catch (Exception e) {
-            echo "⚠️ Warning: Could not execute shell commands - may be running outside node context: ${e.message}"
+            echo "Warning: Could not execute shell commands - may be running outside node context: ${e.message}"
             // Try alternative approach without shell commands
-            echo "⚠️ Skipping report generation due to context limitations"
+            echo "Skipping report generation due to context limitations"
         }
         
         // Clear any previous cached data and load fresh detailed test report
         globalDetailedReport = [:]  // Clear any previous cached data
-        echo "📊 Loading fresh detailed test report for PR comment enhancement..."
+        echo "Loading fresh detailed test report for PR comment enhancement..."
         def detailedReport = loadDetailedTestReport(pipelineConfig)
         if (detailedReport) {
             globalDetailedReport = detailedReport  // Store fresh report globally for PR comment
-            echo "🔄 Fresh detailed report loaded with ${detailedReport.summary?.total_tests ?: 0} tests from ${detailedReport.summary?.total_modules ?: 0} modules"
+            echo "Fresh detailed report loaded with ${detailedReport.summary?.total_tests ?: 0} tests from ${detailedReport.summary?.total_modules ?: 0} modules"
             def enhancedData = convertDetailedReportToPRFormat(detailedReport)
             if (enhancedData.testResults && enhancedData.testDetails) {
                 echo "✅ Enhanced test data loaded from detailed report"
@@ -1150,7 +1150,7 @@ def runModuleTests() {
                 
                 // Recalculate overall result based on detailed report
                 overallResult = testResults.values().any { it != 0 } ? 1 : 0
-                echo "📊 Final test summary from detailed report: ${testResults.size()} modules, overall result: ${overallResult}"
+                echo "Final test summary from detailed report: ${testResults.size()} modules, overall result: ${overallResult}"
             }
         }
         

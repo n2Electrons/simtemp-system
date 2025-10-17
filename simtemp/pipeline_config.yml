@@ -73,7 +73,7 @@ source_code:
 testing:
   test_config_file: "simtemp/tests/config/simtemp_tests.yml"
   reports_directory: "simtemp/tests/reports"
-  test_report_generator: "simtemp/tests/create_test_report.py"
+  test_composer: "simtemp/tests/driver_tester.py"
   timeout_minutes: 5
   
 # Pipeline stages configuration

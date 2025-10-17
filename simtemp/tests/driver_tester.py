@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-create_detailed_test_report.py - Generate a detailed test report for simtemp modules
+driver_tester.py - Comprehensive Driver Testing Orchestrator for Simtemp
 
 Copyright (c) Jorge Rodriguez Moreno
 
-This script:
+This script orchestrates the complete driver testing workflow:
 1. Reads test configuration from simtemp_tests.yml
-2. Collects test details from test_details_{module}.json files and pytest results
-3. Combines them into a single structured report
-4. Generates an HTML and JSON report with comprehensive test results
+2. Executes pytest tests with configurable verbose output
+3. Collects and integrates test results from multiple sources
+4. Composes comprehensive HTML and JSON test reports
+5. Integrates with GitHub issues for requirement traceability
 
-Usage: ./create_detailed_test_report.py [--verbose] [--input-dir /path] [--output-dir /path]
+Usage: ./driver_tester.py [--verbose] [--input-dir /path] [--output-dir /path]
 """
 
 import os
@@ -45,7 +46,7 @@ class TestLogger:
         print(f"[ERROR] {message}")
 
 
-class DetailedTestReportGenerator:
+class DriverTestOrchestrator:
     def __init__(self, input_dir=None, output_dir=None, verbose=False):
         self.verbose = verbose
         self.logger = TestLogger(verbose)
@@ -1280,10 +1281,10 @@ class DetailedTestReportGenerator:
 
 
 def main():
-    print("CREATE_TEST_REPORT: Script starting...")
+    print("DRIVER_TESTER: Script starting...")
     
     parser = argparse.ArgumentParser(
-        description="Generate detailed test reports for simtemp modules"
+        description="Orchestrate comprehensive driver testing for simtemp"
     )
     parser.add_argument(
         "--verbose", action="store_true", help="Enable verbose output"
@@ -1299,25 +1300,25 @@ def main():
     
     args = parser.parse_args()
     
-    print("CREATE_TEST_REPORT: Arguments parsed:")
+    print("DRIVER_TESTER: Arguments parsed:")
     print(f"   - verbose: {args.verbose}")
     print(f"   - input_dir: {args.input_dir}")
     print(f"   - output_dir: {args.output_dir}")
     
-    print("CREATE_TEST_REPORT: Creating generator instance...")
-    generator = DetailedTestReportGenerator(
+    print("DRIVER_TESTER: Creating orchestrator instance...")
+    orchestrator = DriverTestOrchestrator(
         input_dir=args.input_dir,
         output_dir=args.output_dir,
         verbose=args.verbose
     )
     
-    print("CREATE_TEST_REPORT: Starting report generation...")
+    print("DRIVER_TESTER: Starting test orchestration...")
     try:
-        generator.generate_reports()
-        print("CREATE_TEST_REPORT: Script completed successfully")
+        orchestrator.generate_reports()
+        print("DRIVER_TESTER: Script completed successfully")
         return 0
     except Exception as e:
-        print(f"CREATE_TEST_REPORT: Script failed with error: {e}")
+        print(f"DRIVER_TESTER: Script failed with error: {e}")
         import traceback
         traceback.print_exc()
         return 1
