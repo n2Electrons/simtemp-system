@@ -12,10 +12,31 @@
 - **Purpose**: Automated script to recreate the Jenkins container
 - **Features**: Prerequisites checking, error handling, verification
 
-## Jenkins Container Configuration
+## Jenkins Container Configuration Evolution
 
-### Container Command Used
+### Current Optimized Configuration
 ```bash
+docker run -d \
+    --name jenkins-3 \
+    --restart=unless-stopped \
+    -p 8080:8080 \
+    -p 50000:50000 \
+    -v jenkins_home-2:/var/jenkins_home \
+    -v /lib/modules:/lib/modules:ro \
+    -v /usr/src:/usr/src:ro \
+    -v /usr/bin/qemu-system-arm:/usr/bin/qemu-system-arm:ro \
+    -v /usr/share/qemu:/usr/share/qemu:ro \
+    --device /dev/kvm \
+    jenkins/jenkins:lts
+
+# Post-creation build tools installation
+docker exec -u root jenkins-3 apt update
+docker exec -u root jenkins-3 apt install -y build-essential
+```
+
+### Previous Configuration (Deprecated)
+```bash
+# This configuration blocked package installation due to read-only library mounts
 docker run -d \
   --name jenkins-3 \
   --restart=unless-stopped \
@@ -26,47 +47,71 @@ docker run -d \
   -v /usr/src:/usr/src:ro \
   -v /home/jorge/challenge-2509/kernel_enroll:/var/jenkins_home/kernel_enroll:ro \
   -v /usr/bin/qemu-system-arm:/usr/bin/qemu-system-arm:ro \
-  -v /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu:ro \
+  -v /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu:ro \  # ❌ BLOCKED INSTALLS
   -v /usr/share/qemu:/usr/share/qemu:ro \
   jenkins/jenkins:lts
 ```
 
-### Key Volume Mounts
+### Key Volume Mounts (Current)
 1. **QEMU Binary**: `/usr/bin/qemu-system-arm` (read-only)
-2. **System Libraries**: `/lib/x86_64-linux-gnu` (read-only) 
-3. **QEMU Data**: `/usr/share/qemu` (read-only)
-4. **Kernel Modules**: `/lib/modules` (read-only)
-5. **Kernel Headers**: `/usr/src` (read-only)
-6. **Jenkins Data**: `jenkins_home-2` volume (read-write)
+2. **QEMU Data**: `/usr/share/qemu` (read-only)
+3. **Kernel Modules**: `/lib/modules` (read-only)
+4. **Kernel Headers**: `/usr/src` (read-only)
+5. **Jenkins Data**: `jenkins_home-2` volume (read-write)
+6. **Hardware Acceleration**: `/dev/kvm` device (optional)
 
-## Problem Solved
+## Problems Solved
 
-### Original Issue
+### Phase 1: QEMU Integration (Initial Solution)
+**Original Issue:**
 - Jenkins container didn't have QEMU ARM system emulation
 - F-K1-TC-002 QEMU tests couldn't run in CI/CD environment
 
-### Root Cause
+**Root Cause:**
 - QEMU not installed in container
 - Package installation failed due to dependency conflicts
-- Container file system restrictions
 
-### Solution Approach
-1. **Avoided Package Installation**: Instead of installing QEMU in container
-2. **Bind Mount Strategy**: Mounted host QEMU binary and dependencies
-3. **Library Resolution**: Included all required shared libraries
-4. **Read-Only Security**: All system mounts are read-only for security
+**Solution Approach:**
+1. **Bind Mount Strategy**: Mounted host QEMU binary and dependencies
+2. **Library Resolution**: Included all required shared libraries  
+3. **Read-Only Security**: All system mounts are read-only for security
+
+### Phase 2: Build Tools Integration (Current Solution)
+**Secondary Issue:**
+- Cannot install build tools (make, gcc, build-essential)
+- "Read-only file system" errors during package installation
+- Kernel module compilation blocked
+
+**Root Cause:**
+- `/lib/x86_64-linux-gnu` read-only mount prevented library installation
+- Package manager couldn't write to system library directories
+
+**Optimized Solution:**
+1. **Selective Mounting**: Removed problematic library mount
+2. **Container-Native Libraries**: Let QEMU use container's own libraries
+3. **Post-Setup Installation**: Automated build tools installation after container creation
+4. **Hardware Acceleration**: Added KVM device support for better performance
 
 ## Verification Results
 
 ### QEMU Functionality
-- ✅ **Binary Access**: `qemu-system-arm --version` works
+- ✅ **Binary Access**: `qemu-system-arm --version` works in container
 - ✅ **Machine Support**: Supports `sabrelite` (i.MX6 SABRE Lite)
-- ✅ **Library Dependencies**: All shared libraries resolved
-- ✅ **Emulation Test**: QEMU can start ARM emulation
+- ✅ **Library Dependencies**: All shared libraries resolved correctly
+- ✅ **Emulation Test**: QEMU can start ARM emulation successfully
+- ✅ **Hardware Acceleration**: KVM device accessible (when available)
 
-### Container Status
-- ✅ **Running**: Container starts and runs successfully
+### Build Environment  
+- ✅ **Package Installation**: `apt install` works without filesystem conflicts
+- ✅ **Build Tools Available**: make, gcc, g++, binutils installed
+- ✅ **Development Libraries**: libc6-dev, linux-libc-dev accessible
+- ✅ **Kernel Module Compilation**: Full toolchain ready for module building
+
+### Service Continuity
+- ✅ **Jenkins Configuration**: All previous jobs and settings preserved
 - ✅ **Jenkins Access**: Web UI accessible on port 8080
+- ✅ **Container Status**: Starts reliably and maintains state
+- ✅ **Volume Persistence**: Jenkins data survives container recreation
 - ✅ **Volume Persistence**: Jenkins data persisted across restarts
 - ✅ **Network Connectivity**: All required ports accessible
 

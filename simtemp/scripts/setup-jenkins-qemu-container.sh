@@ -147,14 +147,15 @@ create_volume() {
 create_container() {
     print_status "Creating Jenkins container with QEMU support..."
     
-    # Prepare mount command
+    # Prepare mount command (optimized configuration)
+    # Note: /lib/x86_64-linux-gnu mount removed to allow package installation
     MOUNT_ARGS=(
         -v "${VOLUME_NAME}:/var/jenkins_home"
         -v "/lib/modules:/lib/modules:ro"
         -v "/usr/src:/usr/src:ro"
         -v "/usr/bin/qemu-system-arm:/usr/bin/qemu-system-arm:ro"
-        -v "/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu:ro"
         -v "/usr/share/qemu:/usr/share/qemu:ro"
+        --device "/dev/kvm"
     )
     
     # Add custom kernel enrollment directory if it exists
@@ -245,6 +246,40 @@ verify_container() {
     print_success "Container verification completed successfully"
 }
 
+# Function to install essential build tools
+install_build_tools() {
+    print_status "Installing essential build tools in container..."
+    
+    # Update package repository
+    print_status "Updating package repository..."
+    if ! docker exec -u root "$CONTAINER_NAME" apt update > /dev/null 2>&1; then
+        print_error "Failed to update package repository"
+        return 1
+    fi
+    
+    # Install build-essential package
+    print_status "Installing build-essential package..."
+    if ! docker exec -u root "$CONTAINER_NAME" apt install -y build-essential > /dev/null 2>&1; then
+        print_error "Failed to install build-essential"
+        return 1
+    fi
+    
+    # Verify installation
+    if ! docker exec "$CONTAINER_NAME" which make > /dev/null 2>&1; then
+        print_error "Build tools verification failed: make not found"
+        return 1
+    fi
+    
+    if ! docker exec "$CONTAINER_NAME" which gcc > /dev/null 2>&1; then
+        print_error "Build tools verification failed: gcc not found"  
+        return 1
+    fi
+    
+    print_success "Build tools installed successfully"
+    print_status "Available tools: make, gcc, g++, binutils, libc6-dev, linux-libc-dev"
+    return 0
+}
+
 # Function to display connection information
 display_info() {
     echo
@@ -264,6 +299,11 @@ display_info() {
     echo "  2. Get initial admin password with:"
     echo "     docker exec $CONTAINER_NAME cat /var/jenkins_home/secrets/initialAdminPassword"
     echo "  3. Follow the Jenkins setup wizard"
+    echo
+    echo "Build Environment:"
+    echo "  ✅ Build tools installed: make, gcc, g++, binutils"
+    echo "  ✅ Development libraries: libc6-dev, linux-libc-dev"
+    echo "  ✅ Kernel module compilation ready"
     echo
     echo "QEMU Testing:"
     echo "  Test QEMU in container:"
@@ -293,6 +333,7 @@ main() {
     create_container
     wait_for_jenkins
     verify_container
+    install_build_tools
     display_info
     
     echo

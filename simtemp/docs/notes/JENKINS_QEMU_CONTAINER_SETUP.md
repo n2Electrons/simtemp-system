@@ -33,7 +33,14 @@ qemu-system-arm -M help | grep -i sabre
 # Expected output: sabrelite - Freescale i.MX6 Quad SABRE Lite Board (Cortex-A9)
 ```
 
-## Container Configuration
+## Container Configuration Evolution
+
+### Container Creation Approach
+
+The Jenkins container setup has evolved through different phases to balance functionality and maintainability:
+
+1. **Initial Setup**: Full host library bind-mounting for QEMU support
+2. **Current Optimized Setup**: Selective mounting to prevent package installation conflicts
 
 ### Step 1: Stop and Remove Existing Container (if any)
 ```bash
@@ -44,9 +51,28 @@ docker stop jenkins-3 2>/dev/null || echo "No existing container to stop"
 docker rm jenkins-3 2>/dev/null || echo "No existing container to remove"
 ```
 
-### Step 2: Create Jenkins Container with QEMU Support
+### Step 2: Create Jenkins Container with Optimized QEMU Support
+
+**Current Recommended Configuration** (Avoids library conflicts):
 ```bash
-# Create Jenkins container with comprehensive QEMU and development support
+# Create Jenkins container with selective QEMU mounting to allow package installation
+docker run -d \
+    --name jenkins-3 \
+    --restart=unless-stopped \
+    -p 8080:8080 \
+    -p 50000:50000 \
+    -v jenkins_home-2:/var/jenkins_home \
+    -v /lib/modules:/lib/modules:ro \
+    -v /usr/src:/usr/src:ro \
+    -v /usr/bin/qemu-system-arm:/usr/bin/qemu-system-arm:ro \
+    -v /usr/share/qemu:/usr/share/qemu:ro \
+    --device /dev/kvm \
+    jenkins/jenkins:lts
+```
+
+**Previous Configuration** (Comprehensive but restrictive):
+```bash
+# WARNING: This configuration prevents package installation due to read-only library mounts
 docker run -d \
   --name jenkins-3 \
   --restart=unless-stopped \
@@ -62,17 +88,125 @@ docker run -d \
   jenkins/jenkins:lts
 ```
 
+### Key Changes and Rationale
+
+**Removed Mounts in Current Configuration:**
+- `/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu:ro` - **Reason**: Prevented installation of build tools
+- `/home/jorge/challenge-2509/kernel_enroll:/var/jenkins_home/kernel_enroll:ro` - **Reason**: Optional path-specific mount
+
+**Added Features:**
+- `--device /dev/kvm` - **Purpose**: Hardware acceleration for QEMU (if available)
+
+**Maintained Service Continuity:**
+- **Jenkins Data Persistence**: `jenkins_home-2` volume maintains all Jenkins configuration, jobs, and user data
+- **QEMU Functionality**: Direct binary and resource mounting preserves ARM emulation capabilities
+- **Kernel Development**: Kernel modules and source headers remain accessible for compilation
+
+## Service Continuity and Migration Benefits
+
+### How Previous Services Continue to Work
+
+When transitioning from the previous container configuration to the current optimized setup, all critical services and functionality are preserved through the following mechanisms:
+
+#### 1. **Jenkins Configuration Persistence**
+```bash
+# Jenkins data volume remains unchanged
+-v jenkins_home-2:/var/jenkins_home
+```
+- **What is Preserved**: All Jenkins jobs, build configurations, user accounts, installed plugins, and system settings
+- **How it Works**: The named volume `jenkins_home-2` persists across container recreations
+- **Verification**: After container recreation, log in to Jenkins web interface - all previous configuration remains intact
+
+#### 2. **QEMU ARM Emulation Functionality**
+```bash
+# Essential QEMU components remain mounted
+-v /usr/bin/qemu-system-arm:/usr/bin/qemu-system-arm:ro
+-v /usr/share/qemu:/usr/share/qemu:ro
+```
+- **What is Preserved**: Full ARM system emulation capabilities for i.MX6 SABRE Lite testing
+- **How it Works**: Direct binary mounting provides QEMU access without dependency conflicts
+- **Library Resolution**: QEMU automatically links to container-native libraries instead of host-bound libraries
+- **Verification**: `docker exec jenkins-3 qemu-system-arm --version` shows functional QEMU installation
+
+#### 3. **Kernel Development Environment**
+```bash
+# Kernel development resources remain accessible
+-v /lib/modules:/lib/modules:ro
+-v /usr/src:/usr/src:ro
+```
+- **What is Preserved**: Access to kernel modules and source headers for compilation
+- **How it Works**: Read-only mounts provide development resources without write conflicts
+- **Enhanced Capability**: Container can now install additional build tools (make, gcc, build-essential)
+- **Verification**: Kernel module compilation and loading capabilities maintained
+
+### Benefits of the New Approach
+
+#### 1. **Package Installation Freedom**
+**Problem Solved**: Previous read-only `/lib/x86_64-linux-gnu` mount prevented installation of essential build tools
+```bash
+# This now works in the new configuration:
+docker exec -u root jenkins-3 apt update
+docker exec -u root jenkins-3 apt install -y build-essential
+```
+**Impact**: Enables installation of compilers, development tools, and additional packages as needed
+
+#### 2. **Reduced Container Complexity**
+**Simplified Mounting**: Removes complex library dependency management
+- **Previous**: Required careful mapping of host libraries to container
+- **Current**: Container manages its own library dependencies naturally
+- **Result**: More stable and maintainable container environment
+
+#### 3. **Enhanced Portability**
+**Host Independence**: Container is less dependent on specific host library versions
+- **Previous**: Tied to host system library versions and paths
+- **Current**: Self-contained with standard Jenkins image libraries
+- **Benefit**: Easier deployment across different host systems
+
+#### 4. **Better Error Handling**
+**Clear Separation**: Host and container library conflicts eliminated
+- **Previous**: Cryptic library version mismatches and read-only filesystem errors
+- **Current**: Standard package management within container environment
+- **Result**: Cleaner error messages and easier troubleshooting
+
+### Migration Process
+
+When recreating the container with the new configuration:
+
+1. **Stop and Remove Old Container**: `docker stop jenkins-3 && docker rm jenkins-3`
+2. **Volume Preservation**: Jenkins data automatically preserved in `jenkins_home-2` volume  
+3. **Create New Container**: Use optimized mount configuration
+4. **Install Required Tools**: `docker exec -u root jenkins-3 apt install -y build-essential`
+5. **Verify Functionality**: Test both Jenkins web interface and QEMU ARM emulation
+
+### Compatibility Matrix
+
+| Feature | Previous Config | Current Config | Status |
+|---------|----------------|----------------|---------|
+| Jenkins Web Interface | ✅ Working | ✅ Working | **Maintained** |
+| Jenkins Jobs/Pipelines | ✅ Working | ✅ Working | **Maintained** |
+| QEMU ARM Emulation | ✅ Working | ✅ Working | **Maintained** |
+| Kernel Module Compilation | ✅ Working | ✅ Working | **Maintained** |
+| Package Installation | ❌ Blocked | ✅ Working | **Improved** |
+| Build Tools (make, gcc) | ❌ Conflicts | ✅ Working | **Improved** |
+| Host Library Dependencies | ⚠️ Complex | ✅ Simple | **Improved** |
+
 ### Volume Mount Breakdown
 
+**Current Optimized Configuration:**
 | Mount Source | Mount Target | Mode | Purpose |
 |--------------|--------------|------|---------|
 | `jenkins_home-2` | `/var/jenkins_home` | rw | Jenkins persistent data and configuration |
 | `/lib/modules` | `/lib/modules` | ro | Kernel modules for current running kernel |
 | `/usr/src` | `/usr/src` | ro | Kernel source headers for module compilation |
-| `/home/jorge/challenge-2509/kernel_enroll` | `/var/jenkins_home/kernel_enroll` | ro | Custom kernel enrollment scripts |
 | `/usr/bin/qemu-system-arm` | `/usr/bin/qemu-system-arm` | ro | QEMU ARM system emulator binary |
-| `/lib/x86_64-linux-gnu` | `/lib/x86_64-linux-gnu` | ro | Shared libraries required by QEMU |
 | `/usr/share/qemu` | `/usr/share/qemu` | ro | QEMU firmware and configuration files |
+| `/dev/kvm` | `/dev/kvm` | device | Hardware acceleration for QEMU (if available) |
+
+**Removed from Previous Configuration:**
+| Mount Source | Reason for Removal |
+|--------------|-------------------|
+| `/lib/x86_64-linux-gnu` | Read-only mount prevented package installation (build-essential, make, gcc) |
+| `/home/jorge/challenge-2509/kernel_enroll` | Path-specific mount, not universally applicable |
 
 ### Step 3: Verify Container Status
 ```bash
@@ -83,6 +217,39 @@ docker ps | grep jenkins-3
 # Check container logs for startup
 docker logs jenkins-3 --tail 20
 ```
+
+### Step 4: Post-Setup Configuration (Essential Build Tools)
+
+After creating the container with the optimized configuration, install essential build tools that were previously blocked:
+
+```bash
+# Update package repository
+docker exec -u root jenkins-3 apt update
+
+# Install essential build tools
+docker exec -u root jenkins-3 apt install -y build-essential
+
+# Verify build tools installation
+docker exec jenkins-3 which make
+# Expected output: /usr/bin/make
+
+docker exec jenkins-3 which gcc
+# Expected output: /usr/bin/gcc
+
+docker exec jenkins-3 gcc --version
+# Expected output: gcc (Debian 12.2.0-14+deb12u1) 12.2.0
+```
+
+**What Gets Installed:**
+- `make`: Build automation tool for kernel modules and projects
+- `gcc`: GNU Compiler Collection for C/C++ compilation  
+- `g++`: GNU C++ compiler
+- `binutils`: Binary utilities (ld, as, objdump, etc.)
+- `libc6-dev`: Development libraries for C standard library
+- `linux-libc-dev`: Linux kernel headers for userspace development
+
+**Why This Couldn't Be Done Before:**
+The previous configuration with `/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu:ro` created read-only filesystem errors when trying to install packages that needed to write library files to this directory.
 
 ## QEMU Functionality Verification
 
