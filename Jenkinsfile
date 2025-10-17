@@ -1073,7 +1073,7 @@ def runModuleTests() {
     }
     
     // Generate detailed JSON test reports after all tests complete
-    echo "🔧 Generating detailed JSON test reports..."
+    echo "Generating detailed JSON test reports..."
     try {
         // Clean up old timestamped test detail files first
         echo "🧹 Cleaning up old timestamped test detail files..."
@@ -1123,7 +1123,7 @@ def runModuleTests() {
         
         try {
             sh "cd ${WORKSPACE} && python3 ${reportGenerator} --output-dir ${reportsDirectory}"
-            echo "✅ JSON test reports generated successfully"
+            echo "JSON test reports generated successfully"
             
             // Debug: Show what files exist in reports directory
             echo "Files in ${reportsDirectory} directory:"
@@ -1143,7 +1143,7 @@ def runModuleTests() {
             echo "Fresh detailed report loaded with ${detailedReport.summary?.total_tests ?: 0} tests from ${detailedReport.summary?.total_modules ?: 0} modules"
             def enhancedData = convertDetailedReportToPRFormat(detailedReport)
             if (enhancedData.testResults && enhancedData.testDetails) {
-                echo "✅ Enhanced test data loaded from detailed report"
+                echo "Enhanced test data loaded from detailed report"
                 // Override with structured data from detailed report
                 testResults = enhancedData.testResults
                 testDetails = enhancedData.testDetails
@@ -1155,7 +1155,7 @@ def runModuleTests() {
         }
         
     } catch (Exception e) {
-        echo "⚠️ Warning: Could not generate JSON test reports: ${e.message}"
+        echo "Warning: Could not generate JSON test reports: ${e.message}"
     }
     
     // Store results globally for final PR comment
@@ -1316,7 +1316,7 @@ def sendConsolidatedPRComment() {
             skippedTests = summary.skipped_tests ?: 0
             notImplementedTests = summary.not_implemented_tests ?: 0
             
-            echo "📊 Using detailed report summary: ${totalTests} total, ${passedTests} passed, ${failedTests} failed, ${skippedTests} skipped, ${notImplementedTests} not implemented"
+            echo "Using detailed report summary: ${totalTests} total, ${passedTests} passed, ${failedTests} failed, ${skippedTests} skipped, ${notImplementedTests} not implemented"
         }
         
         globalTestResults.each { moduleName, result ->
@@ -1333,7 +1333,7 @@ def sendConsolidatedPRComment() {
                     def testPassed = false
                     
                     if (moduleName == 'jenkins_test') {
-                        // Special handling for jenkins_test format: "Test: connectivity ✅"
+                        // Special handling for jenkins_test format: "Test: connectivity PASSED"
                         if (detail.contains('Test:')) {
                             def parts = detail.split(':', 2) // Split into max 2 parts
                             if (parts.length >= 2) {
@@ -1344,7 +1344,7 @@ def sendConsolidatedPRComment() {
                             }
                         }
                     } else {
-                        // Regular module handling: "Test 1: test_name ✅"
+                        // Regular module handling: "Test 1: test_name PASSED"
                         if (detail.contains('Test ') && detail.contains(':')) {
                             def parts = detail.split(':', 2) // Split into max 2 parts
                             if (parts.length >= 2) {

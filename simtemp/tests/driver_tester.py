@@ -889,29 +889,41 @@ class DriverTestOrchestrator:
         """Parse pytest output to extract test results"""
         lines = pytest_output.split('\n')
         
-        for line in lines:
-            # Look for test result lines like: "test_f_k1_tc_001.py::test_insmod_registers_driver PASSED"
-            if '::test_' in line and (' PASSED' in line or ' FAILED' in line or ' SKIPPED' in line):
-                parts = line.split('::')
-                if len(parts) >= 2:
-                    test_file = parts[0].strip()
-                    test_info = parts[1].strip()
-                    
-                    # Extract test name and status
-                    if ' PASSED' in test_info:
-                        test_name = test_info.replace(' PASSED', '').strip()
-                        status = 'passed'
-                    elif ' FAILED' in test_info:
-                        test_name = test_info.replace(' FAILED', '').strip()
-                        status = 'failed'
-                    elif ' SKIPPED' in test_info:
-                        test_name = test_info.replace(' SKIPPED', '').strip()
-                        status = 'skipped'
-                    else:
-                        continue
-                    
-                    # Update matching test in module_data
-                    self.update_test_status(module_data, test_name, status)
+        current_test = None
+        
+        for i, line in enumerate(lines):
+            # First, look for test execution lines: "file.py::test_name ..."
+            if '::test_' in line:
+                # Extract test name from the line
+                if '::' in line:
+                    parts = line.split('::')
+                    if len(parts) >= 2:
+                        test_file = parts[0].strip()
+                        # Get test name (first word after ::)
+                        test_part = (
+                            parts[1].split()[0] if parts[1].split() 
+                            else parts[1]
+                        )
+                        if test_part.startswith('test_'):
+                            current_test = {
+                                'file': test_file,
+                                'name': test_part
+                            }
+            
+            # Then look for status on this or next lines
+            elif (current_test and 
+                  line.strip() in ['PASSED', 'FAILED', 'SKIPPED']):
+                status = line.strip().lower()
+                test_name = current_test['name']
+                test_file = current_test['file']
+                
+                self.logger.info(
+                    f"Parsed test result: {test_file}::{test_name} -> {status}"
+                )
+                
+                # Update matching test in module_data
+                self.update_test_status(module_data, test_name, status)
+                current_test = None  # Reset for next test
                     
         # Also look for summary line like "1 passed in 4.85s"
         for line in lines:
@@ -930,7 +942,7 @@ class DriverTestOrchestrator:
                 
                 old_status = test['status']
                 test['status'] = status
-                test['message'] = f"Test executed via pytest"
+                test['message'] = "Test executed via pytest"
                 
                 # Update summary counts
                 if old_status == 'unknown':
