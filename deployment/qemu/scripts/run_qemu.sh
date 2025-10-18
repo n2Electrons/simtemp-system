@@ -38,48 +38,88 @@ echo "  DTB_FILE_PATH: '$DTB_FILE_PATH'"
 echo "  ROOTFS_IMAGE_PATH: '$ROOTFS_IMAGE_PATH'"
 
 # Auto-detect Jenkins workspace if available
-if [ -z "$KERNEL_IMAGE_PATH" ] && [ -f "/var/jenkins_home/workspace/simtemp-system/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage" ]; then
-    echo "DEBUG: Using Jenkins simtemp-system workspace"
-    KERNEL_IMAGE_PATH="/var/jenkins_home/workspace/simtemp-system/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage"
-    DTB_FILE_PATH="/var/jenkins_home/workspace/simtemp-system/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
-    ROOTFS_IMAGE_PATH="/var/jenkins_home/workspace/simtemp-system/deployment/qemu/rootfs.cpio.gz"
+if [ -z "$KERNEL_IMAGE_PATH" ]; then
+    # Check if we're in a Jenkins workspace
+    if [ -n "$WORKSPACE" ] && [ -d "$WORKSPACE" ]; then
+        echo "DEBUG: Using Jenkins WORKSPACE: $WORKSPACE"
+        JENKINS_QEMU_BASE="$WORKSPACE/deployment/qemu"
+        if [ -f "$JENKINS_QEMU_BASE/build/arch/arm/boot/zImage" ]; then
+            KERNEL_IMAGE_PATH="$JENKINS_QEMU_BASE/build/arch/arm/boot/zImage"
+            DTB_FILE_PATH="$JENKINS_QEMU_BASE/dtb/imx6ul-simtemp.dtb"
+            ROOTFS_IMAGE_PATH="$JENKINS_QEMU_BASE/rootfs.cpio.gz"
+        fi
+    # Fallback: try to auto-detect from current directory if in Jenkins
+    elif echo "$(pwd)" | grep -q "/var/jenkins_home/workspace/"; then
+        echo "DEBUG: Detected Jenkins environment from working directory"
+        # Extract workspace path from current directory
+        DETECTED_WORKSPACE=$(echo "$(pwd)" | sed 's|/deployment/qemu.*||')
+        echo "DEBUG: Detected workspace: $DETECTED_WORKSPACE"
+        JENKINS_QEMU_BASE="$DETECTED_WORKSPACE/deployment/qemu"
+        if [ -f "$JENKINS_QEMU_BASE/build/arch/arm/boot/zImage" ]; then
+            KERNEL_IMAGE_PATH="$JENKINS_QEMU_BASE/build/arch/arm/boot/zImage"
+            DTB_FILE_PATH="$JENKINS_QEMU_BASE/dtb/imx6ul-simtemp.dtb"
+            ROOTFS_IMAGE_PATH="$JENKINS_QEMU_BASE/rootfs.cpio.gz"
+        fi
+    fi
+    
+    # Additional fallback: check mounted simtemp-system workspace
+    if [ -z "$KERNEL_IMAGE_PATH" ] && [ -f "/var/jenkins_home/workspace/simtemp-system/deployment/qemu/build/arch/arm/boot/zImage" ]; then
+        echo "DEBUG: Using Jenkins mounted simtemp-system workspace"
+        KERNEL_IMAGE_PATH="/var/jenkins_home/workspace/simtemp-system/deployment/qemu/build/arch/arm/boot/zImage"
+        DTB_FILE_PATH="/var/jenkins_home/workspace/simtemp-system/deployment/qemu/dtb/imx6ul-simtemp.dtb"
+        ROOTFS_IMAGE_PATH="/var/jenkins_home/workspace/simtemp-system/deployment/qemu/rootfs.cpio.gz"
+    fi
 fi
 
 # Verify required files exist - check environment variables first, then relative paths
 if [ -n "$KERNEL_IMAGE_PATH" ] && [ -f "$KERNEL_IMAGE_PATH" ]; then
     KERNEL_IMAGE="$KERNEL_IMAGE_PATH"
+elif [ -f "build/arch/arm/boot/zImage" ]; then
+    KERNEL_IMAGE="build/arch/arm/boot/zImage"
+elif [ -f "deployment/qemu/build/arch/arm/boot/zImage" ]; then
+    KERNEL_IMAGE="deployment/qemu/build/arch/arm/boot/zImage"
 elif [ -f "linux-imx-5.10/arch/arm/boot/zImage" ]; then
     KERNEL_IMAGE="linux-imx-5.10/arch/arm/boot/zImage"
-elif [ -f "deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage" ]; then
-    KERNEL_IMAGE="deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage"
 else
     echo "Error: Kernel image not found"
     echo "Tried env KERNEL_IMAGE: $KERNEL_IMAGE_PATH"
+    echo "Tried: build/arch/arm/boot/zImage"
+    echo "Tried: deployment/qemu/build/arch/arm/boot/zImage"
     echo "Tried: linux-imx-5.10/arch/arm/boot/zImage"
-    echo "Tried: deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage"
     echo "Please ensure kernel is compiled or run from correct directory"
     exit 1
 fi
 
 DTB_FILE=""
-if [ -f "linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb" ]; then
+if [ -n "$DTB_FILE_PATH" ] && [ -f "$DTB_FILE_PATH" ]; then
+    DTB_FILE="$DTB_FILE_PATH"
+elif [ -f "dtb/imx6ul-simtemp.dtb" ]; then
+    DTB_FILE="dtb/imx6ul-simtemp.dtb"
+elif [ -f "deployment/qemu/dtb/imx6ul-simtemp.dtb" ]; then
+    DTB_FILE="deployment/qemu/dtb/imx6ul-simtemp.dtb"
+elif [ -f "linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb" ]; then
     DTB_FILE="linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
-elif [ -f "deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb" ]; then
-    DTB_FILE="deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
 else
     echo "Error: Device tree blob not found"
+    echo "Tried env DTB_FILE: $DTB_FILE_PATH"
+    echo "Tried: dtb/imx6ul-simtemp.dtb"
+    echo "Tried: deployment/qemu/dtb/imx6ul-simtemp.dtb"
     echo "Tried: linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
-    echo "Tried: deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
     exit 1
 fi
 
 ROOTFS_IMAGE=""
-if [ -f "rootfs.cpio.gz" ]; then
+if [ -n "$ROOTFS_IMAGE_PATH" ] && [ -f "$ROOTFS_IMAGE_PATH" ]; then
+    ROOTFS_IMAGE="$ROOTFS_IMAGE_PATH"
+elif [ -f "rootfs.cpio.gz" ]; then
     ROOTFS_IMAGE="rootfs.cpio.gz"
 elif [ -f "deployment/qemu/rootfs.cpio.gz" ]; then
     ROOTFS_IMAGE="deployment/qemu/rootfs.cpio.gz"
+elif [ -f "rootfs.cpio.gz" ]; then
+    ROOTFS_IMAGE="rootfs.cpio.gz"
 else
     echo "Error: Root filesystem not found"
+    echo "Tried env ROOTFS_IMAGE: $ROOTFS_IMAGE_PATH"
     echo "Tried: rootfs.cpio.gz"
     echo "Tried: deployment/qemu/rootfs.cpio.gz"
     exit 1

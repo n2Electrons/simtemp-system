@@ -147,7 +147,7 @@ Based on the user prompts above, the following critical technical commands were 
 | **Command Category** | **Generated Commands** | **Origin Prompt** |
 |---------------------|----------------------|------------------|
 | **ARM Cross-Compilation** | `arm-linux-gnueabihf-gcc -Wall -Wextra -O2 -static -o hello_world hello_world.c` | Prompt #1: "implementa un hello world que corran en QEMU en jenkins" |
-| **QEMU Execution** | `qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -kernel zImage -dtb imx6q-sabrelite.dtb -initrd rootfs-hello.cpio.gz -append "console=ttymxc0,115200"` | Prompt #1: "implementa un hello world que corran en QEMU en jenkins" |
+| **QEMU Execution** | `qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -kernel zImage -dtb imx6q-sabrelite.dtb -initrd rootfs.cpio.gz -append "console=ttymxc0,115200"` | Prompt #1: "implementa un hello world que corran en QEMU en jenkins" |
 | **Source Organization** | `mkdir -p src/hello/ && mv hello_world.c src/hello/ && mv Makefile src/hello/` | Prompt #2: "create a src/hello/ directory for hello_world files" |
 | **Pipeline Optimization** | Removed `BUILD_SCRIPT` from `simtemp_tests.yml`, updated to pre-compiled binary approach | Prompt #3: "Habiamos comentado que realizariamos compilacion cruzasda en el host" |
 | **Rootfs Integration** | `cp hello_world deployment/qemu/rootfs/bin/` and rootfs packaging commands | Prompt #5: "src/hello/ debe estar en algun directorio de rootfs/" |
