@@ -23,5 +23,5 @@ qemu-system-arm -M sabrelite \
                 -kernel $KERNEL_IMAGE \
                 -dtb $DTB_FILE \
                 -initrd $ROOTFS_IMAGE \
-                -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init loglevel=8" \
-                -monitor telnet:127.0.0.1:45454,server,nowait
+                -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init loglevel=8 ignore_loglevel initcall_debug printk.time=1 modprobe.blacklist=mxc_v4l2_output,imx-ipuv3,imx6q-vdoa,imx-vpu,imxdrm,imx-hdmi,galcore" \
+                -monitor telnet:127.0.0.1:45455,server,nowait
