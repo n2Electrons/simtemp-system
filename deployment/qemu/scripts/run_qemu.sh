@@ -23,5 +23,16 @@ qemu-system-arm -M sabrelite \
                 -kernel $KERNEL_IMAGE \
                 -dtb $DTB_FILE \
                 -initrd $ROOTFS_IMAGE \
-                -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init loglevel=8 ignore_loglevel initcall_debug printk.time=1 modprobe.blacklist=mxc_v4l2_output,imx-ipuv3,imx6q-vdoa,imx-vpu,imxdrm,imx-hdmi,galcore" \
-                -monitor telnet:127.0.0.1:45455,server,nowait
+                -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init \
+                quiet loglevel=8 initcall_debug printk.time=1 \
+                modprobe.blacklist=mxc_v4l2_output,imx-ipuv3,imx6q-vdoa,imx-vpu,imxdrm,imx-hdmi, \
+                galcore,max8903_driver,max8903,max11801_ts,max11801,pfuze100,pfuze100-regulator, \
+                max8903_charger" \
+#                -monitor telnet:127.0.0.1:45455,server,nowait
+
+# To avoid annoying messages, need to unbind
+# echo 1-0048 > /sys/bus/i2c/drivers/max11801_ts/unbind
+# echo 3 > /proc/sys/kernel/printk
+
+
+

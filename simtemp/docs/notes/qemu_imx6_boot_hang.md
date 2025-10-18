@@ -72,6 +72,18 @@ qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024   -nographic -serial mon:std
 
 ## 8. References
 
-- NXP i.MX6 Reference Manual (I2C, IPU, VPU sections)  
-- QEMU ARM Machine “sabrelite” source (`hw/arm/fsl-imx6.c`)  
-- Linux kernel docs: *initcall_debug*, *modprobe.blacklist*, *earlycon*
+- NXP i.MX6 Reference Manual (official)
+https://www.nxp.com/docs/en/reference-manual/IMX6DQRM.pdf
+
+- QEMU source for the i.MX6 “sabrelite” machine
+https://github.com/qemu/qemu/blob/master/hw/arm/fsl-imx6.c
+
+- Linux kernel documentation — initcall_debug
+https://docs.kernel.org/admin-guide/initcall-debug.html
+
+- Linux kernel documentation — modprobe.blacklist
+https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html#modprobe-blacklist
+
+- Linux kernel documentation — earlycon
+https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html#earlycon
+
