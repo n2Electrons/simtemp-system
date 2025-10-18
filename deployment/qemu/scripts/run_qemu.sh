@@ -27,7 +27,7 @@ qemu-system-arm -M sabrelite \
                 quiet loglevel=8 initcall_debug printk.time=1 \
                 modprobe.blacklist=mxc_v4l2_output,imx-ipuv3,imx6q-vdoa,imx-vpu,imxdrm,imx-hdmi, \
                 galcore,max8903_driver,max8903,max11801_ts,max11801,pfuze100,pfuze100-regulator, \
-                max8903_charger" \
+                max8903_charger,max8903-charger,pfuze100_regulator,pfuze-regulator" \
 #                -monitor telnet:127.0.0.1:45455,server,nowait
 
 # To avoid annoying messages, need to unbind
