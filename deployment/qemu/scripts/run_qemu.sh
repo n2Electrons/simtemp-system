@@ -19,12 +19,13 @@ echo "ROOTFS_IMAGE env var: '$ROOTFS_IMAGE'"
 
 # Configure QEMU parameters based on environment
 if [ -e "$DOCKER_ENV" ]; then
-  # Docker environment - optimize for CI/CD
+  # Docker environment - use stdio with null monitor to avoid conflicts
   echo "Running in Docker environment"
   qemu-system-arm -M sabrelite \
                   -cpu cortex-a9 \
                   -m 1024 -nographic -no-reboot \
                   -serial stdio \
+                  -monitor null \
                   -kernel $KERNEL_IMAGE \
                   -dtb $DTB_FILE \
                   -initrd $ROOTFS_IMAGE \
