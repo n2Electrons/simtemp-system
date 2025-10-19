@@ -64,7 +64,7 @@ source_code:
   modules:
     nxp_simtemp:
       enabled: true
-      description: " Temperature Simulator Kernel Module (x86_64 Host)"
+      description: " Temperature Simulator Kernel Module (Multi-platform: x86_64 Host/Debian)"
       source_dir: "simtemp/kernel"
       source_files:
         - "nxp_simtemp.c"
@@ -73,7 +73,8 @@ source_code:
       binary_name: "obj/nxp_simtemp.ko"
       build_targets:
         - "clean"
-        - "host-signed"
+        - "host-driver"
+        - "deb-driver"
       artifacts:
         - "obj/nxp_simtemp.ko"
         - "obj/*.mod"
@@ -81,8 +82,8 @@ source_code:
         - "obj/modules.order"
     
     nxp_simtemp_arm:
-      enabled: false  # Enable only for ARM builds
-      description: " Temperature Simulator Kernel Module (ARM Cross-compilation + QEMU Packaging)"
+      enabled: false  # Enable only for ARM/ARM64 cross-compilation builds
+      description: " Temperature Simulator Kernel Module (ARM/ARM64 Cross-compilation + QEMU Packaging)"
       source_dir: "simtemp/kernel"
       source_files:
         - "nxp_simtemp.c"
@@ -91,7 +92,8 @@ source_code:
       binary_name: "obj/nxp_simtemp.ko"
       build_targets:
         - "clean"
-        - "nxp-arm"
+        - "nxp-driver-arm"
+        - "nxp-driver-arm64"
       artifacts:
         - "obj/nxp_simtemp.ko"
         - "deployment/qemu/rootfs.cpio.gz"
@@ -199,6 +201,40 @@ artifacts:
   documentation:
     - path: "simtemp/docs/*.md"
       description: "Project documentation"
+
+# Build targets configuration (production-ready with signing)
+build_targets:
+  host_driver:
+    name: "host-driver"
+    description: "Ubuntu x86_64 native compilation with MOK signing"
+    platform: "Ubuntu Host"
+    architecture: "x86_64"
+    signing: true
+    usage: "Local development, testing"
+    
+  debian_driver:
+    name: "deb-driver" 
+    description: "Debian container independent compilation with MOK signing"
+    platform: "Debian Container"
+    architecture: "x86_64"
+    signing: true
+    usage: "Independent CI/CD, compatibility testing"
+    
+  nxp_arm_driver:
+    name: "nxp-driver-arm"
+    description: "NXP ARM 32-bit cross-compilation with MOK signing"
+    platform: "NXP i.MX6/7"
+    architecture: "ARM (32-bit)"
+    signing: true
+    usage: "Embedded ARM production"
+    
+  nxp_arm64_driver:
+    name: "nxp-driver-arm64"
+    description: "NXP ARM64 cross-compilation with MOK signing"
+    platform: "NXP i.MX8+"
+    architecture: "ARM64 (aarch64)"
+    signing: true
+    usage: "Embedded ARM64 production"
 
 # GitHub integration (inherits from main config if needed)
 github:
