@@ -32,6 +32,14 @@ HOST_KERNEL_SRC := $(shell \
 		find /lib/modules -name "build" -type d | head -1; \
 	fi)
 
+# Debian native kernel source (independent compilation in Docker)
+DEBIAN_KERNEL_SRC := $(shell \
+	if [ -f "/.dockerenv" ] && [ -d "/usr/src" ]; then \
+		find /usr/src -name "linux-headers-*-amd64" -type d | head -1; \
+	else \
+		echo "/usr/src/linux-headers-6.1.0-40-amd64"; \
+	fi)
+
 # Legacy KERNEL_SRC for info display (uses NXP when available)
 KERNEL_SRC := $(NXP_KERNEL_SRC)
 OBJ_DIR := obj
@@ -43,18 +51,19 @@ SIGNING_DER := /var/jenkins_home/kernel_enroll/MOK.der
 
 obj-m := nxp_simtemp.o
 
-# Default target - Host build (Jenkins CI/CD compatible)
-all: host-signed
+# Default target - Host driver build (Jenkins CI/CD compatible)
+all: host-driver
 
-# Use explicit targets: 'make host' for native x86_64, 'make nxp-arm' for cross-compilation
+# Use explicit targets: 'make host-driver' for native x86_64, 'make nxp-driver-arm' for cross-compilation
+# All targets build signed kernel modules for production deployment
 
 # NXP i.MX cross-compilation targets
-prepare-nxp-arm:
+prepare-nxp-driver-arm:
 	@echo "Preparing NXP ARM (i.MX6/i.MX7) cross-compilation environment..."
 	cd ../scripts && ./nxp_prepare_headers_imx.sh --arch arm --modules
-	@echo "NXP ARM environment ready. Use 'make nxp-arm' to build."
+	@echo "NXP ARM environment ready. Use 'make nxp-driver-arm' to build."
 
-nxp-arm: prepare-nxp-arm $(OBJ_DIR)
+nxp-driver-arm: prepare-nxp-driver-arm $(OBJ_DIR)
 	@echo "Building and signing NXP ARM module..."
 	bash -c 'cd ../scripts && source ./imx-env.sh && cd ../kernel && \
 	$(MAKE) -C $$KDIR ARCH=$$ARCH CROSS_COMPILE=$$CROSS_COMPILE M=$(PWD) modules'
@@ -72,15 +81,15 @@ nxp-arm: prepare-nxp-arm $(OBJ_DIR)
 	cd ../../deployment/qemu && ./scripts/update_rootfs.sh
 	@echo "✅ NXP ARM module built, signed, and packaged successfully"
 
-prepare-nxp-arm64:
+prepare-nxp-driver-arm64:
 	@echo "Comming soon:"
 	@echo "NXP ARM64 environment preparation"
 	@echo ""
 #	@echo "Preparing NXP ARM64 (i.MX8) cross-compilation environment..."
 #	cd ../scripts && ./nxp_prepare_headers_imx.sh --arch arm64 --modules
-#	@echo "NXP ARM64 environment ready. Use 'make nxp-arm64' to build."
+#	@echo "NXP ARM64 environment ready. Use 'make nxp-driver-arm64' to build."
 
-nxp-arm64: prepare-nxp-arm64 $(OBJ_DIR)
+nxp-driver-arm64: prepare-nxp-driver-arm64 $(OBJ_DIR)
 	@echo "Building and signing NXP ARM64 module..."
 	bash -c 'cd ../scripts && source ./imx-env.sh && cd ../kernel && \
 	$(MAKE) -C $$KDIR ARCH=$$ARCH CROSS_COMPILE=$$CROSS_COMPILE M=$(PWD) modules'
@@ -93,13 +102,21 @@ nxp-arm64: prepare-nxp-arm64 $(OBJ_DIR)
 	$(MAKE) sign_module
 	@echo "✅ NXP ARM64 module built and signed successfully"
 
-# Native host x86_64 build (quick development, no signing)
-host: $(OBJ_DIR)
-	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(HOST_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
+# Debian native build (independent Docker compilation with Debian kernel headers and signing)
+deb-driver: $(OBJ_DIR)
+	@echo "Building and signing Debian x86_64 driver using native Debian kernel headers..."
+	@echo "Using Debian headers: $(DEBIAN_KERNEL_SRC)"
+	@if [ ! -d "$(DEBIAN_KERNEL_SRC)" ]; then \
+		echo "ERROR: Debian headers not found at $(DEBIAN_KERNEL_SRC)"; \
+		echo "Run installation commands to set up Debian headers first."; \
+		exit 1; \
+	fi
+	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(DEBIAN_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
-		echo "✅ Host x86_64 module built successfully in $(OBJ_DIR)/"; \
+		echo "✅ Debian native x86_64 module built successfully in $(OBJ_DIR)/"; \
+		$(MAKE) sign_module; \
 	else \
 		echo "ERROR: nxp_simtemp.ko was not created"; \
 		exit 1; \
@@ -144,8 +161,8 @@ sign_module:
 	fi
 
 # Host x86_64 native compilation with signing (production build)
-host-signed: $(OBJ_DIR)
-	@echo "Building for host x86_64 using native kernel headers..."
+host-driver: $(OBJ_DIR)
+	@echo "Building and signing host x86_64 driver using native kernel headers..."
 	@echo "Using priority headers: $(HOST_KERNEL_SRC)"
 	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(HOST_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
@@ -180,10 +197,10 @@ info:
 	fi
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make host         - Native x86_64 build (development, no signing)"
-	@echo "  make host-signed  - Native x86_64 build with signing (production)"
-	@echo "  make nxp-arm      - Build and sign for NXP ARM devices (i.MX6/i.MX7)"
-	@echo "  make nxp-arm64    - Build and sign for NXP ARM64 devices (i.MX8)"
-	@echo "  make info         - Show this information"
+	@echo "  make host-driver     - Native x86_64 build with signing (production)"
+	@echo "  make deb-driver      - Debian independent build with signing (Docker compilation)"
+	@echo "  make nxp-driver-arm  - Build and sign for NXP ARM devices (i.MX6/i.MX7)"
+	@echo "  make nxp-driver-arm64- Build and sign for NXP ARM64 devices (i.MX8)"
+	@echo "  make info            - Show this information"
 
-.PHONY: host host-signed sign_module clean prepare-nxp-arm prepare-nxp-arm64 nxp-arm nxp-arm64 info
+.PHONY: host-driver deb-driver sign_module clean prepare-nxp-driver-arm prepare-nxp-driver-arm64 nxp-driver-arm nxp-driver-arm64 info
