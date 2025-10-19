@@ -19,7 +19,7 @@ EXPECTED_COMPATIBLE_STRINGS = [
     "simtemp,temperature-sensor",
     "simtemp,temperature-sensor-overlay"
 ]
-EXPECTED_DRIVER_NAME = "nxp_simtemp"
+EXPECTED_DRIVER_NAME = "nxp-simtemp"
 
 
 def is_module_loaded():
