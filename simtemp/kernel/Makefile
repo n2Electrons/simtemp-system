@@ -60,8 +60,8 @@ all: host-driver
 # NXP i.MX cross-compilation targets
 prepare-nxp-driver-arm:
 	@echo "Preparing NXP ARM (i.MX6/i.MX7) cross-compilation environment..."
-	cd ../scripts && ./nxp_prepare_headers_imx.sh --arch arm --modules
-	@echo "NXP ARM environment ready. Use 'make nxp-driver-arm' to build."
+	@bash -c 'cd ../scripts && ./nxp_prepare_headers_imx.sh --arch arm --modules'
+	@echo "✅ NXP ARM environment ready. Use 'make nxp-driver-arm' to build."
 
 nxp-driver-arm: prepare-nxp-driver-arm $(OBJ_DIR)
 	@echo "Building and signing NXP ARM module..."
@@ -75,19 +75,15 @@ nxp-driver-arm: prepare-nxp-driver-arm $(OBJ_DIR)
 	@echo "Signing NXP ARM module..."
 	$(MAKE) sign_module
 	@echo "Copying binaries to QEMU rootfs for deployment..."
-	mkdir -p ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
-	cp $(OBJ_DIR)/nxp_simtemp.ko ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
+	@mkdir -p ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
+	@cp $(OBJ_DIR)/nxp_simtemp.ko ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
 	@echo "Packaging updated rootfs..."
-	cd ../../deployment/qemu && ./scripts/update_rootfs.sh
+	@cd ../../deployment/qemu && ./scripts/update_rootfs.sh
 	@echo "✅ NXP ARM module built, signed, and packaged successfully"
 
 prepare-nxp-driver-arm64:
-	@echo "Comming soon:"
-	@echo "NXP ARM64 environment preparation"
-	@echo ""
-#	@echo "Preparing NXP ARM64 (i.MX8) cross-compilation environment..."
-#	cd ../scripts && ./nxp_prepare_headers_imx.sh --arch arm64 --modules
-#	@echo "NXP ARM64 environment ready. Use 'make nxp-driver-arm64' to build."
+	@echo "Preparing NXP ARM64 (i.MX8) cross-compilation environment..."
+	@echo "Note: ARM64 NXP setup not yet implemented"
 
 nxp-driver-arm64: prepare-nxp-driver-arm64 $(OBJ_DIR)
 	@echo "Building and signing NXP ARM64 module..."
@@ -197,10 +193,10 @@ info:
 	fi
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make host-driver     - Native x86_64 build with signing (production)"
-	@echo "  make deb-driver      - Debian independent build with signing (Docker compilation)"
-	@echo "  make nxp-driver-arm  - Build and sign for NXP ARM devices (i.MX6/i.MX7)"
-	@echo "  make nxp-driver-arm64- Build and sign for NXP ARM64 devices (i.MX8)"
-	@echo "  make info            - Show this information"
+	@echo "  make host-driver       - Native x86_64 build with signing (production)"
+	@echo "  make deb-driver        - Debian independent x86_64 build with signing (Docker)"
+	@echo "  make nxp-driver-arm    - Build and sign for NXP ARM devices (i.MX6/i.MX7)"
+	@echo "  make nxp-driver-arm64  - Build and sign for NXP ARM64 devices (i.MX8)"
+	@echo "  make info              - Show this information"
 
 .PHONY: host-driver deb-driver sign_module clean prepare-nxp-driver-arm prepare-nxp-driver-arm64 nxp-driver-arm nxp-driver-arm64 info
