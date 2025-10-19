@@ -8,7 +8,7 @@ REPO=https://github.com/nxp-imx/linux-imx.git
 BRANCH=lf-5.10.72-2.2.0
 ARCH=arm
 CROSS_COMPILE=arm-linux-gnueabihf-
-KDIR=linux-imx-5.10.72
+KDIR=linux-imx-5.10
 
 # ===========================
 # HOST DEPENDENCIES (Ubuntu)
@@ -62,6 +62,21 @@ make scripts
 ./scripts/config --disable CONFIG_MXC_GPU_VIV
 ./scripts/config --disable CONFIG_MXC_IPU3
 ./scripts/config --disable CONFIG_DRM
+
+# Disable specific drivers that cause issues in QEMU
+./scripts/config --disable TOUCHSCREEN_MAX11801
+./scripts/config --disable CHARGER_MAX8903
+./scripts/config --disable REGULATOR_PFUZE100
+./scripts/config --disable DRM_IMX
+./scripts/config --disable DRM_IMX_IPUV3
+./scripts/config --disable DRM_IMX_HDMI
+./scripts/config --disable IMX_IPUV3_CORE
+./scripts/config --disable VIDEO_IMX_VDOA
+./scripts/config --disable VIDEO_MXC_OUTPUT
+./scripts/config --disable MXC_VPU
+./scripts/config --disable MXC_GPU_VIV
+./scripts/config --disable DRM_ETNAVIV
+./scripts/config --disable DRM_IMX_PARALLEL_DISPLAY
 
 # Reduce debug
 ./scripts/config --disable CONFIG_DEBUG_KERNEL

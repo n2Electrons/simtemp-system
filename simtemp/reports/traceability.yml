@@ -1,5 +1,5 @@
 metadata:
-  generated_on: '2025-10-09'
+  generated_on: '2025-10-16'
   source_files:
   - simtemp/docs/TESTPLAN.md
   notes: Regenerated from TESTPLAN.md via generate_traceability_yaml.py (preserving
@@ -12,24 +12,24 @@ requirements:
   summary: Register as platform driver via DT or local device
   priority: Medium
   status: in-progress
-  github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/58
+  github_link: https://github.com/n2Electrons/challenge_2509/issues/58
   branches:
-  - f-k1-tc-001-insmod-registers-driver
+  - f-k1-tc-002-qemu-dt
   tests:
   - id: F-K1-TC-001
     description: '`insmod` registers driver; sysfs entries created'
     expected: '`insmod` registers driver; sysfs entries created'
-    status: in-progress
+    status: planned
     automation: true
-    github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/61
-    branch: f-k1-tc-001-insmod-registers-driver
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/61
+    branch: ''
   - id: F-K1-TC-002
     description: DT overlay binds driver; properties parsed with no errors
     expected: DT overlay binds driver; properties parsed with no errors
-    status: planned
+    status: in-progress
     automation: true
-    github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/62
-    branch: ''
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/62
+    branch: f-k1-tc-002-qemu-dt
 - id: F-K2
   group: functional
   module: Kernel
@@ -208,17 +208,18 @@ requirements:
   submodule: Lifecycle mgmt
   summary: Clean load/unload sequence
   priority: Medium
-  status: planned
+  status: in-progress
   github_link: ''
-  branches: []
+  branches:
+  - f-k8-tc-001-loadunload
   tests:
   - id: F-K8-TC-001
     description: Load/unload no WARN/OOPS
     expected: Load/unload no WARN/OOPS
-    status: planned
+    status: in-progress
     automation: true
     github_link: ''
-    branch: ''
+    branch: f-k8-tc-001-loadunload
   - id: F-K8-TC-002
     description: Readers exit gracefully on unload
     expected: Readers exit gracefully on unload
@@ -507,24 +508,23 @@ requirements:
   submodule: DESIGN.md
   summary: Architecture & API
   priority: Medium
-  status: in-progress
+  status: planned
   github_link: ''
-  branches:
-  - f-d2-tc-001-api-documentation-verification
+  branches: []
   tests:
   - id: F-D2-TC-001
     description: Struct/API match code
     expected: Struct/API match code
-    status: in-progress
+    status: planned
     automation: false
-    github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/64
-    branch: f-d2-tc-001-api-documentation-verification
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/64
+    branch: ''
   - id: F-D2-TC-002
     description: Locking rationale consistent
     expected: Locking rationale consistent
     status: planned
     automation: false
-    github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/65
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/65
     branch: ''
 - id: F-D3
   group: functional
@@ -556,18 +556,17 @@ requirements:
   submodule: AI_NOTES.md
   summary: Prompts and validation notes
   priority: Medium
-  status: in-progress
-  github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/57
-  branches:
-  - f-d4-tc-prompts-recorded
+  status: planned
+  github_link: https://github.com/n2Electrons/challenge_2509/issues/57
+  branches: []
   tests:
   - id: F-D4-TC-001
     description: Prompts recorded
     expected: Prompts recorded
-    status: implemented
+    status: planned
     automation: false
-    github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/59
-    branch: f-d4-tc-prompts-recorded
+    github_link: https://github.com/n2Electrons/challenge_2509/issues/59
+    branch: ''
   - id: F-D4-TC-002
     description: Mitigations listed
     expected: Mitigations listed

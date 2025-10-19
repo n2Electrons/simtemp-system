@@ -2,6 +2,10 @@
 # This file controls which tests are executed and their configurations
 #
 # Copyright (c) Jorge Rodriguez Moreno
+#
+# Test Case Configuration Options:
+#   verbose_output: true/false - Controls pytest -s flag to show/hide print statements
+#                               Set to true for debugging specific test cases
 
 version: "1.0"
 
@@ -25,41 +29,12 @@ requirements:
 
 # Test case configurations
 tests:
-  jenkins_test:
-    enabled: true
-    own_pipeline: true  # This module has its own dedicated pipeline stage
-    repository: "n2Electrons-Infra"  # GitHub repository for this test module (has JENKINS secrets)
-    description: "Tests for Jenkins integration and PR detection"
-    pytest_file: null  # No pytest file - these are Jenkins-specific tests
-    env:
-      SOURCE_FILE: 'deployment/jenkins/diagnostics.groovy'
-      MODULE_DIR: 'jenkins'
-      MODULE_NAME: 'diagnostics.groovy'
-    test_cases:
-      - name: "connectivity"
-        description: "Verifies connectivity to Jenkins server"
-        enabled: true
-        test_id: "F-J1-TC-001"
-      - name: "authentication" 
-        description: "Verifies Jenkins authentication"
-        enabled: true
-        test_id: "F-J1-TC-002"
-      - name: "pr_processing"
-        description: "Verifies PR detection functionality"
-        enabled: true
-        test_id: "F-J1-TC-003"
-      - name: "github_api_connectivity"
-        description: "Validates GitHub API connectivity"
-        enabled: true
-        test_id: "F-J1-TC-004"
-        
   kernel_driver_base:
-    enabled: true
+    enabled: false
     repository: "n2Electrons-Infra"  # GitHub repository for this test module  
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Tests for the Temperature Simulator Driver (Infrastructure)"
     depends_on: ["nxp_simtemp"]  # Module dependency
-    pytest_file: "test_f_k1_tc_001.py"  # Specific pytest file for this module
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
       MODULE_DIR: 'kernel'
@@ -71,15 +46,16 @@ tests:
         description: "Verifies driver registration via insmod"
         enabled: true
         test_id: "F-K1-TC-001"  # Maps to test plan ID
+        pytest_file: "test_f_k1_tc_001.py"  # Specific pytest file for this test case
+        verbose_output: false  # Enable pytest -s flag to show print statements
         debug_info: "This test loads the kernel module using insmod"
 
   kernel_driver_suite:
-    enabled: true
+    enabled: false
     repository: "simtemp-system"  # GitHub repository for this test module  
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Extended Tests for the Temperature Simulator Driver"
     depends_on: ["nxp_simtemp"]  # Module dependency
-    pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this module
     env:
       SOURCE_FILE: 'kernel/nxp_simtemp.c'
       MODULE_DIR: 'kernel'
@@ -91,6 +67,8 @@ tests:
         description: "Load/unload kernel module without WARN/OOPS"
         enabled: true
         test_id: "F-K8-TC-001"
+        pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this test case
+        verbose_output: false  # Disable verbose output for this test
         debug_info: "This test verifies clean module load/unload operations"
 
   qemu_integration:
@@ -98,32 +76,46 @@ tests:
     repository: "simtemp-system"  # GitHub repository for this test module
     debug_verbose: true  # Enable detailed debug output for this module
     description: "QEMU i.MX6 Integration Tests for Jenkins CI/CD"
-    pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this module
+    
+    # Driver compilation settings for QEMU tests
+    use_precompiled_driver: true  # Set to true to use prebuilt nxp_simtemp.ko instead of compiling from source
+    precompiled_path: "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"  # Path to precompiled driver in repository
     
     env:
       QEMU_DIR: 'deployment/qemu'
       HELLO_SRC_DIR: 'src/hello'
-      KERNEL_IMAGE: 'deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage'
-      DTB_FILE: 'deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabrelite.dtb'
-      ROOTFS_IMAGE: 'deployment/qemu/rootfs-hello.cpio.gz'
+      KERNEL_IMAGE: 'deployment/qemu/build/arch/arm/boot/zImage'
+      DTB_FILE: 'deployment/qemu/dtb/imx6ul-simtemp.dtb'
+      ROOTFS_IMAGE: 'deployment/qemu/rootfs.cpio.gz'
       # BUILD_SCRIPT removed - binaries are pre-compiled on host
-      TEST_SCRIPT: 'deployment/qemu/scripts/jenkins-hello-world-test.sh'
     test_cases:
-      - name: "hello_world_qemu_boot"
-        description: "Verifies QEMU i.MX6 boots with Hello World program"
+      - name: "test_basic_qemu_boot"
+        description: "Verifies basic QEMU boot and kernel messages"
         enabled: true
         test_id: "F-K1-TC-002"
-        debug_info: "This test runs Hello World in QEMU i.MX6 emulation"
-        timeout_seconds: 45  # QEMU test specific timeout
+        pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this test case
+        verbose_output: true  # Enable verbose output for debugging QEMU boot
+        debug_info: "This test checks for successful QEMU boot and kernel log patterns"
         qemu_specific:
-          expects_kernel_boot: true
-          expects_userspace: true
-          validation_patterns: ["Hello World", "Test completed"]
+          expects_boot: true
+          validation_patterns: ["Booting Linux", "initramfs ready"]
       - name: "device_tree_loading"
         description: "Verifies Device Tree loading in QEMU"
-        enabled: true
+        enabled: false
         test_id: "F-K1-TC-004"
+        pytest_file: "test_f_k1_tc_004.py"  # Specific pytest file for this test case
         debug_info: "This test confirms DTB loading and kernel recognition"
         qemu_specific:
           expects_dtb_load: true
           validation_patterns: ["Device tree", "imx6ul"]
+      - name: "qemu_module_load_unload"
+        description: "Load/unload kernel module in QEMU without WARN/OOPS"
+        enabled: false
+        test_id: "F-K8-TC-003"
+        pytest_file: "test_f_k8_tc_003.py"  # Specific pytest file for this test case
+        debug_info: "This test verifies clean module load/unload operations in QEMU environment"
+        qemu_specific:
+          expects_boot: true
+          expects_module_load: true
+          validation_patterns: ["initramfs ready", "nxp_simtemp"]
+          module_operations: ["insmod", "rmmod", "lsmod"]

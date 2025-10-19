@@ -26,7 +26,7 @@ REPO=https://github.com/nxp-imx/linux-imx.git
 BRANCH=lf-5.10.72-2.2.0
 ARCH=arm
 CROSS_COMPILE=arm-linux-gnueabihf-
-KDIR=linux-imx-5.10.72
+KDIR=linux-imx-5.10
 
 # Clone repository
 rm -rf "$KDIR"
@@ -167,7 +167,7 @@ file rootfs/bin/busybox   # should report: ARM executable, statically linked
 ### Option A: SabreLite machine with SabreSD DTB (stable console)
 
 ```bash
-qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -no-reboot   -kernel linux-imx-5.10.72/arch/arm/boot/zImage   -dtb linux-imx-5.10.72/arch/arm/boot/dts/imx6q-sabresd.dtb   -initrd rootfs.cpio.gz   -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init loglevel=8"
+qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -no-reboot   -kernel linux-imx-5.10/arch/arm/boot/zImage   -dtb linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb   -initrd rootfs.cpio.gz   -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init loglevel=8"
 ```
 
 This configuration works reliably for headless QEMU testing even though it mixes the `sabrelite` machine with the `sabresd` device tree.
@@ -202,7 +202,7 @@ exec setsid /bin/sh </dev/console >/dev/console 2>&1
 
 Then run:
 ```bash
-qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -no-reboot   -kernel linux-imx-5.10.72/arch/arm/boot/zImage   -dtb linux-imx-5.10.72/arch/arm/boot/dts/imx6q-sabresd.dtb   -initrd rootfs.cpio.gz   -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init loglevel=8"   -monitor telnet:127.0.0.1:45454,server,nowait
+qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -no-reboot   -kernel linux-imx-5.10/arch/arm/boot/zImage   -dtb linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb   -initrd rootfs.cpio.gz   -append "console=ttymxc0,115200 earlycon=imx,0x021e8000,115200 rdinit=/init loglevel=8"   -monitor telnet:127.0.0.1:45454,server,nowait
 ```
 
 **Notes**
@@ -215,7 +215,7 @@ qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -no-reboot   -ker
 ## Avoid max11801_ts FIFO driver message
 ### Option 1 — Disable the driver in the kernel
 ```bash
-cd linux-imx-5.10.72
+cd linux-imx-5.10
 ./scripts/config --disable CONFIG_TOUCHSCREEN_MAX11801
 make olddefconfig
 make -j"$(nproc)" zImage dtbs

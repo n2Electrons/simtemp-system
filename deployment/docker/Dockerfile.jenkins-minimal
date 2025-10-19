@@ -1,0 +1,66 @@
+# Optimized Jenkins Container with ARM Cross-Compilation and Essential Tools
+FROM jenkins/jenkins:lts
+
+# Switch to root to install packages
+USER root
+
+# Update package list and install essential tools only
+RUN apt-get update && apt-get install -y \
+    # Essential build tools
+    build-essential \
+    make \
+    # ARM cross-compilation toolchain
+    gcc-arm-linux-gnueabihf \
+    # QEMU for ARM emulation  
+    qemu-system-arm \
+    # Required QEMU libraries
+    libfdt1 \
+    libpixman-1-0 \
+    libglib2.0-0 \
+    libslirp0 \
+    # Linux kernel development
+    linux-libc-dev \
+    # Essential utilities
+    curl \
+    wget \
+    git \
+    tree \
+    nano \
+    net-tools \
+    # Python for test scripts
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install minimal Python packages (override externally-managed-environment)
+RUN pip3 install --no-cache-dir --break-system-packages pytest pyyaml
+
+# Create GCC-13 compatibility symbolic links for both ARM and native compilation
+RUN ln -sf /usr/bin/arm-linux-gnueabihf-gcc-12 /usr/bin/arm-linux-gnueabihf-gcc-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-g++-12 /usr/bin/arm-linux-gnueabihf-g++-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-gcc-ar-12 /usr/bin/arm-linux-gnueabihf-gcc-ar-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-gcc-nm-12 /usr/bin/arm-linux-gnueabihf-gcc-nm-13 && \
+    ln -sf /usr/bin/arm-linux-gnueabihf-gcc-ranlib-12 /usr/bin/arm-linux-gnueabihf-gcc-ranlib-13 && \
+    ln -sf /usr/bin/gcc-12 /usr/bin/gcc-13 && \
+    ln -sf /usr/bin/g++-12 /usr/bin/g++-13
+
+# Verify installations
+RUN arm-linux-gnueabihf-gcc --version && \
+    arm-linux-gnueabihf-gcc-13 --version && \
+    qemu-system-arm --version && \
+    make --version
+
+# Create workspace and module directories
+RUN mkdir -p /workspace /lib/modules/extra && \
+    chown -R jenkins:jenkins /workspace /lib/modules/extra
+
+# Cross-compilation variables removed - native x86_64 only
+
+# Switch back to jenkins user
+USER jenkins
+
+# Set working directory
+WORKDIR /var/jenkins_home
+
+# Expose Jenkins ports
+EXPOSE 8080 50000

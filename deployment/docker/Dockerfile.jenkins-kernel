@@ -1,0 +1,20 @@
+FROM jenkins/jenkins:lts
+USER root
+
+# Update package list
+RUN apt-get update
+
+# Install ARM cross-compilation tools directly in container
+RUN apt-get install -y \
+    build-essential \
+    gcc-arm-linux-gnueabihf \
+    libc6-dev-armhf-cross \
+    linux-libc-dev-armhf-cross \
+    libelf-dev \
+    git \
+    make \
+    rsync \
+    curl
+
+# Switch back to jenkins user
+USER jenkins

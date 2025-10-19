@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-create_detailed_test_report.py - Generate a detailed test report for simtemp modules
+driver_tester.py - Comprehensive Driver Testing Orchestrator for Simtemp
 
 Copyright (c) Jorge Rodriguez Moreno
 
-This script:
+This script orchestrates the complete driver testing workflow:
 1. Reads test configuration from simtemp_tests.yml
-2. Collects test details from test_details_{module}.json files and pytest results
-3. Combines them into a single structured report
-4. Generates an HTML and JSON report with comprehensive test results
+2. Executes pytest tests with configurable verbose output
+3. Collects and integrates test results from multiple sources
+4. Composes comprehensive HTML and JSON test reports
+5. Integrates with GitHub issues for requirement traceability
 
-Usage: ./create_detailed_test_report.py [--verbose] [--input-dir /path] [--output-dir /path]
+Usage: ./driver_tester.py [--verbose] [--input-dir /path] [--output-dir /path]
 """
 
 import os
@@ -45,7 +46,7 @@ class TestLogger:
         print(f"[ERROR] {message}")
 
 
-class DetailedTestReportGenerator:
+class DriverTestOrchestrator:
     def __init__(self, input_dir=None, output_dir=None, verbose=False):
         self.verbose = verbose
         self.logger = TestLogger(verbose)
@@ -350,32 +351,38 @@ class DetailedTestReportGenerator:
             self.logger.info(f"   Description: {description}")
             
             # Show pytest file information
-            if pytest_file is None:
-                self.logger.info(f"   Pytest file: null (no pytest execution)")
-            elif not pytest_file:
-                self.logger.info(f"   Pytest file: auto-discover test_*.py files")
+            # Distinguish between: (a) key not present (auto-discover), (b) key present and set to null (explicitly disabled), (c) empty string (auto-discover), (d) specific file
+            if 'pytest_file' not in suite_config:
+                self.logger.info(f"   Pytest file: auto-discover test_*.py files (not configured at suite level)")
             else:
-                pytest_path = script_dir / pytest_file
-                exists_status = "EXISTS" if pytest_path.exists() else "NOT FOUND"
-                self.logger.info(f"   Pytest file: {pytest_file} [{exists_status}]")
-                
-                # Show pytest file content summary if it exists
-                if pytest_path.exists():
-                    try:
-                        with open(pytest_path, 'r') as f:
-                            content = f.read()
-                            test_functions = [line.strip().split('(')[0].replace('def ', '')
-                                            for line in content.split('\n')
-                                            if line.strip().startswith('def test_')]
-                            
-                            if test_functions:
-                                self.logger.info(f"   Pytest functions found:")
-                                for func in test_functions:
-                                    self.logger.info(f"      - {func}")
-                            else:
-                                self.logger.info(f"   No test functions found in {pytest_file}")
-                    except Exception as e:
-                        self.logger.info(f"   Could not read {pytest_file}: {e}")
+                pytest_file_value = suite_config.get('pytest_file')
+                if pytest_file_value is None:
+                    # Explicit null in YAML means do not execute pytest for this suite
+                    self.logger.info(f"   Pytest file: null (no pytest execution)")
+                elif not pytest_file_value:
+                    self.logger.info(f"   Pytest file: auto-discover test_*.py files")
+                else:
+                    pytest_path = script_dir / pytest_file_value
+                    exists_status = "EXISTS" if pytest_path.exists() else "NOT FOUND"
+                    self.logger.info(f"   Pytest file: {pytest_file_value} [{exists_status}]")
+
+                    # Show pytest file content summary if it exists
+                    if pytest_path.exists():
+                        try:
+                            with open(pytest_path, 'r') as f:
+                                content = f.read()
+                                test_functions = [line.strip().split('(')[0].replace('def ', '')
+                                                for line in content.split('\n')
+                                                if line.strip().startswith('def test_')]
+
+                                if test_functions:
+                                    self.logger.info(f"   Pytest functions found:")
+                                    for func in test_functions:
+                                        self.logger.info(f"      - {func}")
+                                else:
+                                    self.logger.info(f"   No test functions found in {pytest_file_value}")
+                        except Exception as e:
+                            self.logger.info(f"   Could not read {pytest_file_value}: {e}")
             
             # Show configured test cases
             test_cases = suite_config.get('test_cases', [])
@@ -429,29 +436,41 @@ class DetailedTestReportGenerator:
 
     def collect_test_results(self):
         """Collect test results by executing each test suite and generating incremental detail files"""
+        self.logger.info("TestRunner: Starting test collection process")
         start_time = time.time()
         
         # Show detailed configuration overview at the start
+        self.logger.info("TestRunner: Showing test configuration overview")
         self.show_test_configuration_overview()
         
         # Always generate fresh results from test configuration
         # This ensures we always run pytest and capture current test state
-        self.logger.info("Generating fresh test results from test configuration")
+        self.logger.info("TestRunner: Generating fresh test results from test configuration")
         self.generate_from_config()
         
         self.test_results["summary"]["runtime"] = time.time() - start_time
-        self.logger.info(f"Collected results from {self.test_results['summary']['total_modules']} modules")
+        self.logger.info(f"TestRunner: Completed - collected results from {self.test_results['summary']['total_modules']} modules in {self.test_results['summary']['runtime']:.2f}s")
 
     def generate_from_config(self):
         """Generate test results structure from test configuration"""
+        self.logger.info("TestRunner: Starting config processing")
+        
         if not self.test_config or 'tests' not in self.test_config:
-            self.logger.error("No test configuration available")
+            self.logger.error("TestRunner: No test configuration available")
             return
+        
+        total_suites = len(self.test_config['tests'])
+        self.logger.info(f"TestRunner: Processing {total_suites} test suites")
             
         for test_suite_name, test_suite_config in self.test_config['tests'].items():
+            self.logger.info(f"TestRunner: Processing suite '{test_suite_name}'")
+            
             if not test_suite_config.get('enabled', True):
+                self.logger.info(f"TestRunner: Skipping disabled suite '{test_suite_name}'")
                 continue
                 
+            self.logger.info(f"TestRunner: Suite '{test_suite_name}' is enabled")
+            
             module_data = {
                 "name": test_suite_name,
                 "description": test_suite_config.get('description', ''),
@@ -461,7 +480,8 @@ class DetailedTestReportGenerator:
             
             # Add test cases from configuration
             test_cases = test_suite_config.get('test_cases', [])
-            self.logger.info(f"Found {len(test_cases)} test cases for module {test_suite_name}")
+            self.logger.info(f"TestRunner: Found {len(test_cases)} test cases for module {test_suite_name}")
+            
             for test_case in test_cases:
                 test_name = test_case.get('name', 'unnamed')
                 test_enabled = test_case.get('enabled', True)
@@ -520,75 +540,240 @@ class DetailedTestReportGenerator:
 
     def capture_pytest_results(self, suite_name, module_data):
         """Run pytest and capture results to update test status"""
+        self.logger.info(f"TestRunner: Starting for suite '{suite_name}'")
+        
         try:
             import subprocess
             
             # Run pytest with JSON output
-            self.logger.info(f"Running pytest for module {suite_name} to capture actual test results...")
+            self.logger.info(f"TestRunner: Looking for pytest config for module {suite_name}")
             
             # Get the specific pytest file for this module from configuration
             module_config = None
             for test_suite_name, test_suite_config in self.test_config.get('tests', {}).items():
                 if test_suite_name == suite_name:
                     module_config = test_suite_config
+                    self.logger.info(f"TestRunner: Found config for suite '{suite_name}'")
                     break
             
             if not module_config:
-                self.logger.warning(f"No configuration found for module {suite_name}")
+                self.logger.warning(f"TestRunner: No configuration found for module {suite_name}")
                 return
+                
+            # Initialize test_files to avoid UnboundLocalError
+            test_files = []
                 
             # Check if this module has a specific pytest file configured
             pytest_file = module_config.get('pytest_file')
+            self.logger.info(f"TestRunner: pytest_file value for {suite_name}: {repr(pytest_file)}")
+            
             if pytest_file is None:
-                # Module explicitly configured to not run pytest
-                self.logger.info(f"Module {suite_name} configured with pytest_file: null - checking for test details file")
-                
-                # Special handling for jenkins_test module - look for test_details_jenkins_test.json
-                if suite_name == "jenkins_test":
-                    self.logger.info("Special handling for jenkins_test module - looking for test details file")
-                    jenkins_details_file = os.path.join(self.input_dir, "test_details_jenkins_test.json")
-                    if os.path.exists(jenkins_details_file):
-                        self.logger.info(f"Found Jenkins test details file: {jenkins_details_file}")
-                        try:
-                            with open(jenkins_details_file, 'r') as f:
-                                jenkins_results = json.load(f)
-                                self.logger.info(f"Loaded Jenkins test results: {jenkins_results}")
-                                self.match_jenkins_results_to_config(module_data, jenkins_results)
-                        except Exception as e:
-                            self.logger.error(f"Could not parse Jenkins test details file: {e}")
-                    else:
-                        self.logger.warning(f"Jenkins test details file not found at: {jenkins_details_file}")
-                return
+                # Check if pytest_file was explicitly set to null vs. not defined
+                if 'pytest_file' in module_config:
+                    # Module explicitly configured to not run pytest (pytest_file: null)
+                    self.logger.info(
+                        f"Module {suite_name} configured with pytest_file: null "
+                        "- checking for test details file"
+                    )
+                    
+                    # Special handling for jenkins_test module
+                    if suite_name == "jenkins_test":
+                        self.logger.info(
+                            "Special handling for jenkins_test module "
+                            "- looking for test details file"
+                        )
+                        jenkins_details_file = os.path.join(
+                            self.input_dir, "test_details_jenkins_test.json"
+                        )
+                        if os.path.exists(jenkins_details_file):
+                            self.logger.info(
+                                f"Found Jenkins test details file: "
+                                f"{jenkins_details_file}"
+                            )
+                            try:
+                                with open(jenkins_details_file, 'r') as f:
+                                    jenkins_results = json.load(f)
+                                    self.logger.info(
+                                        f"Loaded Jenkins test results: "
+                                        f"{jenkins_results}"
+                                    )
+                                    self.match_jenkins_results_to_config(
+                                        module_data, jenkins_results
+                                    )
+                            except Exception as e:
+                                self.logger.error(
+                                    f"Could not parse Jenkins test details file: {e}"
+                                )
+                        else:
+                            self.logger.warning(
+                                f"Jenkins test details file not found at: "
+                                f"{jenkins_details_file}"
+                            )
+                    return
+                else:
+                    # pytest_file not defined at suite level - collect from test cases
+                    self.logger.info(
+                        f"TestRunner: No pytest_file key found at suite level for {suite_name} "
+                        "- collecting from test cases"
+                    )
+                    # Continue to collection logic below
             elif not pytest_file:
-                # Fall back to finding all test files (old behavior)
-                script_dir = Path(__file__).parent
-                test_files = list(script_dir.glob("test_*.py"))
-                self.logger.info(f"No specific pytest file configured for {suite_name}, using all test files: {[f.name for f in test_files]}")
+                # Empty string or false-y value - collect from test cases
+                self.logger.info(
+                    f"TestRunner: Empty pytest file at suite level for {suite_name} "
+                    "- collecting from test cases"
+                )
+                # Continue to collection logic below
             else:
                 # Use the specific pytest file for this module
                 script_dir = Path(__file__).parent
                 test_file_path = script_dir / pytest_file
                 if test_file_path.exists():
                     test_files = [test_file_path]
-                    self.logger.info(f"FOUND pytest file for {suite_name}: {pytest_file}")
+                    self.logger.info(
+                        f"FOUND pytest file for {suite_name}: {pytest_file}"
+                    )
                     self.logger.info(f"Full path: {test_file_path}")
                     
                     # Show test file contents summary
                     try:
                         with open(test_file_path, 'r') as f:
                             content = f.read()
-                            test_functions = [line.strip() for line in content.split('\n')
-                                            if line.strip().startswith('def test_')]
-                            self.logger.info(f"Test functions found in {pytest_file}:")
+                            test_functions = [
+                                line.strip() for line in content.split('\n')
+                                if line.strip().startswith('def test_')
+                            ]
+                            self.logger.info(
+                                f"Test functions found in {pytest_file}:"
+                            )
                             for test_func in test_functions:
                                 self.logger.info(f"   - {test_func}")
                             if not test_functions:
-                                self.logger.warning(f"No test functions found in {pytest_file}")
+                                self.logger.warning(
+                                    f"No test functions found in {pytest_file}"
+                                )
                     except Exception as e:
-                        self.logger.warning(f"Could not read test file contents: {e}")
+                        self.logger.warning(
+                            f"Could not read test file contents: {e}"
+                        )
                         
                 else:
-                    self.logger.error(f"Configured pytest file {pytest_file} not found for module {suite_name}")
+                    self.logger.error(
+                        f"Configured pytest file {pytest_file} not found "
+                        f"for module {suite_name}"
+                    )
+                    self.logger.error(f"   Searched at: {test_file_path}")
+                    return
+            
+            # Collection logic for when pytest_file is None (not defined) or empty
+            if pytest_file is None and 'pytest_file' not in module_config or not pytest_file:
+                # No pytest file at suite level - collect from test cases
+                self.logger.info(
+                    f"TestRunner: No pytest file at suite level for {suite_name} "
+                    "- collecting from test cases"
+                )
+                
+                # Collect unique pytest files from test cases
+                test_case_files = set()
+                test_cases = module_config.get('test_cases', [])
+                self.logger.info(f"TestRunner: Found {len(test_cases)} test cases to examine")
+                
+                for test_case in test_cases:
+                    test_case_name = test_case.get('name', 'unnamed')
+                    test_case_enabled = test_case.get('enabled', True)
+                    case_pytest_file = test_case.get('pytest_file')
+                    
+                    self.logger.info(f"TestRunner: Examining test case '{test_case_name}' - enabled: {test_case_enabled}, pytest_file: {case_pytest_file}")
+                    
+                    # Only include enabled test cases
+                    if test_case_enabled:
+                        if case_pytest_file:
+                            test_case_files.add(case_pytest_file)
+                            self.logger.info(f"TestRunner: Added pytest file '{case_pytest_file}' from enabled test case '{test_case_name}'")
+                        else:
+                            self.logger.info(f"TestRunner: Test case '{test_case_name}' is enabled but has no pytest_file")
+                    else:
+                        self.logger.info(f"TestRunner: Skipping disabled test case '{test_case_name}'")
+                
+                self.logger.info(f"TestRunner: Collected {len(test_case_files)} unique pytest files: {list(test_case_files)}")
+                
+                if test_case_files:
+                    script_dir = Path(__file__).parent
+                    test_files = []
+                    self.logger.info(f"TestRunner: Looking for pytest files in directory: {script_dir}")
+                    
+                    for file_name in test_case_files:
+                        test_file_path = script_dir / file_name
+                        self.logger.info(f"TestRunner: Checking if pytest file exists: {test_file_path}")
+                        
+                        if test_file_path.exists():
+                            test_files.append(test_file_path)
+                            self.logger.info(
+                                f"TestRunner: Found pytest file from test case: {file_name}"
+                            )
+                        else:
+                            self.logger.warning(
+                                f"TestRunner: Pytest file from test case not found: "
+                                f"{file_name} (full path: {test_file_path})"
+                            )
+                    
+                    if not test_files:
+                        self.logger.warning(
+                            f"TestRunner: No valid pytest files found for {suite_name} "
+                            "from test cases"
+                        )
+                        return
+                        
+                    self.logger.info(
+                        f"TestRunner: Using pytest files from test cases for {suite_name}: "
+                        f"{[f.name for f in test_files]}"
+                    )
+                else:
+                    # Fall back to finding all test files (old behavior)
+                    script_dir = Path(__file__).parent
+                    test_files = list(script_dir.glob("test_*.py"))
+                    self.logger.info(
+                        f"TestRunner: No pytest files in test cases for {suite_name}, "
+                        f"using all test files: {[f.name for f in test_files]}"
+                    )
+            else:
+                # Use the specific pytest file for this module
+                script_dir = Path(__file__).parent
+                test_file_path = script_dir / pytest_file
+                if test_file_path.exists():
+                    test_files = [test_file_path]
+                    self.logger.info(
+                        f"FOUND pytest file for {suite_name}: {pytest_file}"
+                    )
+                    self.logger.info(f"Full path: {test_file_path}")
+                    
+                    # Show test file contents summary
+                    try:
+                        with open(test_file_path, 'r') as f:
+                            content = f.read()
+                            test_functions = [
+                                line.strip() for line in content.split('\n')
+                                if line.strip().startswith('def test_')
+                            ]
+                            self.logger.info(
+                                f"Test functions found in {pytest_file}:"
+                            )
+                            for test_func in test_functions:
+                                self.logger.info(f"   - {test_func}")
+                            if not test_functions:
+                                self.logger.warning(
+                                    f"No test functions found in {pytest_file}"
+                                )
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Could not read test file contents: {e}"
+                        )
+                        
+                else:
+                    self.logger.error(
+                        f"Configured pytest file {pytest_file} not found "
+                        f"for module {suite_name}"
+                    )
                     self.logger.error(f"   Searched at: {test_file_path}")
                     return
                     
@@ -629,11 +814,35 @@ class DetailedTestReportGenerator:
             except Exception as e:
                 self.logger.warning(f"Could not run test discovery: {e}")
             
-            # Run pytest with verbose output from the project root directory
-            cmd = ["python3", "-m", "pytest", "-v", "--tb=short"] + test_file_paths
-            self.logger.info(f"Executing pytest command for {suite_name}: {' '.join(cmd)}")
+            # Build pytest command with configurable verbose output
+            cmd = ["python3", "-m", "pytest", "-v", "--tb=short"]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, cwd=project_root)
+            # Check if any test case in this suite has verbose_output enabled
+            verbose_enabled = False
+            test_cases = module_config.get('test_cases', [])
+            for test_case in test_cases:
+                enabled = test_case.get('enabled', True)
+                verbose = test_case.get('verbose_output', False)
+                if enabled and verbose:
+                    verbose_enabled = True
+                    break
+            
+            if verbose_enabled:
+                cmd.append("-s")  # Add -s flag to show print statements
+                self.logger.info(
+                    f"Verbose output enabled for suite {suite_name}"
+                )
+            
+            cmd.extend(test_file_paths)
+            
+            self.logger.info(
+                f"Executing pytest command for {suite_name}: {' '.join(cmd)}"
+            )
+            
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=60,
+                cwd=project_root
+            )
             
             self.logger.info(f"Pytest exit code for {suite_name}: {result.returncode}")
             if result.stdout:
@@ -651,13 +860,12 @@ class DetailedTestReportGenerator:
             self.logger.error(f"Error running pytest for {suite_name}: {e}")
 
     def generate_suite_detail_file(self, suite_name, module_data, pytest_result):
-        """Generate an incremental test detail file for this specific suite"""
+        """Generate a test detail file for this specific suite"""
         try:
             import datetime
             
-            # Create timestamp for incremental filename
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            detail_filename = f"test_details_{suite_name}_{timestamp}.json"
+            # Use fixed filename to avoid accumulation of files
+            detail_filename = f"test_details_{suite_name}.json"
             detail_filepath = os.path.join(self.input_dir, detail_filename)
             
             # Prepare detailed test results for this suite
@@ -678,42 +886,73 @@ class DetailedTestReportGenerator:
             with open(detail_filepath, 'w') as f:
                 json.dump(suite_details, f, indent=2)
                 
-            self.logger.info(f"Generated incremental test detail file: {detail_filename}")
+            self.logger.info(f"Generated test detail file: {detail_filename}")
             
         except Exception as e:
             self.logger.error(f"Error generating suite detail file for {suite_name}: {e}")
 
     def parse_pytest_output(self, pytest_output, module_data):
         """Parse pytest output to extract test results"""
-        lines = pytest_output.split('\n')
-        
+        lines = [l for l in pytest_output.split('\n') if l.strip()]
+
+        # Two common patterns to handle:
+        # 1) Same-line: path/to/test_file.py::test_name PASSED
+        # 2) Multi-line verbose: path/to/test_file.py::test_name\n    <prints>\nPASSED
+
+        current_test = None
+
         for line in lines:
-            # Look for test result lines like: "test_f_k1_tc_001.py::test_insmod_registers_driver PASSED"
-            if '::test_' in line and (' PASSED' in line or ' FAILED' in line or ' SKIPPED' in line):
-                parts = line.split('::')
-                if len(parts) >= 2:
-                    test_file = parts[0].strip()
-                    test_info = parts[1].strip()
-                    
-                    # Extract test name and status
-                    if ' PASSED' in test_info:
-                        test_name = test_info.replace(' PASSED', '').strip()
-                        status = 'passed'
-                    elif ' FAILED' in test_info:
-                        test_name = test_info.replace(' FAILED', '').strip()
-                        status = 'failed'
-                    elif ' SKIPPED' in test_info:
-                        test_name = test_info.replace(' SKIPPED', '').strip()
-                        status = 'skipped'
-                    else:
+            stripped = line.strip()
+
+            # Pattern 1: "file.py::test_name <STATUS>" on same line
+            m = re.match(r"^(?P<file>[^:\s]+)::(?P<test>test[^\s]+)\s+(?P<status>PASSED|FAILED|SKIPPED)$", stripped)
+            if m:
+                test_file = m.group('file')
+                test_name = m.group('test')
+                status = m.group('status').lower()
+                self.logger.info(f"Parsed test result: {test_file}::{test_name} -> {status}")
+                self.update_test_status(module_data, test_name, status)
+                continue
+
+            # Pattern 2: discovery/execution line with file::test (may have trailing text)
+            if '::test_' in stripped:
+                # Try to extract file and test token even if there's trailing text
+                m_id = re.search(r"(?P<file>[^:\s]+)::(?P<test>test[^\s:]*)", stripped)
+                if m_id:
+                    test_file = m_id.group('file')
+                    test_name = m_id.group('test')
+
+                    # If status is present on the same line, capture it
+                    m_status = re.search(r"\b(PASSED|FAILED|SKIPPED)\b", stripped)
+                    if m_status:
+                        status = m_status.group(1).lower()
+                        self.logger.info(f"Parsed test result: {test_file}::{test_name} -> {status}")
+                        self.update_test_status(module_data, test_name, status)
+                        current_test = None
                         continue
+                    else:
+                        # No status yet; remember current test and continue
+                        current_test = {
+                            'file': test_file,
+                            'name': test_name
+                        }
+                        continue
+
+            # Pattern 3: status line following a previous test identifier
+            if current_test and stripped in ['PASSED', 'FAILED', 'SKIPPED']:
+                status = stripped.lower()
+                test_name = current_test['name']
+                test_file = current_test['file']
+                self.logger.info(f"Parsed test result: {test_file}::{test_name} -> {status}")
+                self.update_test_status(module_data, test_name, status)
+                current_test = None
+                continue
+
+            # Otherwise ignore non-status lines (prints, tracebacks, etc.)
                     
-                    # Update matching test in module_data
-                    self.update_test_status(module_data, test_name, status)
-                    
-        # Also look for summary line like "1 passed in 4.85s"
-        for line in lines:
-            if ' passed in ' in line or ' failed' in line:
+        # Also look for summary lines (e.g., "1 passed in 4.85s")
+        for line in pytest_output.split('\n'):
+            if ' passed in ' in line or ' failed in ' in line or re.search(r"\d+ passed", line):
                 self.logger.info(f"Pytest summary: {line.strip()}")
 
     def update_test_status(self, module_data, test_name, status):
@@ -728,7 +967,7 @@ class DetailedTestReportGenerator:
                 
                 old_status = test['status']
                 test['status'] = status
-                test['message'] = f"Test executed via pytest"
+                test['message'] = "Test executed via pytest"
                 
                 # Update summary counts
                 if old_status == 'unknown':
@@ -1061,32 +1300,64 @@ class DetailedTestReportGenerator:
 
     def generate_reports(self):
         """Generate all test reports"""
+        self.logger.info("STARTING TEST REPORT GENERATION")
+        self.logger.info(f"Input directory: {self.input_dir}")
+        self.logger.info(f"Output directory: {self.output_dir}")
+        self.logger.info(f"Test config file: {self.test_config_file}")
+        
+        self.logger.info("Step 1: Collecting test results...")
         self.collect_test_results()
+        
+        self.logger.info("Step 2: Generating JSON report...")
         self.generate_json_report()
+        
+        self.logger.info("Step 3: Generating HTML report...")
         self.generate_html_report()
         
-        self.logger.info("Test report generation completed")
+        self.logger.info("TEST REPORT GENERATION COMPLETED")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate detailed test reports for simtemp modules")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
-    parser.add_argument("--input-dir", help="Input directory for test details files (default: /tmp)")
-    parser.add_argument("--output-dir", help="Output directory for reports (default: reports)")
+    print("DRIVER_TESTER: Script starting...")
+    
+    parser = argparse.ArgumentParser(
+        description="Orchestrate comprehensive driver testing for simtemp"
+    )
+    parser.add_argument(
+        "--verbose", action="store_true", help="Enable verbose output"
+    )
+    parser.add_argument(
+        "--input-dir",
+        help="Input directory for test details files (default: /tmp)"
+    )
+    parser.add_argument(
+        "--output-dir",
+        help="Output directory for reports (default: reports)"
+    )
     
     args = parser.parse_args()
     
-    generator = DetailedTestReportGenerator(
+    print("DRIVER_TESTER: Arguments parsed:")
+    print(f"   - verbose: {args.verbose}")
+    print(f"   - input_dir: {args.input_dir}")
+    print(f"   - output_dir: {args.output_dir}")
+    
+    print("DRIVER_TESTER: Creating orchestrator instance...")
+    orchestrator = DriverTestOrchestrator(
         input_dir=args.input_dir,
         output_dir=args.output_dir,
         verbose=args.verbose
     )
     
+    print("DRIVER_TESTER: Starting test orchestration...")
     try:
-        generator.generate_reports()
+        orchestrator.generate_reports()
+        print("DRIVER_TESTER: Script completed successfully")
         return 0
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"DRIVER_TESTER: Script failed with error: {e}")
+        import traceback
+        traceback.print_exc()
         return 1
 
 

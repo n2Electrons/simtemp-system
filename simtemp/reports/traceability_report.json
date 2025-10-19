@@ -10,12 +10,12 @@
         {
           "id": "F-K1-TC-001",
           "description": "`insmod` registers driver; sysfs entries created",
-          "status": "in-progress"
+          "status": "planned"
         },
         {
           "id": "F-K1-TC-002",
           "description": "DT overlay binds driver; properties parsed with no errors",
-          "status": "planned"
+          "status": "in-progress"
         }
       ]
     },
@@ -156,14 +156,14 @@
     {
       "id": "F-K8",
       "summary": "Clean load/unload sequence",
-      "status": "planned",
+      "status": "in-progress",
       "test_count": 2,
       "done_count": 0,
       "tests": [
         {
           "id": "F-K8-TC-001",
           "description": "Load/unload no WARN/OOPS",
-          "status": "planned"
+          "status": "in-progress"
         },
         {
           "id": "F-K8-TC-002",
@@ -390,14 +390,14 @@
     {
       "id": "F-D2",
       "summary": "Architecture & API",
-      "status": "in-progress",
+      "status": "planned",
       "test_count": 2,
       "done_count": 0,
       "tests": [
         {
           "id": "F-D2-TC-001",
           "description": "Struct/API match code",
-          "status": "in-progress"
+          "status": "planned"
         },
         {
           "id": "F-D2-TC-002",
@@ -428,14 +428,14 @@
     {
       "id": "F-D4",
       "summary": "Prompts and validation notes",
-      "status": "partial",
+      "status": "planned",
       "test_count": 2,
-      "done_count": 1,
+      "done_count": 0,
       "tests": [
         {
           "id": "F-D4-TC-001",
           "description": "Prompts recorded",
-          "status": "implemented"
+          "status": "planned"
         },
         {
           "id": "F-D4-TC-002",
@@ -662,7 +662,7 @@
   "aggregate": {
     "requirements_total": 32,
     "tests_total": 74,
-    "tests_completed": 1,
-    "tests_completed_pct": 1.3513513513513513
+    "tests_completed": 0,
+    "tests_completed_pct": 0.0
   }
 }

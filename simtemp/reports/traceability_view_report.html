@@ -22,7 +22,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 </head><body>
 <h1>Requirements ↔ Test Cases Traceability</h1>
 <div class="legend"><span style="background:#f8f9fa">planned</span><span style="background:#fff3cd">in-progress</span><span style="background:#d1e7dd">implemented</span><span style="background:#d4edda">verified</span><span style="background:#f8d7da">blocked</span><span style="background:#d1d8e7">partial</span><span>🔗 = GitHub Issue</span><span>🌿 = Git Branch</span></div>
-<div class="summary">Requirements: 32 | Tests: 74 | Completed Tests: 1 (1.4%)</div>
+<div class="summary">Requirements: 32 | Tests: 74 | Completed Tests: 0 (0.0%)</div>
 <div class="req" style="background:#fff3cd">
 <div class="req-number">1-2</div>
 <div class="req-content">
@@ -33,8 +33,8 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 </div>
 </div>
 <div class="tests" id="tests_0" style="display:none">
-<div class="test" style="background:#fff3cd"><strong>F-K1-TC-001</strong>: `insmod` registers driver; sysfs entries created <a href="https://github.com/n2Electrons/challenge_2509/issues/61" target="_blank" title="GitHub Issue for F-K1-TC-001" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/challenge_2509/tree/f-k1-tc-001-insmod-registers-driver" target="_blank" title="Git branch: f-k1-tc-001-insmod-registers-driver" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
-<div class="test" style="background:#f8f9fa"><strong>F-K1-TC-002</strong>: DT overlay binds driver; properties parsed with no errors <a href="https://github.com/n2Electrons/challenge_2509/issues/62" target="_blank" title="GitHub Issue for F-K1-TC-002" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-K1-TC-001</strong>: `insmod` registers driver; sysfs entries created <a href="https://github.com/n2Electrons/challenge_2509/issues/61" target="_blank" title="GitHub Issue for F-K1-TC-001" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
+<div class="test" style="background:#fff3cd"><strong>F-K1-TC-002</strong>: DT overlay binds driver; properties parsed with no errors <a href="https://github.com/n2Electrons/challenge_2509/issues/62" target="_blank" title="GitHub Issue for F-K1-TC-002" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/challenge_2509/tree/f-k1-tc-002-qemu-dt" target="_blank" title="Git branch: f-k1-tc-002-qemu-dt" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
 <div class="req-number">3-4</div>
@@ -112,16 +112,16 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-K7-TC-001</strong>: Readers never see partial values <span class="status-pill">planned</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-K7-TC-002</strong>: Ioctl applies all-or-nothing update <span class="status-pill">planned</span></div>
 </div>
-<div class="req" style="background:#f8f9fa">
+<div class="req" style="background:#fff3cd">
 <div class="req-number">19-20</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_7')">▸</span> <strong>F-K8</strong>: Clean load/unload sequence
-<span class="status-pill">planned</span>
+<span class="status-pill">in-progress</span>
 <span class="counts">(0/2 tests completed)</span>
 </div>
 </div>
 <div class="tests" id="tests_7" style="display:none">
-<div class="test" style="background:#f8f9fa"><strong>F-K8-TC-001</strong>: Load/unload no WARN/OOPS <span class="status-pill">planned</span></div>
+<div class="test" style="background:#fff3cd"><strong>F-K8-TC-001</strong>: Load/unload no WARN/OOPS <a href="https://github.com/n2Electrons/challenge_2509/tree/f-k8-tc-001-loadunload" target="_blank" title="Git branch: f-k8-tc-001-loadunload" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-K8-TC-002</strong>: Readers exit gracefully on unload <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
@@ -249,16 +249,16 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-D1-TC-001</strong>: Fresh VM → success <span class="status-pill">planned</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-D1-TC-002</strong>: Links valid <span class="status-pill">planned</span></div>
 </div>
-<div class="req" style="background:#fff3cd">
+<div class="req" style="background:#f8f9fa">
 <div class="req-number">46-47</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_18')">▸</span> <strong>F-D2</strong>: Architecture &amp; API
-<span class="status-pill">in-progress</span>
+<span class="status-pill">planned</span>
 <span class="counts">(0/2 tests completed)</span>
 </div>
 </div>
 <div class="tests" id="tests_18" style="display:none">
-<div class="test" style="background:#fff3cd"><strong>F-D2-TC-001</strong>: Struct/API match code <a href="https://github.com/n2Electrons/challenge_2509/issues/64" target="_blank" title="GitHub Issue for F-D2-TC-001" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/challenge_2509/tree/f-d2-tc-001-api-documentation-verification" target="_blank" title="Git branch: f-d2-tc-001-api-documentation-verification" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-D2-TC-001</strong>: Struct/API match code <a href="https://github.com/n2Electrons/challenge_2509/issues/64" target="_blank" title="GitHub Issue for F-D2-TC-001" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-D2-TC-002</strong>: Locking rationale consistent <a href="https://github.com/n2Electrons/challenge_2509/issues/65" target="_blank" title="GitHub Issue for F-D2-TC-002" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
@@ -273,17 +273,17 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-D3-TC-001</strong>: All reqs mapped <span class="status-pill">planned</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-D3-TC-002</strong>: Commands + criteria documented <span class="status-pill">planned</span></div>
 </div>
-<div class="req" style="background:#d1d8e7">
+<div class="req" style="background:#f8f9fa">
 <div class="req-number">50-51</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_20')">▸</span> <strong>F-D4</strong>: Prompts and validation notes
  <a href="https://github.com/n2Electrons/challenge_2509/issues/57" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
-<span class="status-pill">partial</span>
-<span class="counts">(1/2 tests completed)</span>
+<span class="status-pill">planned</span>
+<span class="counts">(0/2 tests completed)</span>
 </div>
 </div>
 <div class="tests" id="tests_20" style="display:none">
-<div class="test" style="background:#d1e7dd"><strong>F-D4-TC-001</strong>: Prompts recorded <a href="https://github.com/n2Electrons/challenge_2509/issues/59" target="_blank" title="GitHub Issue for F-D4-TC-001" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/challenge_2509/tree/f-d4-tc-prompts-recorded" target="_blank" title="Git branch: f-d4-tc-prompts-recorded" class="branch-link">🌿</a> <span class="status-pill">implemented</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-D4-TC-001</strong>: Prompts recorded <a href="https://github.com/n2Electrons/challenge_2509/issues/59" target="_blank" title="GitHub Issue for F-D4-TC-001" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-D4-TC-002</strong>: Mitigations listed <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">

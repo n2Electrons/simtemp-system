@@ -7,6 +7,11 @@ import pytest
 import subprocess
 from test_utils import SUDO, obj_path, SHELL_PARAMS
 
+# Execute with:
+# python3 -m pytest test_f_k1_tc_001.py -v
+# or
+# python3 -m pytest test_f_k1_tc_001.py -v -s
+
 # SUDO: Prefix for commands requiring elevated privileges (e.g., insmod/rmmod)
 # Will be "sudo " if sudo is available, empty string if running as root
 

@@ -15,6 +15,7 @@ This document provides comprehensive configuration details for running NXP i.MX6
 
 ### Source
 - **Kernel**: NXP linux-imx-5.10.72-2.2.0
+- **Directory**: linux-imx-5.10 (compiled and ready)
 - **Repository**: https://github.com/nxp-imx/linux-imx
 - **Branch**: lf-5.10.72-2.2.0
 - **Configuration**: imx_v6_v7_defconfig (modified)

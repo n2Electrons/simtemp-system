@@ -1,5 +1,39 @@
 # Kernel module build configuration
-KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
+# Auto-detects: 1) NXP sysroot (hw), 2) Generic headers (dev), 3) linux-imx (qemu)
+# Use ../scripts/nxp_prepare_headers_imx.sh for NXP hardware cross-compilation
+
+# Check for NXP environment prepared by nxp_prepare_headers_imx.sh
+-include ../scripts/imx-env.mk
+
+# Due to specigic NXP implementation for embedded boards at Linux and header level,
+# scripting was implemented to redirect to NXP cloned sources
+#
+# References:
+# Yocto mailing, linux-imx-headers e ioctl mismatches, from https://lists.yoctoproject.org/g/meta-freescale/topic/linux_imx_headers_and_ioctl/72917920
+# i.MX Linux kernel header installation (NXP forun) from https://community.nxp.com/t5/i-MX-Processors/iMX6-linux-kernel-header-installation/td-p/224713
+NXP_KERNEL_SRC := $(shell \
+	if [ -f "../scripts/imx-env.sh" ]; then \
+		bash -c 'cd ../scripts && source ./imx-env.sh && echo "$$KDIR"'; \
+	else \
+		echo "/home/jorge/challenge-2509/simtemp-system/deployment/qemu/linux-imx-5.10"; \
+	fi)
+
+# Host kernel source detection - supports both Ubuntu host and Debian Jenkins container
+HOST_KERNEL_SRC := $(shell \
+	if [ -f "/.dockerenv" ] && [ -d "/usr/src/linux-headers-6.1.0-40-amd64" ]; then \
+		echo "/usr/src/linux-headers-6.1.0-40-amd64"; \
+	elif [ -f "/.dockerenv" ]; then \
+		find /usr/src -name "linux-headers-*-amd64" -type d | head -1; \
+	elif [ -d "/lib/modules/6.14.0-32-generic/build" ]; then \
+		echo "/lib/modules/6.14.0-32-generic/build"; \
+	elif [ -d "/lib/modules/$$(uname -r)/build" ]; then \
+		echo "/lib/modules/$$(uname -r)/build"; \
+	else \
+		find /lib/modules -name "build" -type d | head -1; \
+	fi)
+
+# Legacy KERNEL_SRC for info display (uses NXP when available)
+KERNEL_SRC := $(NXP_KERNEL_SRC)
 OBJ_DIR := obj
 SRC_FILE := nxp_simtemp.c
 
@@ -9,25 +43,71 @@ SIGNING_DER := /var/jenkins_home/kernel_enroll/MOK.der
 
 obj-m := nxp_simtemp.o
 
-all: $(OBJ_DIR) 
-	$(MAKE) -C $(KERNEL_SRC) M=$(PWD) modules
-	@mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true
-	@echo "Module built successfully"
-	@$(MAKE) sign_module
+# Default target - Host build (Jenkins CI/CD compatible)
+all: host-signed
+
+# Use explicit targets: 'make host' for native x86_64, 'make nxp-arm' for cross-compilation
+
+# NXP i.MX cross-compilation targets
+prepare-nxp-arm:
+	@echo "Preparing NXP ARM (i.MX6/i.MX7) cross-compilation environment..."
+	cd ../scripts && ./nxp_prepare_headers_imx.sh --arch arm --modules
+	@echo "NXP ARM environment ready. Use 'make nxp-arm' to build."
+
+nxp-arm: prepare-nxp-arm $(OBJ_DIR)
+	@echo "Building and signing NXP ARM module..."
+	bash -c 'cd ../scripts && source ./imx-env.sh && cd ../kernel && \
+	$(MAKE) -C $$KDIR ARCH=$$ARCH CROSS_COMPILE=$$CROSS_COMPILE M=$(PWD) modules'
+	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
+	@if [ -f nxp_simtemp.ko ]; then \
+		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
+		echo "✅ NXP ARM module built successfully in $(OBJ_DIR)/"; \
+	fi
+	@echo "Signing NXP ARM module..."
+	$(MAKE) sign_module
+	@echo "Copying binaries to QEMU rootfs for deployment..."
+	mkdir -p ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
+	cp $(OBJ_DIR)/nxp_simtemp.ko ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
+	@echo "Packaging updated rootfs..."
+	cd ../../deployment/qemu && ./scripts/update_rootfs.sh
+	@echo "✅ NXP ARM module built, signed, and packaged successfully"
+
+prepare-nxp-arm64:
+	@echo "Comming soon:"
+	@echo "NXP ARM64 environment preparation"
+	@echo ""
+#	@echo "Preparing NXP ARM64 (i.MX8) cross-compilation environment..."
+#	cd ../scripts && ./nxp_prepare_headers_imx.sh --arch arm64 --modules
+#	@echo "NXP ARM64 environment ready. Use 'make nxp-arm64' to build."
+
+nxp-arm64: prepare-nxp-arm64 $(OBJ_DIR)
+	@echo "Building and signing NXP ARM64 module..."
+	bash -c 'cd ../scripts && source ./imx-env.sh && cd ../kernel && \
+	$(MAKE) -C $$KDIR ARCH=$$ARCH CROSS_COMPILE=$$CROSS_COMPILE M=$(PWD) modules'
+	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
+	@if [ -f nxp_simtemp.ko ]; then \
+		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
+		echo "✅ NXP ARM64 module built successfully in $(OBJ_DIR)/"; \
+	fi
+	@echo "Signing NXP ARM64 module..."
+	$(MAKE) sign_module
+	@echo "✅ NXP ARM64 module built and signed successfully"
+
+# Native host x86_64 build (quick development, no signing)
+host: $(OBJ_DIR)
+	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(HOST_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
+	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
+	@if [ -f nxp_simtemp.ko ]; then \
+		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
+		echo "✅ Host x86_64 module built successfully in $(OBJ_DIR)/"; \
+	else \
+		echo "ERROR: nxp_simtemp.ko was not created"; \
+		exit 1; \
+	fi
 
 # Create obj directory
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
-
-# Remove all generated files
-clean:
-	@if [ -d "$(OBJ_DIR)" ]; then \
-		chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
-		rm -rf $(OBJ_DIR) 2>/dev/null && echo "All build artifacts cleaned" || \
-		echo "Clean failed - manual intervention required"; \
-	else \
-		echo "No build artifacts to clean"; \
-	fi
 
 # Sign the kernel module (only called when keys are verified to exist)
 sign_module:
@@ -63,4 +143,47 @@ sign_module:
 		echo "   Kernel module built WITHOUT signing in $(OBJ_DIR)/"; \
 	fi
 
-.PHONY: all sign_module clean
+# Host x86_64 native compilation with signing (production build)
+host-signed: $(OBJ_DIR)
+	@echo "Building for host x86_64 using native kernel headers..."
+	@echo "Using priority headers: $(HOST_KERNEL_SRC)"
+	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(HOST_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
+	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
+	@if [ -f nxp_simtemp.ko ]; then \
+		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
+		echo "✅ Host x86_64 module built successfully in $(OBJ_DIR)/"; \
+		$(MAKE) sign_module; \
+	else \
+		echo "ERROR: nxp_simtemp.ko was not created"; \
+		exit 1; \
+	fi
+
+# Remove all generated files
+clean:
+	@if [ -d "$(OBJ_DIR)" ]; then \
+		chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
+		rm -rf $(OBJ_DIR) 2>/dev/null && echo "All build artifacts cleaned" || \
+		echo "Clean failed - manual intervention required"; \
+	else \
+		echo "No build artifacts to clean"; \
+	fi
+
+
+info:
+	@echo "=== Kernel Build Configuration ==="
+	@echo "KERNEL_SRC: $(KERNEL_SRC)"
+	@if [ -f "../scripts/imx-env.sh" ]; then \
+		echo "NXP Environment: Available (source ../scripts/imx-env.sh)"; \
+		bash -c 'cd ../scripts && source ./imx-env.sh && echo "  ARCH=$$ARCH, CROSS_COMPILE=$$CROSS_COMPILE"'; \
+	else \
+		echo "NXP Environment: Not prepared (run 'make prepare-nxp-arm' or 'make prepare-nxp-arm64')"; \
+	fi
+	@echo ""
+	@echo "Available targets:"
+	@echo "  make host         - Native x86_64 build (development, no signing)"
+	@echo "  make host-signed  - Native x86_64 build with signing (production)"
+	@echo "  make nxp-arm      - Build and sign for NXP ARM devices (i.MX6/i.MX7)"
+	@echo "  make nxp-arm64    - Build and sign for NXP ARM64 devices (i.MX8)"
+	@echo "  make info         - Show this information"
+
+.PHONY: host host-signed sign_module clean prepare-nxp-arm prepare-nxp-arm64 nxp-arm nxp-arm64 info
