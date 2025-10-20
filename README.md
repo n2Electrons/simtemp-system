@@ -240,9 +240,55 @@ struct simtemp_sample {
 
 ## Docker Development Environment
 
-- **Containerized kernel development**: Isolated Linux environment
-- **Module compilation**: Out-of-tree build with proper headers
-- **Device simulation**: `/dev/simtemp` and sysfs in container
+### Automated Setup (Recommended)
+
+The fastest way to set up the complete kernel development environment:
+
+```bash
+# Run the automated setup script
+./deployment/docker/setup-kernel-dev-docker.sh
+```
+
+**What it configures:**
+- Privileged Jenkins container for kernel module development
+- Complete build toolchain with auto-detection (Docker vs Host)
+- Python testing framework (pytest, PyYAML, requests)
+- Sudoers configuration for jenkins user kernel operations
+- glibc compatibility for Ubuntu kernel headers
+- Digital signing with MOK keys
+- Environment verification and health checks
+
+### Manual Docker Commands
+
+```bash
+# Build and test kernel module
+docker exec -u root jenkins-minimal bash -c "
+cd /var/jenkins_home/workspace/simtemp-system/simtemp/kernel && 
+make all"  # Auto-detects Docker environment
+
+# Run automated tests as jenkins user
+docker exec -u jenkins jenkins-minimal bash -c "
+cd /var/jenkins_home/workspace/simtemp-system/simtemp/tests && 
+python3 -m pytest -v"
+
+# Load/unload module for testing
+docker exec -u jenkins jenkins-minimal bash -c "
+sudo insmod /var/jenkins_home/workspace/simtemp-system/simtemp/kernel/obj/nxp_simtemp.ko &&
+sudo rmmod nxp_simtemp"
+```
+
+### Development Features
+
+- **Environment auto-detection**: Makefile automatically detects Docker vs Host
+- **Improved clean operations**: Robust error handling for build artifacts
+- **Automated testing**: Python pytest framework with kernel module operations
+- **Permission management**: Configured sudoers for seamless jenkins user operations
+- **Containerized kernel development**: Isolated Linux environment with privileged access
+- **Module compilation**: Out-of-tree build with proper Ubuntu kernel headers
+- **Device simulation**: `/dev/simtemp` and sysfs accessible in container
+
+For detailed setup instructions and troubleshooting, see:
+**[deployment/docker/KERNEL_DEV_ENVIRONMENT.md](deployment/docker/KERNEL_DEV_ENVIRONMENT.md)**
 
 ## QEMU Infrastructure
 

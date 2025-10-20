@@ -197,13 +197,31 @@ host-driver: $(OBJ_DIR)
 
 # Remove all generated files
 clean:
+	@echo "Cleaning build artifacts..."
 	@if [ -d "$(OBJ_DIR)" ]; then \
-		chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
-		rm -rf $(OBJ_DIR) 2>/dev/null && echo "All build artifacts cleaned" || \
-		echo "Clean failed - manual intervention required"; \
+		echo "Removing $(OBJ_DIR) directory and contents..."; \
+		if [ "$$(id -u)" = "0" ]; then \
+			chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
+			rm -rf $(OBJ_DIR) 2>/dev/null || { \
+				echo "ERROR: Failed to remove $(OBJ_DIR) as root"; \
+				ls -la $(OBJ_DIR) 2>/dev/null || true; \
+				exit 1; \
+			}; \
+		else \
+			chmod -R u+w $(OBJ_DIR) 2>/dev/null || sudo chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
+			rm -rf $(OBJ_DIR) 2>/dev/null || sudo rm -rf $(OBJ_DIR) 2>/dev/null || { \
+				echo "ERROR: Failed to remove $(OBJ_DIR) with user/sudo permissions"; \
+				ls -la $(OBJ_DIR) 2>/dev/null || true; \
+				echo "Manual cleanup required: sudo rm -rf $(OBJ_DIR)"; \
+				exit 1; \
+			}; \
+		fi; \
+		echo "Build artifacts cleaned successfully"; \
 	else \
 		echo "No build artifacts to clean"; \
 	fi
+	@# Also clean any stray files in current directory
+	@rm -f *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order 2>/dev/null || true
 
 
 info:
