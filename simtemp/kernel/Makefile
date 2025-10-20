@@ -20,10 +20,14 @@ NXP_KERNEL_SRC := $(shell \
 
 # Host kernel source detection - supports both Ubuntu host and Debian Jenkins container
 HOST_KERNEL_SRC := $(shell \
-	if [ -f "/.dockerenv" ] && [ -d "/usr/src/linux-headers-6.1.0-40-amd64" ]; then \
-		echo "/usr/src/linux-headers-6.1.0-40-amd64"; \
-	elif [ -f "/.dockerenv" ]; then \
-		find /usr/src -name "linux-headers-*-amd64" -type d | head -1; \
+	if [ -f "/.dockerenv" ]; then \
+		if [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
+			echo "/usr/src/linux-headers-6.14.0-32-generic"; \
+		elif [ -d "/usr/src/linux-headers-6.14.0-33-generic" ]; then \
+			echo "/usr/src/linux-headers-6.14.0-33-generic"; \
+		else \
+			find /usr/src -name "linux-headers-*-generic" -type d | head -1; \
+		fi; \
 	elif [ -d "/lib/modules/6.14.0-32-generic/build" ]; then \
 		echo "/lib/modules/6.14.0-32-generic/build"; \
 	elif [ -d "/lib/modules/$$(uname -r)/build" ]; then \
@@ -33,8 +37,15 @@ HOST_KERNEL_SRC := $(shell \
 	fi)
 
 # Debian native kernel source (independent compilation in Docker)
-# Force use of 6.14.0-32-generic headers to avoid glibc version conflicts
-DEBIAN_KERNEL_SRC := /usr/src/linux-headers-6.14.0-32-generic
+# Auto-detect available headers to avoid glibc version conflicts
+DEBIAN_KERNEL_SRC := $(shell \
+	if [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
+		echo "/usr/src/linux-headers-6.14.0-32-generic"; \
+	elif [ -d "/usr/src/linux-headers-6.14.0-33-generic" ]; then \
+		echo "/usr/src/linux-headers-6.14.0-33-generic"; \
+	else \
+		find /usr/src -name "linux-headers-*-generic" -type d | head -1; \
+	fi)
 # /usr/src/ is mounted in the container from host, which contains the required headers
 # Mounting /usr/src/ with rd/wr permissions may be risky on this implementation
 
@@ -49,8 +60,8 @@ SIGNING_DER := /var/jenkins_home/kernel_enroll/MOK.der
 
 obj-m := nxp_simtemp.o
 
-# Default target - Host driver build (Jenkins CI/CD compatible)
-all: host-driver
+# Default target - Auto-detect environment (Docker vs Host)
+all: $(shell if [ -f "/.dockerenv" ]; then echo "deb-driver"; else echo "host-driver"; fi)
 
 # Use explicit targets: 'make host-driver' for native x86_64, 'make nxp-driver-arm' for cross-compilation
 # All targets build signed kernel modules for production deployment
@@ -164,7 +175,15 @@ sign_module:
 # Host x86_64 native compilation with signing (production build)
 host-driver: $(OBJ_DIR)
 	@echo "Building and signing host x86_64 driver using native kernel headers..."
-	@echo "Using priority headers: $(HOST_KERNEL_SRC)"
+	@echo "Using host headers: $(HOST_KERNEL_SRC)"
+	@if [ ! -d "$(HOST_KERNEL_SRC)" ]; then \
+		echo "ERROR: Host headers not found at $(HOST_KERNEL_SRC)"; \
+		echo "Available kernel modules:"; \
+		ls -la /lib/modules/ | head -5 || echo "No modules found"; \
+		exit 1; \
+	else \
+		echo "✅ Found host headers at $(HOST_KERNEL_SRC)"; \
+	fi
 	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(HOST_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
 	@if [ -f nxp_simtemp.ko ]; then \
@@ -189,7 +208,13 @@ clean:
 
 info:
 	@echo "=== Kernel Build Configuration ==="
-	@echo "KERNEL_SRC: $(KERNEL_SRC)"
+	@echo "Environment: $(shell if [ -f "/.dockerenv" ]; then echo "Docker Container"; else echo "Host System"; fi)"
+	@echo "Default target: $(shell if [ -f "/.dockerenv" ]; then echo "deb-driver (Debian headers)"; else echo "host-driver (Host headers)"; fi)"
+	@echo ""
+	@echo "Auto-detected paths:"
+	@echo "  HOST_KERNEL_SRC: $(HOST_KERNEL_SRC)"
+	@echo "  DEBIAN_KERNEL_SRC: $(DEBIAN_KERNEL_SRC)"
+	@echo "  KERNEL_SRC (NXP): $(KERNEL_SRC)"
 	@if [ -f "../scripts/imx-env.sh" ]; then \
 		echo "NXP Environment: Available (source ../scripts/imx-env.sh)"; \
 		bash -c 'cd ../scripts && source ./imx-env.sh && echo "  ARCH=$$ARCH, CROSS_COMPILE=$$CROSS_COMPILE"'; \
@@ -198,6 +223,7 @@ info:
 	fi
 	@echo ""
 	@echo "Available targets:"
+	@echo "  make all               - Auto-detect environment and build (Docker=deb-driver, Host=host-driver)"
 	@echo "  make host-driver       - Native x86_64 build with signing (production)"
 	@echo "  make deb-driver        - Debian independent x86_64 build with signing (Docker)"
 	@echo "  make nxp-driver-arm    - Build and sign for NXP ARM devices (i.MX6/i.MX7)"
