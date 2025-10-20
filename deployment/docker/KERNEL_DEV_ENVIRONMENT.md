@@ -1,27 +1,27 @@
-# Entorno Docker para Desarrollo de Módulos de Kernel
+# Docker Environment for Kernel Module Development
 
-## Descripción General
+## Overview
 
-Este documento detalla la configuración completa del entorno Docker privilegiado para desarrollo, compilación y carga de módulos del kernel Linux con soporte para Jenkins CI/CD.
+This document details the complete setup of a privileged Docker environment for developing, compiling, and loading Linux kernel modules with Jenkins CI/CD support.
 
-## Características del Entorno
+## Environment Features
 
-- **Contenedor Base**: jenkins/jenkins:lts (Debian Bookworm)
-- **Modo**: Privilegiado (`--privileged`) para acceso completo al kernel
-- **Capacidades**: Compilación, firmado digital y carga de módulos del kernel
-- **Compatibilidad**: Headers Ubuntu 6.14.0-32/33-generic con glibc actualizada
-- **Signing**: MOK (Machine Owner Keys) para Secure Boot
+- **Base Container**: jenkins/jenkins:lts (Debian Bookworm)
+- **Mode**: Privileged (`--privileged`) for full kernel access
+- **Capabilities**: Compilation, digital signing, and loading of kernel modules
+- **Compatibility**: Ubuntu 6.14.0-32/33-generic headers with updated glibc
+- **Signing**: MOK (Machine Owner Keys) for Secure Boot
 
-## Configuración del Contenedor
+## Container Configuration
 
-### 1. Crear y Ejecutar Contenedor Privilegiado
+### 1. Create and Run Privileged Container
 
 ```bash
-# Detener contenedor existente si existe
+# Stop existing container if it exists
 docker stop jenkins-minimal 2>/dev/null || true
 docker rm jenkins-minimal 2>/dev/null || true
 
-# Crear contenedor privilegiado con acceso completo al kernel
+# Create privileged container with full kernel access
 docker run -d \
   --name jenkins-minimal \
   --privileged \
@@ -32,69 +32,69 @@ docker run -d \
   -p 50000:50000 \
   jenkins/jenkins:lts
 
-# Verificar que está ejecutándose
+# Verify it's running
 docker ps | grep jenkins-minimal
 ```
 
-### 2. Configuración Inicial del Sistema
+### 2. Initial System Configuration
 
 ```bash
-# Actualizar repositorios
+# Update repositories
 docker exec -u root jenkins-minimal bash -c "apt update"
 
-# Instalar herramientas de desarrollo básicas
+# Install basic development tools
 docker exec -u root jenkins-minimal bash -c "
 apt install -y build-essential make gcc kmod libelf1 libelf-dev \
 bc flex bison zlib1g-dev"
 ```
 
-### 3. Resolución de Conflictos glibc (CRÍTICO)
+### 3. Resolving glibc Conflicts (CRITICAL)
 
-El problema principal es la incompatibilidad entre glibc del contenedor Debian y las herramientas del kernel Ubuntu:
+The main issue is incompatibility between the Debian container's glibc and Ubuntu kernel tools:
 
 ```bash
-# Agregar repositorio Debian Sid para glibc más reciente
+# Add Debian Sid repository for newer glibc
 docker exec -u root jenkins-minimal bash -c "
 echo 'deb http://deb.debian.org/debian sid main' >> /etc/apt/sources.list"
 
-# Actualizar glibc a versión compatible (2.41+)
+# Update glibc to compatible version (2.41+)
 docker exec -u root jenkins-minimal bash -c "
 apt update && apt install -y libc6/sid libc-bin/sid libc-dev-bin/sid \
 libc-devtools/sid libc6-dev/sid base-files/sid"
 ```
 
-### 4. Configuración del Compilador
+### 4. Compiler Configuration
 
 ```bash
-# Crear enlace simbólico para gcc-13 (requerido por headers Ubuntu)
+# Create symbolic link for gcc-13 (required by Ubuntu headers)
 docker exec -u root jenkins-minimal bash -c "
 ln -sf /usr/bin/gcc /usr/bin/gcc-13"
 
-# Verificar instalación
+# Verify installation
 docker exec -u root jenkins-minimal bash -c "
 gcc --version && gcc-13 --version"
 ```
 
-## Estructura de Directorios Montados
+## Mounted Directory Structure
 
 ```
-Contenedor privilegiado:
-├── /lib/modules/          # Módulos del kernel (read-only desde host)
-│   └── 6.14.0-33-generic/ # Kernel actual del host
-├── /usr/src/              # Headers del kernel (read-only desde host)  
-│   ├── linux-headers-6.14.0-32-generic/  # Headers compatibles
-│   └── linux-headers-6.14.0-33-generic/  # Headers actuales
-└── /var/jenkins_home/     # Workspace de Jenkins (persistente)
+Privileged container:
+├── /lib/modules/          # Kernel modules (read-only from host)
+│   └── 6.14.0-33-generic/ # Current host kernel
+├── /usr/src/              # Kernel headers (read-only from host)  
+│   ├── linux-headers-6.14.0-32-generic/  # Compatible headers
+│   └── linux-headers-6.14.0-33-generic/  # Current headers
+└── /var/jenkins_home/     # Jenkins workspace (persistent)
     └── workspace/
         └── lenge-from-Github_f-k1-reg-by-dt/
-            └── simtemp/kernel/    # Código fuente del driver
+            └── simtemp/kernel/    # Driver source code
 ```
 
-## Compilación de Módulos
+## Module Compilation
 
-### Makefile Configurado
+### Configured Makefile
 
-El `Makefile` debe usar los headers correctos:
+The `Makefile` should use the correct headers:
 
 ```makefile
 # Debian native kernel source (independent compilation in Docker)
@@ -102,218 +102,166 @@ El `Makefile` debe usar los headers correctos:
 DEBIAN_KERNEL_SRC := /usr/src/linux-headers-6.14.0-32-generic
 ```
 
-### Comandos de Compilación
+### Compilation Commands
 
 ```bash
-# Navegar al workspace del kernel
+# Navigate to kernel workspace
 docker exec -u root jenkins-minimal bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel"
 
-# Limpiar compilación anterior
+# Clean previous compilation
 docker exec -u root jenkins-minimal bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel && 
 make clean"
 
-# Compilar y firmar módulo
+# Compile and sign module
 docker exec -u root jenkins-minimal bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel && 
 make deb-driver"
 ```
 
-### Verificación de Compilación
+### Compilation Verification
 
 ```bash
-# Verificar módulo compilado
+# Verify compiled module
 docker exec -u root jenkins-minimal bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel && 
 ls -la obj/nxp_simtemp.ko && 
 modinfo obj/nxp_simtemp.ko"
 ```
 
-## Carga de Módulos
+## Module Loading
 
-### Cargar Módulo en Kernel
+### Load Module into Kernel
 
 ```bash
-# Cargar módulo (requiere contenedor privilegiado)
+# Load module (requires privileged container)
 docker exec -u root jenkins-minimal bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel && 
 insmod obj/nxp_simtemp.ko"
 
-# Verificar que se cargó
+# Verify it was loaded
 docker exec -u root jenkins-minimal bash -c "lsmod | grep nxp_simtemp"
 
-# Ver mensajes del kernel
+# View kernel messages
 docker exec -u root jenkins-minimal bash -c "dmesg | tail -5"
 ```
 
-### Descargar Módulo
+### Unload Module
 
 ```bash
-# Descargar módulo del kernel
+# Unload module from kernel
 docker exec -u root jenkins-minimal bash -c "rmmod nxp_simtemp"
 ```
 
-## Configuración de Firmado Digital
+## Digital Signing Configuration
 
-### Claves MOK (Machine Owner Keys)
+### MOK (Machine Owner Keys)
 
-Las claves de firmado están ubicadas en:
-- **Clave privada**: `/var/jenkins_home/kernel_enroll/MOK.priv`
-- **Certificado**: `/var/jenkins_home/kernel_enroll/MOK.der`
+Signing keys are located at:
+- **Private key**: `/var/jenkins_home/kernel_enroll/MOK.priv`
+- **Certificate**: `/var/jenkins_home/kernel_enroll/MOK.der`
 
-### Verificar Firmado
+### Verify Signing
 
 ```bash
-# Verificar que el módulo está firmado
+# Verify that the module is signed
 docker exec -u root jenkins-minimal bash -c "
 modinfo /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel/obj/nxp_simtemp.ko | 
 grep -E 'sig_id|signer|sig_key'"
 ```
 
-## Solución de Problemas Comunes
+## Common Troubleshooting
 
-### 1. Error "Operation not permitted" al cargar módulo
+### 1. Error "Operation not permitted" when loading module
 
-**Causa**: Contenedor sin privilegios
-**Solución**: Usar `--privileged` al crear el contenedor
+**Cause**: Container without privileges
+**Solution**: Use `--privileged` when creating the container
 
 ### 2. Error "GLIBC_2.38 not found"
 
-**Causa**: Incompatibilidad entre glibc del contenedor y herramientas del kernel
-**Solución**: Actualizar glibc como se indica en la sección 3
+**Cause**: Incompatibility between container glibc and kernel tools
+**Solution**: Update glibc as indicated in section 3
 
 ### 3. Error "objtool: command not found"
 
-**Causa**: Faltan dependencias de compilación del kernel
-**Solución**: Instalar `libelf-dev`, `bc`, `flex`, `bison`
+**Cause**: Missing kernel compilation dependencies
+**Solution**: Install `libelf-dev`, `bc`, `flex`, `bison`
 
-### 4. Módulo no se firma automáticamente
+### 4. Module not signing automatically
 
-**Causa**: Claves MOK no encontradas o permisos incorrectos
-**Solución**: Verificar que existen las claves en `/var/jenkins_home/kernel_enroll/`
+**Cause**: MOK keys not found or incorrect permissions
+**Solution**: Verify keys exist in `/var/jenkins_home/kernel_enroll/`
 
-## Verificación del Entorno Completo
+## Complete Environment Verification
 
-### Script de Verificación
+### Verification Script
 
 ```bash
 #!/bin/bash
-echo "=== Verificación del Entorno Docker Kernel Dev ==="
+echo "=== Docker Kernel Dev Environment Verification ==="
 
-# Verificar contenedor
+# Verify container
 docker exec jenkins-minimal uname -r
 docker exec jenkins-minimal ls -la /.dockerenv
 
-# Verificar herramientas
+# Verify tools
 docker exec -u root jenkins-minimal which make gcc kmod insmod modinfo
 
-# Verificar headers
+# Verify headers
 docker exec -u root jenkins-minimal ls -la /usr/src/linux-headers-6.14.0-32-generic/
 
-# Verificar glibc
+# Verify glibc
 docker exec -u root jenkins-minimal ldd --version | head -1
 
-# Verificar claves de firmado
+# Verify signing keys
 docker exec -u root jenkins-minimal ls -la /var/jenkins_home/kernel_enroll/
 
-echo "✅ Verificación completa"
+echo "✅ Verification complete"
 ```
 
-## Información Técnica
+## Technical Information
 
-### Versiones Confirmadas
+### Confirmed Versions
 
-- **Sistema Host**: Ubuntu 24.04 LTS
-- **Kernel Host**: 6.14.0-33-generic
-- **Contenedor**: jenkins/jenkins:lts (Debian Bookworm)
-- **glibc Contenedor**: 2.41-12 (actualizada desde Debian Sid)
-- **gcc**: 12.2.0 (con enlace simbólico a gcc-13)
-- **Headers Utilizados**: linux-headers-6.14.0-32-generic
+- **Host System**: Ubuntu 24.04 LTS
+- **Host Kernel**: 6.14.0-33-generic
+- **Container**: jenkins/jenkins:lts (Debian Bookworm)
+- **Container glibc**: 2.41-12 (updated from Debian Sid)
+- **gcc**: 12.2.0 (with symbolic link to gcc-13)
+- **Headers Used**: linux-headers-6.14.0-32-generic
 
-### Capacidades del Entorno
+### Environment Capabilities
 
-✅ **Compilación**: Módulos del kernel con headers Ubuntu  
-✅ **Firmado Digital**: Automático con claves MOK  
-✅ **Carga de Módulos**: Directa en kernel del host  
-✅ **Desarrollo Iterativo**: Ciclo completo compile-load-test  
-✅ **Jenkins Integration**: Workspace persistente y CI/CD ready  
-✅ **Secure Boot**: Compatible con sistemas que requieren módulos firmados  
+✅ **Compilation**: Kernel modules with Ubuntu headers  
+✅ **Digital Signing**: Automatic with MOK keys  
+✅ **Module Loading**: Direct into host kernel  
+✅ **Iterative Development**: Complete compile-load-test cycle  
+✅ **Jenkins Integration**: Persistent workspace and CI/CD ready  
+✅ **Secure Boot**: Compatible with systems requiring signed modules  
 
-### Limitaciones Conocidas
+### Known Limitations
 
-- Requiere contenedor privilegiado (implicaciones de seguridad)
-- Dependiente de versiones específicas de headers del kernel
-- glibc debe actualizarse manualmente para nuevas versiones de headers
-- Los módulos se cargan en el kernel del host (no aislados)
+- Requires privileged container (security implications)
+- Dependent on specific kernel header versions
+- glibc must be manually updated for new header versions
+- Modules are loaded into host kernel (not isolated)
 
-## Regeneración Rápida del Entorno
+## Quick Environment Regeneration
 
-### Script de Setup Automático
+To automatically regenerate the entire environment, run:
 
 ```bash
-#!/bin/bash
-# setup-kernel-dev-docker.sh
-
-set -e
-
-echo "🔧 Configurando entorno Docker para desarrollo de kernel..."
-
-# 1. Crear contenedor privilegiado
-echo "📦 Creando contenedor jenkins-minimal privilegiado..."
-docker stop jenkins-minimal 2>/dev/null || true
-docker rm jenkins-minimal 2>/dev/null || true
-
-docker run -d \
-  --name jenkins-minimal \
-  --privileged \
-  -v /lib/modules:/lib/modules:ro \
-  -v /usr/src:/usr/src:ro \
-  -v jenkins_minimal_home:/var/jenkins_home \
-  -p 8080:8080 \
-  -p 50000:50000 \
-  jenkins/jenkins:lts
-
-# 2. Esperar a que Jenkins inicie
-echo "⏳ Esperando a que Jenkins inicie..."
-sleep 30
-
-# 3. Instalar herramientas básicas
-echo "🔨 Instalando herramientas de desarrollo..."
-docker exec -u root jenkins-minimal bash -c "
-apt update && 
-apt install -y build-essential make gcc kmod libelf1 libelf-dev bc flex bison zlib1g-dev"
-
-# 4. Actualizar glibc
-echo "📚 Actualizando glibc para compatibilidad con headers Ubuntu..."
-docker exec -u root jenkins-minimal bash -c "
-echo 'deb http://deb.debian.org/debian sid main' >> /etc/apt/sources.list &&
-apt update &&
-apt install -y libc6/sid libc-bin/sid libc-dev-bin/sid libc-devtools/sid libc6-dev/sid base-files/sid"
-
-# 5. Configurar gcc
-echo "⚙️  Configurando gcc-13..."
-docker exec -u root jenkins-minimal bash -c "ln -sf /usr/bin/gcc /usr/bin/gcc-13"
-
-# 6. Verificar instalación
-echo "✅ Verificando configuración..."
-docker exec -u root jenkins-minimal bash -c "
-echo 'Kernel version:' && uname -r &&
-echo 'Headers available:' && ls /usr/src/linux-headers-* &&
-echo 'glibc version:' && ldd --version | head -1 &&
-echo 'gcc version:' && gcc --version | head -1"
-
-echo "🎉 ¡Entorno Docker para desarrollo de kernel configurado exitosamente!"
-echo "📍 Jenkins disponible en: http://localhost:8080"
-echo "🔧 Para compilar módulos, usar: make deb-driver"
-echo "🚀 Para cargar módulos, usar: insmod obj/module.ko"
+./setup-kernel-dev-docker.sh
 ```
 
-## Contacto y Mantenimiento
+This script automates all the steps documented above and includes environment verification.
 
-**Autor**: Jorge Rodriguez Moreno  
-**Proyecto**: simtemp-system  
-**Fecha**: Octubre 2025  
-**Versión**: 1.0  
+## Contact and Maintenance
 
-Para actualizaciones y soporte, consultar el repositorio del proyecto.
+**Author**: Jorge Rodriguez Moreno  
+**Project**: simtemp-system  
+**Date**: October 2025  
+**Version**: 1.0  
+
+For updates and support, consult the project repository.
