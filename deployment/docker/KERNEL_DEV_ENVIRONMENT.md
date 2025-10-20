@@ -6,10 +6,11 @@ This document details the complete setup of a privileged Docker environment for 
 
 ## Environment Features
 
-- **Base Container**: jenkins/jenkins:lts (Debian Bookworm)
+- **Base Container**: jenkins-optimized (Debian Bookworm optimized)
 - **Mode**: Privileged (`--privileged`) for full kernel access
 - **Capabilities**: Compilation, digital signing, loading, and automated testing of kernel modules
-- **Compatibility**: Ubuntu 6.14.0-32/33-generic headers with updated glibc
+- **Compatibility**: Ubuntu 6.14.0-32/33-generic headers with updated glibc 2.41
+- **Optimizations**: Minimal dependencies (60MB smaller than standard build)
 - **Signing**: MOK (Machine Owner Keys) for Secure Boot
 - **Testing**: Python pytest framework with automated module testing
 - **Auto-Detection**: Environment-aware build system (Docker vs Host)
@@ -28,10 +29,10 @@ The fastest way to set up the complete environment:
 ```
 
 This script automatically configures:
-- Privileged Jenkins container
+- Privileged Jenkins container with optimized image (60MB smaller)
 - Development tools and Python testing framework
 - Host QEMU tools mounting for ARM emulation (for Device Tree overlay tests)
-- glibc compatibility updates
+- glibc compatibility updates (GLIBC 2.41)
 - Sudoers permissions for jenkins user
 - Environment verification
 
@@ -45,40 +46,40 @@ For manual configuration or troubleshooting, follow the detailed sections below.
 
 ```bash
 # Stop existing container if it exists
-docker stop jenkins-minimal 2>/dev/null || true
-docker rm jenkins-minimal 2>/dev/null || true
+docker stop jenkins-optimized 2>/dev/null || true
+docker rm jenkins-optimized 2>/dev/null || true
 
 # Create privileged container with full kernel access and host QEMU tools
 docker run -d \
-  --name jenkins-minimal \
+  --name jenkins-optimized \
   --privileged \
   -v /lib/modules:/lib/modules:ro \
   -v /usr/src:/usr/src:ro \
   -v /usr/bin:/usr/bin:ro \
   -v /usr/lib:/usr/lib:ro \
-  -v jenkins_minimal_home:/var/jenkins_home \
+  -v jenkins_optimized_home:/var/jenkins_home \
   -p 8080:8080 \
   -p 50000:50000 \
-  jenkins/jenkins:lts
+  jenkins-optimized:latest
 
 # Verify it's running
-docker ps | grep jenkins-minimal
+docker ps | grep jenkins-optimized
 ```
 
 ### 2. Development Tools and Python Testing
 
 ```bash
 # Install basic development tools
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 apt install -y build-essential make gcc kmod libelf1 libelf-dev \
 bc flex bison zlib1g-dev python3 python3-pip python3-dev python3-venv sudo"
 
 # Install Python testing framework and dependencies
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 pip3 install --break-system-packages pytest PyYAML requests pytest-timeout"
 
 # Install device-tree-compiler for DTB operations (QEMU tools mounted from host)
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 apt install -y --no-install-recommends device-tree-compiler"
 ```
 
@@ -86,10 +87,10 @@ apt install -y --no-install-recommends device-tree-compiler"
 
 ```bash
 # Add jenkins user to sudo group
-docker exec -u root jenkins-minimal usermod -aG sudo jenkins
+docker exec -u root jenkins-optimized usermod -aG sudo jenkins
 
 # Create sudoers configuration for kernel operations
-docker exec -u root jenkins-minimal bash -c 'cat > /etc/sudoers.d/jenkins-kernel << EOF
+docker exec -u root jenkins-optimized bash -c 'cat > /etc/sudoers.d/jenkins-kernel << EOF
 # Jenkins user permissions for kernel module operations
 jenkins ALL=(ALL) NOPASSWD: /sbin/insmod, /sbin/rmmod, /sbin/modprobe
 jenkins ALL=(ALL) NOPASSWD: /usr/sbin/insmod, /usr/sbin/rmmod, /usr/sbin/modprobe
@@ -105,11 +106,11 @@ The main issue is incompatibility between the Debian container's glibc and Ubunt
 
 ```bash
 # Add Debian Sid repository for newer glibc
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 echo 'deb http://deb.debian.org/debian sid main' >> /etc/apt/sources.list"
 
 # Update glibc to compatible version (2.41+)
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 apt update && apt install -y libc6/sid libc-bin/sid libc-dev-bin/sid \
 libc-devtools/sid libc6-dev/sid base-files/sid"
 ```
@@ -118,11 +119,11 @@ libc-devtools/sid libc6-dev/sid base-files/sid"
 
 ```bash
 # Create symbolic link for gcc-13 (required by Ubuntu headers)
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 ln -sf /usr/bin/gcc /usr/bin/gcc-13"
 
 # Verify installation
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 gcc --version && gcc-13 --version"
 ```
 
@@ -174,21 +175,21 @@ make info               # Show configuration and available targets
 
 ```bash
 # Navigate to kernel workspace
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel"
 
 # Clean previous compilation (improved error handling)
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel && 
 make clean"
 
 # Auto-detected compile and sign module
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel && 
 make all"
 
 # Or explicitly use Docker-optimized target
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel && 
 make deb-driver"
 ```
@@ -197,22 +198,22 @@ make deb-driver"
 
 ```bash
 # Run all tests as jenkins user (with sudo permissions)
-docker exec -u jenkins jenkins-minimal bash -c "
+docker exec -u jenkins jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/tests && 
 python3 -m pytest -v"
 
 # Run specific test cases
-docker exec -u jenkins jenkins-minimal bash -c "
+docker exec -u jenkins jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/tests && 
 python3 -m pytest test_f_k1_tc_001.py -v"
 
 # Run driver load/unload tests
-docker exec -u jenkins jenkins-minimal bash -c "
+docker exec -u jenkins jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/tests && 
 python3 -m pytest test_f_k8_tc_001.py::test_driver_load_unload -v"
 
 # Run QEMU Device Tree overlay tests (if QEMU is available)
-docker exec -u jenkins jenkins-minimal bash -c "
+docker exec -u jenkins jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/tests && 
 python3 -m pytest test_f_k1_tc_002.py::test_basic_qemu_boot -v -s"
 ```
@@ -221,7 +222,7 @@ python3 -m pytest test_f_k1_tc_002.py::test_basic_qemu_boot -v -s"
 
 ```bash
 # Verify compiled module
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel && 
 ls -la obj/nxp_simtemp.ko && 
 modinfo obj/nxp_simtemp.ko"
@@ -233,22 +234,22 @@ modinfo obj/nxp_simtemp.ko"
 
 ```bash
 # Load module as jenkins user (with sudo permissions)
-docker exec -u jenkins jenkins-minimal bash -c "
+docker exec -u jenkins jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel && 
 sudo insmod obj/nxp_simtemp.ko"
 
 # Verify it was loaded
-docker exec -u jenkins jenkins-minimal bash -c "lsmod | grep nxp_simtemp"
+docker exec -u jenkins jenkins-optimized bash -c "lsmod | grep nxp_simtemp"
 
 # View kernel messages
-docker exec -u jenkins jenkins-minimal bash -c "dmesg | tail -5"
+docker exec -u jenkins jenkins-optimized bash -c "dmesg | tail -5"
 ```
 
 ### Unload Module
 
 ```bash
 # Unload module from kernel as jenkins user
-docker exec -u jenkins jenkins-minimal bash -c "sudo rmmod nxp_simtemp"
+docker exec -u jenkins jenkins-optimized bash -c "sudo rmmod nxp_simtemp"
 ```
 
 ### Automated Testing
@@ -279,7 +280,7 @@ Signing keys are located at:
 
 ```bash
 # Verify that the module is signed
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 modinfo /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel/obj/nxp_simtemp.ko | 
 grep -E 'sig_id|signer|sig_key'"
 ```
@@ -292,8 +293,8 @@ grep -E 'sig_id|signer|sig_key'"
 **Solution**: 
 ```bash
 # Configure sudoers for jenkins user
-docker exec -u root jenkins-minimal usermod -aG sudo jenkins
-docker exec -u root jenkins-minimal bash -c 'cat > /etc/sudoers.d/jenkins-kernel << EOF
+docker exec -u root jenkins-optimized usermod -aG sudo jenkins
+docker exec -u root jenkins-optimized bash -c 'cat > /etc/sudoers.d/jenkins-kernel << EOF
 jenkins ALL=(ALL) NOPASSWD: /sbin/insmod, /sbin/rmmod, /sbin/modprobe
 jenkins ALL=(ALL) NOPASSWD: ALL
 EOF'
@@ -342,8 +343,8 @@ qemu-system-arm --version
 sudo apt install qemu-system-arm qemu-utils device-tree-compiler
 
 # Recreate container with proper host tool mounting:
-docker stop jenkins-minimal && docker rm jenkins-minimal
-docker run -d --name jenkins-minimal --privileged \
+docker stop jenkins-optimized && docker rm jenkins-optimized
+docker run -d --name jenkins-optimized --privileged \
   -v /lib/modules:/lib/modules:ro \
   -v /usr/src:/usr/src:ro \
   -v /usr/bin:/usr/bin:ro \
@@ -372,28 +373,28 @@ The setup script includes comprehensive verification:
 echo "=== Docker Kernel Dev Environment Verification ==="
 
 # Verify container
-docker exec jenkins-minimal uname -r
-docker exec jenkins-minimal ls -la /.dockerenv
+docker exec jenkins-optimized uname -r
+docker exec jenkins-optimized ls -la /.dockerenv
 
 # Verify tools (including Python, pytest, and host QEMU)
-docker exec -u root jenkins-minimal which make gcc kmod insmod modinfo python3 pytest qemu-system-arm
+docker exec -u root jenkins-optimized which make gcc kmod insmod modinfo python3 pytest qemu-system-arm
 
 # Verify headers and auto-detection
-docker exec -u root jenkins-minimal bash -c "
+docker exec -u root jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel &&
 make info"
 
 # Verify glibc
-docker exec -u root jenkins-minimal ldd --version | head -1
+docker exec -u root jenkins-optimized ldd --version | head -1
 
 # Verify signing keys
-docker exec -u root jenkins-minimal ls -la /var/jenkins_home/kernel_enroll/
+docker exec -u root jenkins-optimized ls -la /var/jenkins_home/kernel_enroll/
 
 # Verify jenkins user permissions
-docker exec -u jenkins jenkins-minimal sudo -l
+docker exec -u jenkins jenkins-optimized sudo -l
 
 # Verify Python testing environment
-docker exec -u jenkins jenkins-minimal bash -c "
+docker exec -u jenkins jenkins-optimized bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/tests &&
 python3 -c 'import pytest, yaml, requests; print(\"Python environment OK\")'
 "
@@ -408,8 +409,9 @@ echo "Environment verification complete"
 - **Host System**: Ubuntu 24.04 LTS
 - **Host Kernel**: 6.14.0-33-generic
 - **Host QEMU**: 7.2.19 (mounted into container)
-- **Container**: jenkins/jenkins:lts (Debian Bookworm)
+- **Container**: jenkins-optimized (Debian Bookworm optimized)
 - **Container glibc**: 2.41-12 (updated from Debian Sid)
+- **Optimizations**: 60MB smaller (2.26GB vs 2.32GB), minimal dependencies
 - **gcc**: 12.2.0 (with symbolic link to gcc-13)
 - **Headers Used**: Auto-detected (linux-headers-6.14.0-32/33-generic)
 - **Python**: 3.13.9 with pytest framework
