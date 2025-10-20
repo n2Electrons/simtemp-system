@@ -84,6 +84,7 @@ nxp-driver-arm: prepare-nxp-driver-arm $(OBJ_DIR)
 prepare-nxp-driver-arm64:
 	@echo "Preparing NXP ARM64 (i.MX8) cross-compilation environment..."
 	@echo "Note: ARM64 NXP setup not yet implemented"
+	@false
 
 nxp-driver-arm64: prepare-nxp-driver-arm64 $(OBJ_DIR)
 	@echo "Building and signing NXP ARM64 module..."
