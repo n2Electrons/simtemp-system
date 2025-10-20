@@ -21,13 +21,7 @@ NXP_KERNEL_SRC := $(shell \
 # Host kernel source detection - supports both Ubuntu host and Debian Jenkins container
 HOST_KERNEL_SRC := $(shell \
 	if [ -f "/.dockerenv" ]; then \
-		if [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
-			echo "/usr/src/linux-headers-6.14.0-32-generic"; \
-		elif [ -d "/usr/src/linux-headers-6.14.0-33-generic" ]; then \
-			echo "/usr/src/linux-headers-6.14.0-33-generic"; \
-		else \
-			find /usr/src -name "linux-headers-*-generic" -type d | head -1; \
-		fi; \
+		echo "/usr/src/linux-headers-6.14.0-32-generic"; \
 	elif [ -d "/lib/modules/6.14.0-32-generic/build" ]; then \
 		echo "/lib/modules/6.14.0-32-generic/build"; \
 	elif [ -d "/lib/modules/$$(uname -r)/build" ]; then \
@@ -36,18 +30,15 @@ HOST_KERNEL_SRC := $(shell \
 		find /lib/modules -name "build" -type d | head -1; \
 	fi)
 
-# Debian native kernel source (independent compilation in Docker)
-# Auto-detect available headers to avoid glibc version conflicts
+# Debian Docker build with Ubuntu headers (mounted from host)
+# Force use of Ubuntu 6.14.0-32-generic headers for Docker compilation
 DEBIAN_KERNEL_SRC := $(shell \
-	if [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
+	if [ -f "/.dockerenv" ]; then \
 		echo "/usr/src/linux-headers-6.14.0-32-generic"; \
-	elif [ -d "/usr/src/linux-headers-6.14.0-33-generic" ]; then \
-		echo "/usr/src/linux-headers-6.14.0-33-generic"; \
 	else \
-		find /usr/src -name "linux-headers-*-generic" -type d | head -1; \
+		echo "/usr/src/linux-headers-generic"; \
 	fi)
-# /usr/src/ is mounted in the container from host, which contains the required headers
-# Mounting /usr/src/ with rd/wr permissions may be risky on this implementation
+# Use Ubuntu headers mounted in Docker with Debian toolchain
 
 # Legacy KERNEL_SRC for info display (uses NXP when available)
 KERNEL_SRC := $(NXP_KERNEL_SRC)
@@ -83,12 +74,7 @@ nxp-driver-arm: prepare-nxp-driver-arm $(OBJ_DIR)
 	fi
 	@echo "Signing NXP ARM module..."
 	$(MAKE) sign_module
-	@echo "Copying binaries to QEMU rootfs for deployment..."
-	@mkdir -p ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
-	@cp $(OBJ_DIR)/nxp_simtemp.ko ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
-	@echo "Packaging updated rootfs..."
-	@cd ../../deployment/qemu && ./scripts/update_rootfs.sh
-	@echo "✅ NXP ARM module built, signed, and packaged successfully"
+	@echo "✅ NXP ARM module built and signed successfully"
 
 prepare-nxp-driver-arm64:
 	@echo "Preparing NXP ARM64 (i.MX8) cross-compilation environment..."
@@ -108,24 +94,24 @@ nxp-driver-arm64: prepare-nxp-driver-arm64 $(OBJ_DIR)
 	$(MAKE) sign_module
 	@echo "✅ NXP ARM64 module built and signed successfully"
 
-# Debian native build (independent Docker compilation with Debian kernel headers and signing)
+# Debian Docker build for x86_64 testing
 deb-driver: $(OBJ_DIR)
-	@echo "Building and signing Debian x86_64 driver using native Debian kernel headers..."
-	@echo "Using Debian headers: $(DEBIAN_KERNEL_SRC)"
+	@echo "Building Debian x86_64 driver for testing..."
+	@echo "Using Ubuntu headers: $(DEBIAN_KERNEL_SRC)"
 	@if [ ! -d "$(DEBIAN_KERNEL_SRC)" ]; then \
-		echo "ERROR: Debian headers not found at $(DEBIAN_KERNEL_SRC)"; \
-		echo "Available headers in /usr/src:"; \
-		ls -la /usr/src/ | grep linux-headers || echo "No headers found"; \
-		echo "Run installation commands to set up Debian headers first."; \
+		echo "ERROR: Ubuntu headers not found at $(DEBIAN_KERNEL_SRC)"; \
+		echo "Available headers:"; \
+		find /usr/src -name "linux-headers-*" -type d | head -5; \
 		exit 1; \
 	else \
-		echo "✅ Found Debian headers at $(DEBIAN_KERNEL_SRC)"; \
+		echo "✅ Found Ubuntu headers at $(DEBIAN_KERNEL_SRC)"; \
 	fi
+	@echo "Compiling with Debian toolchain..."
 	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(DEBIAN_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
-		echo "✅ Debian native x86_64 module built successfully in $(OBJ_DIR)/"; \
+		echo "✅ Debian x86_64 module built successfully for testing in $(OBJ_DIR)/"; \
 		$(MAKE) sign_module; \
 	else \
 		echo "ERROR: nxp_simtemp.ko was not created"; \
@@ -227,7 +213,7 @@ clean:
 info:
 	@echo "=== Kernel Build Configuration ==="
 	@echo "Environment: $(shell if [ -f "/.dockerenv" ]; then echo "Docker Container"; else echo "Host System"; fi)"
-	@echo "Default target: $(shell if [ -f "/.dockerenv" ]; then echo "deb-driver (Debian headers)"; else echo "host-driver (Host headers)"; fi)"
+	@echo "Default target: $(shell if [ -f "/.dockerenv" ]; then echo "deb-driver (x86_64 for testing)"; else echo "host-driver (Ubuntu native)"; fi)"
 	@echo ""
 	@echo "Auto-detected paths:"
 	@echo "  HOST_KERNEL_SRC: $(HOST_KERNEL_SRC)"
@@ -241,9 +227,9 @@ info:
 	fi
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make all               - Auto-detect environment and build (Docker=deb-driver, Host=host-driver)"
-	@echo "  make host-driver       - Native x86_64 build with signing (production)"
-	@echo "  make deb-driver        - Debian independent x86_64 build with signing (Docker)"
+	@echo "  make all               - Auto-detect environment (Docker=deb-driver, Host=host-driver)"
+	@echo "  make host-driver       - Native x86_64 build with signing (Ubuntu host)"
+	@echo "  make deb-driver        - Build x86_64 driver for testing (Docker container)"
 	@echo "  make nxp-driver-arm    - Build and sign for NXP ARM devices (i.MX6/i.MX7)"
 	@echo "  make nxp-driver-arm64  - Build and sign for NXP ARM64 devices (i.MX8)"
 	@echo "  make info              - Show this information"
