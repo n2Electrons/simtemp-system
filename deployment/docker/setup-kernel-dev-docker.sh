@@ -70,7 +70,7 @@ echo ""
 echo "🔨 Instalando herramientas de desarrollo..."
 docker exec -u root jenkins-minimal bash -c "
 apt update -qq && 
-apt install -y -qq build-essential make gcc kmod libelf1 libelf-dev bc flex bison zlib1g-dev" 2>/dev/null
+apt install -y -qq build-essential make gcc kmod libelf1 libelf-dev bc flex bison zlib1g-dev python3 python3-pip python3-venv python3-pytest" 2>/dev/null
 
 if [ $? -eq 0 ]; then
     echo "✅ Herramientas de desarrollo instaladas"
@@ -107,7 +107,21 @@ else
     exit 1
 fi
 
-# 6. Verificar instalación completa
+# 6. Instalar dependencias de Python para tests
+echo ""
+echo "🐍 Instalando dependencias de Python para testing..."
+docker exec -u root jenkins-minimal bash -c "
+cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/tests 2>/dev/null && 
+pip3 install --break-system-packages -r requirements.txt 2>/dev/null || 
+pip3 install pyyaml requests pytest pytest-timeout"
+
+if [ $? -eq 0 ]; then
+    echo "✅ Dependencias de Python instaladas"
+else
+    echo "⚠️  Advertencia: Error al instalar algunas dependencias de Python"
+fi
+
+# 7. Verificar instalación completa
 echo ""
 echo "🔍 Verificando configuración..."
 
@@ -116,19 +130,21 @@ KERNEL_VERSION=$(docker exec -u root jenkins-minimal uname -r)
 HEADERS_AVAILABLE=$(docker exec -u root jenkins-minimal ls /usr/src/linux-headers-* 2>/dev/null | wc -l)
 GLIBC_VERSION=$(docker exec -u root jenkins-minimal ldd --version 2>/dev/null | head -1)
 GCC_VERSION=$(docker exec -u root jenkins-minimal gcc --version 2>/dev/null | head -1)
+PYTHON_VERSION=$(docker exec -u root jenkins-minimal python3 --version 2>/dev/null)
 
 echo "📊 Resumen de la configuración:"
 echo "   🐧 Kernel del host: $KERNEL_VERSION"
 echo "   📁 Headers disponibles: $HEADERS_AVAILABLE conjuntos"
 echo "   📚 glibc: $GLIBC_VERSION"
 echo "   🔧 Compilador: $GCC_VERSION"
+echo "   🐍 Python: $PYTHON_VERSION"
 
 # Verificar herramientas críticas
 echo ""
 echo "🛠️  Verificando herramientas críticas..."
 TOOLS_OK=true
 
-for tool in make gcc insmod modinfo; do
+for tool in make gcc insmod modinfo python3 pytest; do
     if docker exec -u root jenkins-minimal which $tool &>/dev/null; then
         echo "   ✅ $tool disponible"
     else
@@ -159,6 +175,7 @@ if [ "$TOOLS_OK" = true ]; then
     echo "   📦 Cargar módulo: insmod obj/module.ko"
     echo "   📋 Ver módulos: lsmod | grep module_name"
     echo "   🗑️  Descargar módulo: rmmod module_name"
+    echo "   🧪 Ejecutar tests: python3 simtemp/tests/driver_tester.py"
     echo ""
     echo "📖 Para más información, consultar: deployment/docker/KERNEL_DEV_ENVIRONMENT.md"
 else
