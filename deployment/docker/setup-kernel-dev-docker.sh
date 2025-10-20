@@ -40,6 +40,9 @@ docker run -d \
   --privileged \
   -v /lib/modules:/lib/modules:ro \
   -v /usr/src:/usr/src:ro \
+  -v /usr/bin:/usr/bin:ro \
+  -v /usr/lib:/usr/lib:ro \
+  -v $(pwd):/host-workspace:ro \
   -v jenkins_minimal_home:/var/jenkins_home \
   -p 8080:8080 \
   -p 50000:50000 \
@@ -67,13 +70,13 @@ echo "Jenkins started correctly"
 
 # 3. Install basic tools
 echo ""
-echo "Installing development tools..."
+echo "Installing development tools and QEMU emulation..."
 docker exec -u root jenkins-minimal bash -c "
 apt update -qq && 
-apt install -y -qq build-essential make gcc kmod libelf1 libelf-dev bc flex bison zlib1g-dev python3 python3-pip python3-dev python3-venv" 2>/dev/null
+apt install -y -qq build-essential make gcc kmod libelf1 libelf-dev bc flex bison zlib1g-dev python3 python3-pip python3-dev python3-venv qemu-system-arm qemu-utils device-tree-compiler" 2>/dev/null
 
 if [ $? -eq 0 ]; then
-    echo "Development tools installed"
+    echo "Development tools and QEMU installed"
 else
     echo "Error installing development tools"
     exit 1
@@ -90,6 +93,22 @@ if [ $? -eq 0 ]; then
 else
     echo "Error installing Python testing tools"
     exit 1
+fi
+
+# 3.6. Setup QEMU ARM emulation from host system
+echo ""
+echo "Configuring QEMU ARM emulation access from host system..."
+docker exec -u root jenkins-minimal bash -c "
+# Host QEMU tools are now directly accessible via /usr/bin mount
+# No need for symlinks since we mount /usr/bin directly
+echo "QEMU tools mounted directly from host /usr/bin"
+" &>/dev/null
+
+# Test QEMU access
+if docker exec -u root jenkins-minimal test -f /usr/bin/qemu-system-arm; then
+    echo "QEMU ARM emulation configured from host system"
+else
+    echo "Host QEMU not found - F-K1-TC-002 tests may be skipped"
 fi
 
 # 4. Update glibc (CRITICAL for compatibility)
@@ -149,6 +168,18 @@ for tool in make gcc insmod modinfo python3 pytest; do
         TOOLS_OK=false
     fi
 done
+
+# Check QEMU availability from host system
+if docker exec -u root jenkins-minimal test -f /usr/bin/qemu-system-arm &>/dev/null; then
+    echo "   qemu-system-arm available (from host)"
+    if docker exec -u root jenkins-minimal /usr/bin/qemu-system-arm --version &>/dev/null; then
+        echo "   QEMU ARM emulation functional (host-mounted)"
+    else
+        echo "   QEMU ARM emulation mounted but may need library setup"
+    fi
+else
+    echo "   qemu-system-arm NOT available on host (QEMU tests will be skipped)"
+fi
 
 # Check signing keys
 if docker exec -u root jenkins-minimal ls /var/jenkins_home/kernel_enroll/ &>/dev/null; then

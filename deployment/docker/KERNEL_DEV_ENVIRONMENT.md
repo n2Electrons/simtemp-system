@@ -14,6 +14,7 @@ This document details the complete setup of a privileged Docker environment for 
 - **Testing**: Python pytest framework with automated module testing
 - **Auto-Detection**: Environment-aware build system (Docker vs Host)
 - **Permissions**: Configured sudoers for automated kernel operations
+- **QEMU Support**: ARM emulation using host QEMU tools for Device Tree overlay testing (F-K1-TC-002)
 
 ## Quick Setup
 
@@ -29,6 +30,7 @@ The fastest way to set up the complete environment:
 This script automatically configures:
 - Privileged Jenkins container
 - Development tools and Python testing framework
+- Host QEMU tools mounting for ARM emulation (for Device Tree overlay tests)
 - glibc compatibility updates
 - Sudoers permissions for jenkins user
 - Environment verification
@@ -46,12 +48,14 @@ For manual configuration or troubleshooting, follow the detailed sections below.
 docker stop jenkins-minimal 2>/dev/null || true
 docker rm jenkins-minimal 2>/dev/null || true
 
-# Create privileged container with full kernel access
+# Create privileged container with full kernel access and host QEMU tools
 docker run -d \
   --name jenkins-minimal \
   --privileged \
   -v /lib/modules:/lib/modules:ro \
   -v /usr/src:/usr/src:ro \
+  -v /usr/bin:/usr/bin:ro \
+  -v /usr/lib:/usr/lib:ro \
   -v jenkins_minimal_home:/var/jenkins_home \
   -p 8080:8080 \
   -p 50000:50000 \
@@ -71,7 +75,11 @@ bc flex bison zlib1g-dev python3 python3-pip python3-dev python3-venv sudo"
 
 # Install Python testing framework and dependencies
 docker exec -u root jenkins-minimal bash -c "
-pip3 install --no-cache-dir pytest PyYAML requests pytest-timeout"
+pip3 install --break-system-packages pytest PyYAML requests pytest-timeout"
+
+# Install device-tree-compiler for DTB operations (QEMU tools mounted from host)
+docker exec -u root jenkins-minimal bash -c "
+apt install -y --no-install-recommends device-tree-compiler"
 ```
 
 ### 3. Configure Permissions for Automated Testing
@@ -127,6 +135,8 @@ Privileged container:
 ├── /usr/src/              # Kernel headers (read-only from host)  
 │   ├── linux-headers-6.14.0-32-generic/  # Compatible headers
 │   └── linux-headers-6.14.0-33-generic/  # Current headers
+├── /usr/bin/              # Host binaries including QEMU tools (read-only)
+├── /usr/lib/              # Host libraries for QEMU dependencies (read-only)
 └── /var/jenkins_home/     # Jenkins workspace (persistent)
     └── workspace/
         └── lenge-from-Github_f-k1-reg-by-dt/
@@ -200,6 +210,11 @@ python3 -m pytest test_f_k1_tc_001.py -v"
 docker exec -u jenkins jenkins-minimal bash -c "
 cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/tests && 
 python3 -m pytest test_f_k8_tc_001.py::test_driver_load_unload -v"
+
+# Run QEMU Device Tree overlay tests (if QEMU is available)
+docker exec -u jenkins jenkins-minimal bash -c "
+cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/tests && 
+python3 -m pytest test_f_k1_tc_002.py::test_basic_qemu_boot -v -s"
 ```
 
 ### Compilation Verification
@@ -315,6 +330,31 @@ make clean  # Now includes robust permission handling
 pip3 install pytest PyYAML requests pytest-timeout
 ```
 
+### 7. QEMU tests fail "qemu-system-arm: not found"
+
+**Cause**: Host QEMU not properly mounted or not installed on host
+**Solution**: Ensure host has QEMU installed and container has proper mounts:
+```bash
+# Check if QEMU is available on host
+qemu-system-arm --version
+
+# If not installed on host, install it:
+sudo apt install qemu-system-arm qemu-utils device-tree-compiler
+
+# Recreate container with proper host tool mounting:
+docker stop jenkins-minimal && docker rm jenkins-minimal
+docker run -d --name jenkins-minimal --privileged \
+  -v /lib/modules:/lib/modules:ro \
+  -v /usr/src:/usr/src:ro \
+  -v /usr/bin:/usr/bin:ro \
+  -v /usr/lib:/usr/lib:ro \
+  -v jenkins_minimal_home:/var/jenkins_home \
+  -p 8080:8080 -p 50000:50000 \
+  jenkins/jenkins:lts
+```
+
+**Note**: This approach uses host QEMU tools instead of installing in container, avoiding complex dependency chains.
+
 ## Complete Environment Verification
 
 ### Automated Verification Script
@@ -335,8 +375,8 @@ echo "=== Docker Kernel Dev Environment Verification ==="
 docker exec jenkins-minimal uname -r
 docker exec jenkins-minimal ls -la /.dockerenv
 
-# Verify tools (including Python and pytest)
-docker exec -u root jenkins-minimal which make gcc kmod insmod modinfo python3 pytest
+# Verify tools (including Python, pytest, and host QEMU)
+docker exec -u root jenkins-minimal which make gcc kmod insmod modinfo python3 pytest qemu-system-arm
 
 # Verify headers and auto-detection
 docker exec -u root jenkins-minimal bash -c "
@@ -367,6 +407,7 @@ echo "Environment verification complete"
 
 - **Host System**: Ubuntu 24.04 LTS
 - **Host Kernel**: 6.14.0-33-generic
+- **Host QEMU**: 7.2.19 (mounted into container)
 - **Container**: jenkins/jenkins:lts (Debian Bookworm)
 - **Container glibc**: 2.41-12 (updated from Debian Sid)
 - **gcc**: 12.2.0 (with symbolic link to gcc-13)
@@ -381,6 +422,7 @@ echo "Environment verification complete"
 ✅ **Digital Signing**: Automatic with MOK keys  
 ✅ **Module Loading**: Direct into host kernel with proper permissions  
 ✅ **Automated Testing**: Python pytest framework with module operations  
+✅ **QEMU Integration**: Host QEMU tools mounted for ARM emulation  
 ✅ **Iterative Development**: Complete compile-load-test cycle  
 ✅ **Jenkins Integration**: Persistent workspace and CI/CD ready  
 ✅ **Secure Boot**: Compatible with systems requiring signed modules  
