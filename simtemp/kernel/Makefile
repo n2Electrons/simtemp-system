@@ -33,12 +33,10 @@ HOST_KERNEL_SRC := $(shell \
 	fi)
 
 # Debian native kernel source (independent compilation in Docker)
-DEBIAN_KERNEL_SRC := $(shell \
-	if [ -f "/.dockerenv" ] && [ -d "/usr/src" ]; then \
-		find /usr/src -name "linux-headers-*-amd64" -type d | head -1; \
-	else \
-		echo "/usr/src/linux-headers-6.1.0-40-amd64"; \
-	fi)
+# Force use of 6.14.0-32-generic headers to avoid glibc version conflicts
+DEBIAN_KERNEL_SRC := /usr/src/linux-headers-6.14.0-32-generic
+# /usr/src/ is mounted in the container from host, which contains the required headers
+# Mounting /usr/src/ with rd/wr permissions may be risky on this implementation
 
 # Legacy KERNEL_SRC for info display (uses NXP when available)
 KERNEL_SRC := $(NXP_KERNEL_SRC)
@@ -105,8 +103,12 @@ deb-driver: $(OBJ_DIR)
 	@echo "Using Debian headers: $(DEBIAN_KERNEL_SRC)"
 	@if [ ! -d "$(DEBIAN_KERNEL_SRC)" ]; then \
 		echo "ERROR: Debian headers not found at $(DEBIAN_KERNEL_SRC)"; \
+		echo "Available headers in /usr/src:"; \
+		ls -la /usr/src/ | grep linux-headers || echo "No headers found"; \
 		echo "Run installation commands to set up Debian headers first."; \
 		exit 1; \
+	else \
+		echo "✅ Found Debian headers at $(DEBIAN_KERNEL_SRC)"; \
 	fi
 	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(DEBIAN_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
@@ -126,10 +128,11 @@ $(OBJ_DIR):
 # Sign the kernel module (only called when keys are verified to exist)
 sign_module:
 	@if [ -f "$(SIGNING_PRIV)" ] && [ -f "$(SIGNING_DER)" ]; then \
+		echo "Found signing keys: $(SIGNING_PRIV) and $(SIGNING_DER)"; \
 		if [ -f "/.dockerenv" ]; then \
-			echo "Signing kernel module in container..."; \
+			echo "Signing kernel module in Docker container..."; \
 		else \
-			echo "Signing kernel module on host..."; \
+			echo " Signing kernel module on host..."; \
 		fi; \
 		SIGN_FILE_PATH=""; \
 		if [ -f "/usr/src/linux-headers-$(shell uname -r)/scripts/sign-file" ]; then \
@@ -152,9 +155,10 @@ sign_module:
 				fi; \
 			fi; \
 		fi; \
-		echo "   Kernel module built and signed successfully in $(OBJ_DIR)/"; \
+		echo "Kernel module built and signed successfully in $(OBJ_DIR)/"; \
 	else \
-		echo "   Kernel module built WITHOUT signing in $(OBJ_DIR)/"; \
+		echo "Signing keys not found - module built WITHOUT signing in $(OBJ_DIR)/"; \
+		echo "   Missing: $(SIGNING_PRIV) or $(SIGNING_DER)"; \
 	fi
 
 # Host x86_64 native compilation with signing (production build)
