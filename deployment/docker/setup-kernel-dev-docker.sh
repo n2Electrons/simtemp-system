@@ -9,9 +9,9 @@ set -e
 echo "Setting up Docker environment for kernel development..."
 echo "This script will configure:"
 echo "   - Privileged Jenkins container"
-echo "   - Kernel compilation tools"
-echo "   - Updated glibc for compatibility"
-echo "   - MOK signing keys"
+echo "   - QEMU emulation using host infrastructure"
+echo "   - Precompiled driver deployment"
+echo "   - Python testing framework"
 echo ""
 
 # Check that Docker is available
@@ -29,24 +29,33 @@ fi
 
 echo "Docker available"
 
-# 1. Create privileged container
+# 1. Build and create the optimized Jenkins container
 echo ""
+echo "Building jenkins-minimal container with ARM cross-compilation..."
+
+# Build the custom image first
+if ! docker build -f Dockerfile.jenkins-minimal -t jenkins-minimal .; then
+    echo "Error building jenkins-minimal image"
+    exit 1
+fi
+
 echo "Creating privileged jenkins-minimal container..."
 docker stop jenkins-minimal 2>/dev/null || true
 docker rm jenkins-minimal 2>/dev/null || true
 
+# Get absolute workspace path
+WORKSPACE_PATH="$(cd ../.. && pwd)"
+
 docker run -d \
   --name jenkins-minimal \
   --privileged \
+  -v "${WORKSPACE_PATH}:/workspace:rw" \
   -v /lib/modules:/lib/modules:ro \
   -v /usr/src:/usr/src:ro \
-  -v /usr/bin:/usr/bin:ro \
-  -v /usr/lib:/usr/lib:ro \
-  -v $(pwd):/host-workspace:ro \
   -v jenkins_minimal_home:/var/jenkins_home \
-  -p 8080:8080 \
-  -p 50000:50000 \
-  jenkins/jenkins:lts
+  -p 8083:8080 \
+  -p 50003:50000 \
+  jenkins-minimal
 
 if [ $? -eq 0 ]; then
     echo "jenkins-minimal container created successfully"
@@ -68,78 +77,82 @@ fi
 
 echo "Jenkins started correctly"
 
-# 3. Install basic tools
+# 3. Verify tools are available (already installed in custom image)
 echo ""
-echo "Installing development tools and QEMU emulation..."
+echo "Verifying development tools and QEMU emulation..."
 docker exec -u root jenkins-minimal bash -c "
-apt update -qq && 
-apt install -y -qq build-essential make gcc kmod libelf1 libelf-dev bc flex bison zlib1g-dev python3 python3-pip python3-dev python3-venv qemu-system-arm qemu-utils device-tree-compiler" 2>/dev/null
+echo 'Checking installed tools:'
+arm-linux-gnueabihf-gcc --version | head -1
+qemu-system-arm --version | head -1
+make --version | head -1
+python3 --version
+pytest --version
+"
 
 if [ $? -eq 0 ]; then
-    echo "Development tools and QEMU installed"
+    echo "✅ All development tools available in container"
 else
-    echo "Error installing development tools"
+    echo "❌ Error verifying development tools"
     exit 1
 fi
 
-# 3.5. Install Python testing tools and dependencies
+# 3.5. Verify Python testing tools (already installed in custom image)
 echo ""
-echo "Installing Python testing framework and dependencies..."
-docker exec -u root jenkins-minimal bash -c "
-pip3 install --no-cache-dir pytest PyYAML requests pytest-timeout" 2>/dev/null
+echo "Verifying Python testing framework..."
+docker exec jenkins-minimal python3 -c "
+import pytest
+import yaml
+print('✅ Python testing framework ready')
+"
 
 if [ $? -eq 0 ]; then
-    echo "Python testing tools installed"
+    echo "✅ Python testing tools verified"
 else
-    echo "Error installing Python testing tools"
+    echo "❌ Error with Python testing tools"
     exit 1
 fi
 
-# 3.6. Setup QEMU ARM emulation from host system
+# 3.6. Setup precompiled driver deployment workflow
 echo ""
-echo "Configuring QEMU ARM emulation access from host system..."
+echo "Configuring precompiled driver deployment for QEMU..."
 docker exec -u root jenkins-minimal bash -c "
-# Host QEMU tools are now directly accessible via /usr/bin mount
-# No need for symlinks since we mount /usr/bin directly
-echo "QEMU tools mounted directly from host /usr/bin"
-" &>/dev/null
-
-# Test QEMU access
-if docker exec -u root jenkins-minimal test -f /usr/bin/qemu-system-arm; then
-    echo "QEMU ARM emulation configured from host system"
+# Verify workspace is mounted correctly
+if [ -f '/workspace/simtemp/kernel/obj/nxp_simtemp.ko' ]; then
+    echo '✅ Precompiled driver found at /workspace/simtemp/kernel/obj/nxp_simtemp.ko'
+elif [ -f '/workspace/simtemp/kernel/nxp_simtemp.c' ]; then
+    echo '⚠️  Driver source found but no precompiled .ko file'
+    echo '   Run: make host-driver or make nxp-driver-arm on host first'
 else
-    echo "Host QEMU not found - F-K1-TC-002 tests may be skipped"
+    echo '❌ Workspace not properly mounted or driver source missing'
 fi
 
-# 4. Update glibc (CRITICAL for compatibility)
+# Verify QEMU infrastructure access
+if [ -d '/workspace/deployment/qemu' ]; then
+    echo '✅ QEMU infrastructure accessible at /workspace/deployment/qemu'
+else
+    echo '❌ QEMU infrastructure not found'
+fi
+"
+
+# 4. Verify compiler compatibility (gcc-13 links already created in Dockerfile)
 echo ""
-echo "Updating glibc for Ubuntu headers compatibility..."
-echo "   (This fixes 'GLIBC_2.38 not found' error)"
+echo "Verifying compiler compatibility..."
 docker exec -u root jenkins-minimal bash -c "
-echo 'deb http://deb.debian.org/debian sid main' >> /etc/apt/sources.list &&
-apt update -qq 2>/dev/null &&
-DEBIAN_FRONTEND=noninteractive apt install -y -qq libc6/sid libc-bin/sid libc-dev-bin/sid libc-devtools/sid libc6-dev/sid base-files/sid" 2>/dev/null
+echo 'Native compiler:'
+gcc-13 --version | head -1
+echo 'ARM cross-compiler:'
+arm-linux-gnueabihf-gcc-13 --version | head -1
+echo '✅ Both compilers configured with gcc-13 compatibility'
+"
 
 if [ $? -eq 0 ]; then
-    echo "glibc updated successfully"
+    echo "✅ Compiler compatibility verified"
 else
-    echo "Error updating glibc"
+    echo "❌ Error with compiler configuration"
     exit 1
 fi
 
-# 5. Configure gcc
-echo ""
-echo "Configuring gcc-13 (required by Ubuntu headers)..."
-docker exec -u root jenkins-minimal bash -c "ln -sf /usr/bin/gcc /usr/bin/gcc-13"
-
-if [ $? -eq 0 ]; then
-    echo "gcc-13 configured"
-else
-    echo "Error configuring gcc-13"
-    exit 1
-fi
-
-# 6. Verify complete installation
+# 5. Verify complete installation
 echo ""
 echo "Verifying configuration..."
 
@@ -169,16 +182,16 @@ for tool in make gcc insmod modinfo python3 pytest; do
     fi
 done
 
-# Check QEMU availability from host system
-if docker exec -u root jenkins-minimal test -f /usr/bin/qemu-system-arm &>/dev/null; then
-    echo "   qemu-system-arm available (from host)"
-    if docker exec -u root jenkins-minimal /usr/bin/qemu-system-arm --version &>/dev/null; then
-        echo "   QEMU ARM emulation functional (host-mounted)"
+# Check QEMU availability (built into container)
+if docker exec -u root jenkins-minimal which qemu-system-arm &>/dev/null; then
+    echo "   qemu-system-arm available (container-native)"
+    if docker exec -u root jenkins-minimal qemu-system-arm --version &>/dev/null; then
+        echo "   QEMU ARM emulation functional"
     else
-        echo "   QEMU ARM emulation mounted but may need library setup"
+        echo "   QEMU ARM emulation present but may have issues"
     fi
 else
-    echo "   qemu-system-arm NOT available on host (QEMU tests will be skipped)"
+    echo "   qemu-system-arm NOT available (QEMU tests will be skipped)"
 fi
 
 # Check signing keys
@@ -188,26 +201,29 @@ else
     echo "   MOK keys directory not found (will be created automatically)"
 fi
 
-# 7. Final result
+# 6. Final result
 echo ""
 if [ "$TOOLS_OK" = true ]; then
-    echo "Docker environment for kernel development configured successfully!"
+    echo "✅ Docker environment for kernel development configured successfully!"
     echo ""
     echo "Access information:"
-    echo "   Jenkins Web UI: http://localhost:8080"
+    echo "   Jenkins Web UI: http://localhost:8083"
     echo "   Initial password: docker exec jenkins-minimal cat /var/jenkins_home/secrets/initialAdminPassword"
     echo ""
     echo "Main commands:"
     echo "   Container access: docker exec -u root -it jenkins-minimal bash"
-    echo "   Compile module: make deb-driver"
-    echo "   Load module: insmod obj/module.ko"
-    echo "   View modules: lsmod | grep module_name"
-    echo "   Unload module: rmmod module_name"
-    echo "   Run tests: python3 simtemp/tests/driver_tester.py"
+    echo "   Deploy precompiled driver: cd /workspace/simtemp/kernel && make deploy-precompiled"
+    echo "   Run QEMU with driver: cd /workspace/deployment/qemu && ./scripts/run_qemu.sh"
+    echo "   Run tests: cd /workspace/simtemp/tests && python3 driver_tester.py"
+    echo ""
+    echo "Workflow:"
+    echo "   1. Compile driver on host: make host-driver or make nxp-driver-arm"
+    echo "   2. Deploy in container: make deploy-precompiled"
+    echo "   3. Test with QEMU: ./scripts/run_qemu.sh"
     echo ""
     echo "For more information, see: deployment/docker/KERNEL_DEV_ENVIRONMENT.md"
 else
-    echo "Configuration completed with warnings"
+    echo "❌ Configuration completed with warnings"
     echo "   Review the errors above before continuing"
 fi
 
@@ -222,4 +238,10 @@ else
 fi
 
 echo ""
-echo "Setup completed. Happy kernel hacking!"
+echo "🎉 Setup completed! Ready for driver deployment and QEMU testing!"
+echo ""
+echo "Quick start:"
+echo "   1. Compile driver on host: cd ../../simtemp/kernel && make host-driver"
+echo "   2. Access container: docker exec -u root -it jenkins-minimal bash"
+echo "   3. Deploy driver: cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/simtemp/kernel && make deb-driver"
+echo "   4. Run QEMU: cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/deployment/qemu && ./scripts/run_qemu.sh"

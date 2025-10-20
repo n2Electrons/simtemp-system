@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install -y \
     libpixman-1-0 \
     libglib2.0-0 \
     libslirp0 \
-    # Linux kernel development
-    linux-libc-dev \
+    # Linux kernel module utilities (Debian)
+    kmod \
     # Essential utilities
     curl \
     wget \
