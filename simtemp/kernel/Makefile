@@ -112,7 +112,7 @@ deb-driver: $(OBJ_DIR)
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
 		echo "✅ Debian x86_64 module built successfully for testing in $(OBJ_DIR)/"; \
-		$(MAKE) sign_module; \
+		$(call sign_module_inline) \
 	else \
 		echo "ERROR: nxp_simtemp.ko was not created"; \
 		exit 1; \
@@ -121,6 +121,32 @@ deb-driver: $(OBJ_DIR)
 # Create obj directory
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
+
+# Sign module inline (without recursive make call) - used by deb-driver and host-driver
+define sign_module_inline
+	@echo "Signing kernel module..."
+	@if [ -f "$(SIGNING_PRIV)" ] && [ -f "$(SIGNING_DER)" ]; then \
+		echo "Found signing keys: $(SIGNING_PRIV) and $(SIGNING_DER)"; \
+		if [ -f "/.dockerenv" ]; then \
+			echo "Signing kernel module in Docker container..."; \
+		else \
+			echo "Signing kernel module on host..."; \
+		fi; \
+		echo "Running sign-file as root..."; \
+		if [ -f "/.dockerenv" ]; then \
+			/usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
+		else \
+			if [ "$$(id -u)" = "0" ]; then \
+				/usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
+			else \
+				sudo /usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
+			fi; \
+		fi; \
+		echo "Kernel module built and signed successfully in $(OBJ_DIR)/"; \
+	else \
+		echo "Signing keys not found - module built WITHOUT signing in $(OBJ_DIR)/"; \
+	fi
+endef
 
 # Sign the kernel module (only called when keys are verified to exist)
 sign_module:
@@ -175,7 +201,7 @@ host-driver: $(OBJ_DIR)
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
 		echo "✅ Host x86_64 module built successfully in $(OBJ_DIR)/"; \
-		$(MAKE) sign_module; \
+		$(call sign_module_inline) \
 	else \
 		echo "ERROR: nxp_simtemp.ko was not created"; \
 		exit 1; \
