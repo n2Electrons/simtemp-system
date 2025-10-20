@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install minimal Python packages (override externally-managed-environment)
-RUN pip3 install --no-cache-dir --break-system-packages pytest pyyaml
+RUN pip3 install --no-cache-dir --break-system-packages pytest pyyaml requests
 
 # Create GCC-13 compatibility symbolic links for both ARM and native compilation
 RUN ln -sf /usr/bin/arm-linux-gnueabihf-gcc-12 /usr/bin/arm-linux-gnueabihf-gcc-13 && \

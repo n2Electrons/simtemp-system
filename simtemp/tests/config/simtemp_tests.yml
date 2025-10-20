@@ -91,9 +91,9 @@ tests:
     env:
       QEMU_DIR: 'deployment/qemu'
       HELLO_SRC_DIR: 'src/hello'
-      KERNEL_IMAGE: 'deployment/qemu/build/arch/arm/boot/zImage'
-      DTB_FILE: 'deployment/qemu/dtb/imx6ul-simtemp.dtb'
-      ROOTFS_IMAGE: 'deployment/qemu/rootfs.cpio.gz'
+      KERNEL_IMAGE: '/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage'
+      DTB_FILE: '/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb'
+      ROOTFS_IMAGE: '/workspace/deployment/qemu/rootfs.cpio.gz'
       # BUILD_SCRIPT removed - binaries are pre-compiled on host
     test_cases:
       - name: "test_basic_qemu_boot"
