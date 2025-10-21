@@ -73,6 +73,7 @@ def load_detailed_test_report():
     # Try common report locations
     report_paths = [
         "simtemp/tests/reports/test_report_detailed.json",
+        "simtemp/tests/simtemp/tests/reports/test_report_detailed.json",  # Fix for duplicated path in Jenkins
         "reports/test_report_detailed.json",
         "/tmp/test_report_detailed.json"
     ]
