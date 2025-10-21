@@ -112,11 +112,11 @@ deb-driver: $(OBJ_DIR)
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
 		echo "✅ Debian x86_64 module built successfully for testing in $(OBJ_DIR)/"; \
-		$(call sign_module_inline) \
 	else \
 		echo "ERROR: nxp_simtemp.ko was not created"; \
 		exit 1; \
 	fi
+	$(call sign_module_inline)
 
 # Create obj directory
 $(OBJ_DIR):
@@ -201,11 +201,11 @@ host-driver: $(OBJ_DIR)
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
 		echo "✅ Host x86_64 module built successfully in $(OBJ_DIR)/"; \
-		$(call sign_module_inline) \
 	else \
 		echo "ERROR: nxp_simtemp.ko was not created"; \
 		exit 1; \
 	fi
+	$(call sign_module_inline)
 
 # Remove all generated files
 clean:
