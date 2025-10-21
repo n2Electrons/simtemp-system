@@ -30,7 +30,7 @@ requirements:
 # Test case configurations
 tests:
   kernel_driver_base:
-    enabled: false
+    enabled: true
     repository: "n2Electrons-Infra"  # GitHub repository for this test module  
     debug_verbose: true  # Enable detailed debug output for this module
     description: "Tests for the Temperature Simulator Driver (Infrastructure)"
@@ -106,15 +106,6 @@ tests:
         qemu_specific:
           expects_boot: true
           validation_patterns: ["Booting Linux", "initramfs ready"]
-      - name: "device_tree_loading"
-        description: "Verifies Device Tree loading in QEMU"
-        enabled: false
-        test_id: "F-K1-TC-004"
-        pytest_file: "test_f_k1_tc_004.py"  # Specific pytest file for this test case
-        debug_info: "This test confirms DTB loading and kernel recognition"
-        qemu_specific:
-          expects_dtb_load: true
-          validation_patterns: ["Device tree", "imx6ul"]
       - name: "qemu_module_load_unload"
         description: "Load/unload kernel module in QEMU without WARN/OOPS"
         enabled: false
@@ -126,6 +117,15 @@ tests:
           expects_module_load: true
           validation_patterns: ["initramfs ready", "nxp_simtemp"]
           module_operations: ["insmod", "rmmod", "lsmod"]
+      - name: "device_tree_loading"
+        description: "Verifies Device Tree loading in QEMU"
+        enabled: false
+        test_id: "F-K1-TC-004"
+        pytest_file: "test_f_k1_tc_004.py"  # Specific pytest file for this test case
+        debug_info: "This test confirms DTB loading and kernel recognition"
+        qemu_specific:
+          expects_dtb_load: true
+          validation_patterns: ["Device tree", "imx6ul"]
       - name: "qemu_platform_driver_dt_validation"
         description: "Validate platform driver with Device Tree in QEMU environment"
         enabled: true

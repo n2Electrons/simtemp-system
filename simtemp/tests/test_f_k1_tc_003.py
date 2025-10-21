@@ -217,5 +217,4 @@ def test_f_k1_platform_driver_dt_registration():
     print("All platform driver requirements verified successfully!")
 
 if __name__ == "__main__":
-    # Run tests directly
-    test_f_k1_platform_driver_dt_registration()
+    pytest.main([__file__, '-v'])
