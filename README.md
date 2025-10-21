@@ -103,8 +103,8 @@ simtemp-system/
 │       │   ├── imx6ul-simtemp.dts    # Base Device Tree source
 │       │   └── imx6ul-simtemp.dtb    # Compiled Device Tree binary
 │       ├── overlay/                  # Device Tree overlays
-│       │   ├── simtemp-test-overlay.dts   # Test overlay source
-│       │   └── simtemp-test-overlay.dtbo  # Compiled overlay binary
+│       │   ├── nxp-simtemp-overlay.dts    # SimTemp overlay source (F-K8-TC-003)
+│       │   └── nxp-simtemp-overlay.dtbo   # Compiled overlay binary
 │       ├── images/                   # QEMU system images
 │       ├── kernel/                   # Kernel files for emulation
 │       └── simtemp-dt-overlay.sh     # DT overlay testing script
