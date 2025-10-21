@@ -37,10 +37,6 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 REPORTS_DIR = BASE_DIR / 'reports'
 TRACE_PATH = REPORTS_DIR / 'traceability.yml'
 
-# Default repositories
-DEFAULT_CURRENT_REPO = "n2Electrons/simtemp-system"
-DEFAULT_LEGACY_REPO = "n2Electrons/n2Electrons-Infra"
-
 
 def extract_repo_and_issue(github_url: str) -> Optional[tuple[str, str, int]]:
     """Extract repository and issue number from GitHub URL."""

@@ -28,12 +28,13 @@ echo "==========================================================================
 # Step 1: Update traceability.yml with GitHub status
 echo ""
 echo "STEP 1: Updating traceability.yml with GitHub information..."
-echo "Command: python3 traceability/generate_traceability_yaml.py --github-repo n2Electrons/n2Electrons-Infra $DRY_RUN"
+echo "Using simtemp-system as primary repo (preserves existing legacy URLs automatically)"
+echo "Command: python3 traceability/generate_traceability_yaml.py --github-repo n2Electrons/simtemp-system $DRY_RUN"
 
 if [[ -n "$DRY_RUN" ]]; then
-    python3 traceability/generate_traceability_yaml.py --github-repo n2Electrons/n2Electrons-Infra $DRY_RUN
+    python3 traceability/generate_traceability_yaml.py --github-repo n2Electrons/simtemp-system $DRY_RUN
 else
-    python3 traceability/generate_traceability_yaml.py --github-repo n2Electrons/n2Electrons-Infra
+    python3 traceability/generate_traceability_yaml.py --github-repo n2Electrons/simtemp-system
 fi
 
 # Step 2: Generate HTML/JSON/Mermaid reports (only if not dry run)

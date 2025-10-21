@@ -29,8 +29,8 @@ DEFAULT_CURRENT_REPO = "n2Electrons/simtemp-system"
 DEFAULT_LEGACY_REPO = "n2Electrons/n2Electrons-Infra"
 
 # Issue ranges for repository mapping
-LEGACY_ISSUE_RANGE = (57, 65)  # Issues 57-65 are legacy (n2Electrons-Infra)
-CURRENT_ISSUE_RANGE = (66, 999)  # Issues 66+ are current (simtemp-system)
+LEGACY_ISSUE_RANGE = (1, 65)  # Issues 1-65 are legacy (n2Electrons-Infra)
+# Note: Current repo (simtemp-system) uses its own issue numbering from 1+
 
 WRONG_REPOS = [
     "n2Electrons/challenge_2509",
@@ -116,7 +116,7 @@ def main():
     
     print(f"Mapping issues to repositories:")
     print(f"  Legacy issues {LEGACY_ISSUE_RANGE[0]}-{LEGACY_ISSUE_RANGE[1]}: {args.legacy_repo}")
-    print(f"  Current issues {CURRENT_ISSUE_RANGE[0]}+: {args.current_repo}")
+    print(f"  All other issues: {args.current_repo}")
     
     fixed_data, fixes_count = fix_traceability_data(data, args.current_repo, args.legacy_repo)
     

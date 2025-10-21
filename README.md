@@ -40,6 +40,19 @@ This repository includes **automated Git hooks** that maintain the GitHub issue 
 gh auth login
 ```
 
+> Note on infrastructure traceability
+>
+> The initial traceability work in this repository includes items that pertain
+> specifically to the infrastructure layer (prefix F-J — e.g. F-J1 Configure
+> Jenkins and other F-J entries). These represent requirements and tests that
+> apply to the CI/CD and runtime infrastructure rather than the kernel driver
+> itself, including Docker infrastructure and Jenkins container configuration.
+> You may need to consult or include these F-J traceability links when
+> working on CI pipelines, Jenkins configuration, Docker containers, or 
+> environment provisioning. The `simtemp/reports/traceability.yml` and the 
+> generated HTML report include these entries so they can be referenced or 
+> updated as part of infrastructure changes.
+
 ### How It Works
 
 1. **Before each commit**: Pre-commit hook runs automatically
