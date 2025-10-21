@@ -237,7 +237,7 @@ def restore_working_directory(original_dir=None):
         return False
 
 
-def test_cleanup():
+def cleanup_test_environment():
     """
     Complete test cleanup function that should be called at the end of tests.
     
@@ -284,7 +284,7 @@ def load_environment():
         yield original_dir
     finally:
         print("\nTest completed, performing cleanup...")
-        test_cleanup()
+        cleanup_test_environment()
 
 
 # Convenience variable for the object directory path

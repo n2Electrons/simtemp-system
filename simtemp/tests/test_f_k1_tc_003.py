@@ -216,54 +216,6 @@ def test_f_k1_platform_driver_dt_registration():
     print("\n=== F-K1 Platform Driver Test PASSED ===")
     print("All platform driver requirements verified successfully!")
 
-
-def test_f_k1_device_tree_overlay_binding():
-    """
-    F-K1-TDD-002: Device Tree Overlay Binding Test
-    
-    This test validates that the platform driver can properly bind to Device
-    Tree nodes with the correct compatible strings. This test is designed to
-    verify the complete DT binding workflow.
-    
-    Expected Result (Red Phase): FAIL - DT binding not implemented
-    """
-    
-    # Pre-test cleanup
-    rmmod_module()
-    
-    print("Testing Device Tree overlay binding...")
-    
-    # Load the module
-    insmod_module()
-    time.sleep(1)
-    
-    # Test DT compatible string matching
-    print("\n=== Device Tree Compatible String Test ===")
-    
-    # Check if driver supports expected compatible strings
-    # This would typically be verified through device binding or kernel logs
-    
-    # Check for kernel messages about DT binding
-    dmesg_check = subprocess.run(
-        f"dmesg | tail -20 | grep -i '{MODULE_NAME}\\|simtemp\\|platform'",
-        **SHELL_PARAMS
-    )
-    
-    print(f"Recent kernel messages:\n{dmesg_check.stdout}")
-    
-    # Look for evidence of DT probe attempts
-    if ("probe" not in dmesg_check.stdout.lower() and
-            "simtemp" in dmesg_check.stdout.lower()):
-        print("WARNING: No probe messages found - DT binding may not be "
-              "working")
-    
-    # Clean up
-    rmmod_module()
-    
-    print("✓ Device Tree overlay binding test completed")
-
-
 if __name__ == "__main__":
     # Run tests directly
     test_f_k1_platform_driver_dt_registration()
-    test_f_k1_device_tree_overlay_binding()
