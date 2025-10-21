@@ -122,6 +122,29 @@ tests:
           validation_patterns: ["initramfs ready", "platform", "simtemp", "Device Tree"]
           module_operations: ["insmod", "rmmod", "modinfo"]
 
+      - name: "test_dtb_overlay_exists"
+        description: "DTB / test_dtb_overlay_exists() - Verifies DTB overlay compilation and existence"
+        enabled: true
+        test_id: "F-K8-TC-003-A"
+        pytest_file: "test_f_k8_tc_003_dtb.py"
+        verbose_output: true
+        debug_info: "Test for DTB overlay compilation and file existence verification"
+        dtb_specific:
+          expects_dtb_compilation: true
+          validation_patterns: ["nxp-simtemp-overlay.dtbo"]
+          required_tools: ["dtc"]
+
+      - name: "test_dtb_driver_binding"
+        description: "DTB / test_dtb_driver_binding() - Verifies DTB driver binding compatibility"
+        enabled: true
+        test_id: "F-K8-TC-003-B"
+        pytest_file: "test_f_k8_tc_003_dtb.py"
+        verbose_output: true
+        debug_info: "Test for DTB driver binding verification using compatible strings"
+        dtb_specific:
+          expects_driver_binding: true
+          validation_patterns: ["nxp,simtemp"]
+
       - name: "test_dtb_driver_binding_and_functionality"
         description: "DTB / test_dtb_driver_binding_and_functionality() - DTB driver binding and functionality verification"
         enabled: true
