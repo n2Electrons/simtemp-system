@@ -1,6 +1,8 @@
 #!/bin/bash
 #
 # Build DTB with SimTemp overlay for QEMU testing
+# 
+# For complete documentation, see: ../DTB_OVERLAY_README.md
 #
 
 set -e

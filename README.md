@@ -331,6 +331,18 @@ timeout 10 /host-workspace/deployment/qemu/scripts/run_qemu.sh"
 For detailed implementation process and troubleshooting, see:
 **[deployment/docker/QEMU_HOST_INTEGRATION_SETUP.md](deployment/docker/QEMU_HOST_INTEGRATION_SETUP.md)**
 
+### DTB Overlay Integration
+
+The project includes **automated DTB overlay integration** for SimTemp driver testing:
+
+- **Modular Design**: Device Tree overlays applied to base i.MX6 DTB
+- **Automated Build**: DTB with overlay built automatically during `make nxp-driver-arm`
+- **QEMU Ready**: Combined DTB includes SimTemp device node for testing
+- **TDD Compatible**: Supports test-driven development methodology
+
+For complete DTB overlay documentation, see:
+**[deployment/qemu/DTB_OVERLAY_README.md](deployment/qemu/DTB_OVERLAY_README.md)**
+
 ### Key Features
 
 - **Target Platform**: i.MX6UL (ARM Cortex-A7) via QEMU mcimx6ul-evk machine

@@ -114,6 +114,7 @@ ls -lh "$QEMU_PREBUILT_DIR/nxp_simtemp.ko"
 file "$QEMU_PREBUILT_DIR/nxp_simtemp.ko"
 
 # Build DTB with SimTemp overlay for QEMU testing
+# See ../../deployment/qemu/DTB_OVERLAY_README.md for details
 print_step "Building DTB with SimTemp overlay for QEMU..."
 DTB_OVERLAY_SCRIPT="$PROJECT_ROOT/deployment/qemu/scripts/build_dtb_with_overlay.sh"
 
