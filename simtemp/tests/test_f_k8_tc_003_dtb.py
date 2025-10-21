@@ -114,7 +114,8 @@ def test_dtb_property_parsing():
     """Test DTB property parsing functionality"""
     # Check sysfs for DTB-parsed properties
     sysfs_paths = ["/sys/devices/platform/simtemp.0",
-                   "/sys/devices/platform/simtemp@0"]
+                   "/sys/devices/platform/simtemp@0",
+                   "/sys/devices/platform/nxp-simtemp.0"]
     
     properties_found = False
     for path in sysfs_paths:

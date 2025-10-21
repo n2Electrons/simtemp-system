@@ -12,6 +12,10 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/version.h>
+#include <linux/sysfs.h>
+#include <linux/device.h>
+#include <linux/types.h>
+#include <linux/kernel.h>
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Jorge Rodriguez Moreno");
@@ -23,10 +27,62 @@ MODULE_DESCRIPTION("Temperature Simulator Driver");
  * struct nxp_simtemp_data - Private data structure
  * @dev: Device pointer
  * @temperature: Current simulated temperature
+ * @sampling_ms: Sampling interval in milliseconds
+ * @threshold_mC: Temperature threshold in milliCelsius
+ * @mode: Operating mode string
  */
 struct nxp_simtemp_data {
 	struct device *dev;
 	int temperature;
+	u32 sampling_ms;
+	u32 threshold_mC;
+	const char *mode;
+};
+
+/**
+ * Sysfs attribute show functions for DTB properties
+ */
+static ssize_t sampling_ms_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct nxp_simtemp_data *data = dev_get_drvdata(dev);
+	return sprintf(buf, "%u\n", data->sampling_ms);
+}
+
+static ssize_t threshold_mC_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct nxp_simtemp_data *data = dev_get_drvdata(dev);
+	return sprintf(buf, "%u\n", data->threshold_mC);
+}
+
+static ssize_t mode_show(struct device *dev,
+			 struct device_attribute *attr, char *buf)
+{
+	struct nxp_simtemp_data *data = dev_get_drvdata(dev);
+	return sprintf(buf, "%s\n", data->mode);
+}
+
+/* Define device attributes */
+static DEVICE_ATTR_RO(sampling_ms);
+static DEVICE_ATTR_RO(threshold_mC);
+static DEVICE_ATTR_RO(mode);
+
+/* Attribute group */
+static struct attribute *nxp_simtemp_attrs[] = {
+	&dev_attr_sampling_ms.attr,
+	&dev_attr_threshold_mC.attr,
+	&dev_attr_mode.attr,
+	NULL,
+};
+
+static const struct attribute_group nxp_simtemp_group = {
+	.attrs = nxp_simtemp_attrs,
+};
+
+static const struct attribute_group *nxp_simtemp_groups[] = {
+	&nxp_simtemp_group,
+	NULL
 };
 
 /**
@@ -42,22 +98,40 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 {
 	struct nxp_simtemp_data *data;
 	struct device *dev = &pdev->dev;
+	const char *mode;
+	int ret;
 
-	dev_info(dev, "NXP SimTemp driver probe started\n");
+	dev_info(dev, "NXP SimTemp probe start\n");
 
-	/* Allocate private data structure */
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 
 	data->dev = dev;
-	data->temperature = 25; /* Default temperature */
+	data->temperature = 25;
 
-	/* Store private data in platform device */
+	/* Defaults */
+	data->sampling_ms = 1000;
+	data->threshold_mC = 50000;
+	data->mode = "default";
+
+	/* Works with DT/ACPI/software node; if nothing present, keeps defaults */
+	device_property_read_u32(dev, "sampling-ms", &data->sampling_ms);
+	device_property_read_u32(dev, "threshold-microc", &data->threshold_mC);
+	if (!device_property_read_string(dev, "mode", &mode))
+		data->mode = mode;
+
 	platform_set_drvdata(pdev, data);
 
-	dev_info(dev, "NXP SimTemp driver probe completed successfully\n");
+	/* Sysfs with automatic management and implicit cleanup */
+	ret = devm_device_add_group(dev, &nxp_simtemp_group);
+	if (ret) {
+		dev_err(dev, "sysfs groups failed: %d\n", ret);
+		return ret;
+	}
 
+	dev_info(dev, "probe ok: sampling_ms=%u threshold_mC=%u mode=%s\n",
+		 data->sampling_ms, data->threshold_mC, data->mode);
 	return 0;
 }
 
@@ -71,27 +145,11 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
  * Note: Return type varies by kernel version - void for older kernels,
  * int for newer kernels. We use a wrapper approach for compatibility.
  */
-static void nxp_simtemp_remove_impl(struct platform_device *pdev)
-{
-	dev_info(&pdev->dev, "NXP SimTemp driver remove called\n");
-
-	/* Private data is automatically freed by devm_kzalloc */
-}
-
-/* Kernel version compatibility wrapper - arm kernels expect int, x86 kernels expect void */
-#ifdef CONFIG_ARM
-static int nxp_simtemp_remove(struct platform_device *pdev)
-{
-	nxp_simtemp_remove_impl(pdev);
-	return 0;
-}
-#else
 static void nxp_simtemp_remove(struct platform_device *pdev)
 {
-	nxp_simtemp_remove_impl(pdev);
-    return;
+	/* Nothing needed if using devm_device_add_group */
+	dev_info(&pdev->dev, "NXP SimTemp driver remove called\n");
 }
-#endif
 
 /**
  * Device Tree compatible strings
@@ -99,26 +157,16 @@ static void nxp_simtemp_remove(struct platform_device *pdev)
  * Trigger the probe function when found.
  */
 static const struct of_device_id nxp_simtemp_of_match[] = {
-	{
-		.compatible = "nxp,simtemp",
-	},
-	{
-		.compatible = "simtemp,temperature-sensor",
-	},
-	{
-		.compatible = "simtemp,temperature-sensor-overlay",
-	},
-	{ }
+	{ .compatible = "nxp,simtemp" },
+	{ /* sentinel */ }
 };
-
-#ifdef CONFIG_OF
 MODULE_DEVICE_TABLE(of, nxp_simtemp_of_match);
-#else
-/* For non-Device Tree kernels (like x86_64), create manual aliases for testing */
-MODULE_ALIAS("of:N*T*Cnxp,simtemp");
-MODULE_ALIAS("of:N*T*Csimtemp,temperature-sensor");
-MODULE_ALIAS("of:N*T*Csimtemp,temperature-sensor-overlay");
-#endif
+
+static const struct platform_device_id nxp_simtemp_id[] = {
+	{ "nxp-simtemp", 0 },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(platform, nxp_simtemp_id);
 
 /**
  * Platform driver structure
@@ -128,54 +176,11 @@ static struct platform_driver nxp_simtemp_driver = {
 	.probe = nxp_simtemp_probe,
 	.remove = nxp_simtemp_remove,
 	.driver = {
-		.name = DRIVER_NAME,
+		.name = "nxp-simtemp",
 #ifdef CONFIG_OF
 		.of_match_table = nxp_simtemp_of_match,
 #endif
 	},
+	.id_table = nxp_simtemp_id, /* key for non-DT */
 };
-
-// nxp_simtemp_init
-static int __init nxp_simtemp_init(void)
-{
-	int ret;
-
-	pr_info("NXP SimTemp driver: Initializing\n");
-
-	ret = platform_driver_register(&nxp_simtemp_driver);
-	if (ret) {
-		pr_err("NXP SimTemp driver: Failed to register platform driver: %d\n", ret);
-		return ret;
-	}
-
-	pr_info("NXP SimTemp driver: Platform driver registered successfully\n");
-
-	/* For TDD test F-K8-TC-003: Create a platform device if no DT binding exists
-	 * This ensures DTB binding functionality can be tested even without
-	 * a real device tree node present in the system.
-	 */
-#ifndef CONFIG_OF
-	/* On non-DT systems, create a platform device for testing */
-	struct platform_device *test_pdev;
-	
-	test_pdev = platform_device_register_simple("nxp-simtemp", 0, NULL, 0);
-	if (IS_ERR(test_pdev)) {
-		pr_warn("NXP SimTemp driver: Could not create test platform device\n");
-	} else {
-		pr_info("NXP SimTemp driver: Test platform device created for DTB testing\n");
-	}
-#endif
-
-	return 0;
-}
-
-//nxp_simtemp_exit
-static void __exit nxp_simtemp_exit(void)
-{
-	pr_info("NXP SimTemp driver: Cleaning up\n");
-	platform_driver_unregister(&nxp_simtemp_driver);
-	pr_info("NXP SimTemp driver: Platform driver unregistered\n");
-}
-
-module_init(nxp_simtemp_init);
-module_exit(nxp_simtemp_exit);
+module_platform_driver(nxp_simtemp_driver);
