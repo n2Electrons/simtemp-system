@@ -126,7 +126,7 @@ tests:
         qemu_specific:
           expects_dtb_load: true
           validation_patterns: ["Device tree", "imx6ul"]
-      - name: "qemu_platform_driver_dt_validation"
+      - name: "test_f_k1_platform_driver_dt_registration"
         description: "Validate platform driver with Device Tree in QEMU environment"
         enabled: true
         test_id: "F-K1-TC-003-QEMU"  # QEMU variant of platform driver test
