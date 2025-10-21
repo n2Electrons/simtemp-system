@@ -113,6 +113,23 @@ print_info "QEMU prebuilt driver details:"
 ls -lh "$QEMU_PREBUILT_DIR/nxp_simtemp.ko"
 file "$QEMU_PREBUILT_DIR/nxp_simtemp.ko"
 
+# Build DTB with SimTemp overlay for QEMU testing
+print_step "Building DTB with SimTemp overlay for QEMU..."
+DTB_OVERLAY_SCRIPT="$PROJECT_ROOT/deployment/qemu/scripts/build_dtb_with_overlay.sh"
+
+if [ -x "$DTB_OVERLAY_SCRIPT" ]; then
+    print_info "Running DTB overlay build script..."
+    if ! "$DTB_OVERLAY_SCRIPT"; then
+        print_warning "DTB overlay build failed, but continuing..."
+        print_warning "QEMU may use base DTB without SimTemp device node"
+    else
+        print_success "DTB with SimTemp overlay built successfully!"
+    fi
+else
+    print_warning "DTB overlay script not found or not executable: $DTB_OVERLAY_SCRIPT"
+    print_warning "QEMU will use base DTB without SimTemp device node"
+fi
+
 print_success "=========================================="
 print_success "ARM driver population completed successfully!"
 print_success "=========================================="
@@ -121,3 +138,4 @@ print_info "  • ARM source driver: $ARM_DRIVER"
 print_info "  • QEMU prebuilt dir: $QEMU_PREBUILT_DIR"
 print_info "  • Files for insmod: $(ls -1 "$QEMU_PREBUILT_DIR"/*.ko 2>/dev/null | wc -l) kernel modules"
 print_info "  • Updated rootfs: $PROJECT_ROOT/deployment/qemu/rootfs.cpio.gz"
+print_info "  • DTB with overlay: $PROJECT_ROOT/deployment/qemu/imx6q-sabresd-with-simtemp.dtb"
