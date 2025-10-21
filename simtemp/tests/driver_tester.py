@@ -996,7 +996,7 @@ class DriverTestOrchestrator:
                 
                 old_status = test['status']
                 test['status'] = status
-                test['message'] = "Test executed via pytest"
+                test['message'] = f"Test executed via pytest: {test_name}()"
                 
                 # Update summary counts
                 if old_status == 'unknown':
@@ -1015,7 +1015,7 @@ class DriverTestOrchestrator:
             # If no matching configured test found, add the actual test result
             new_test = {
                 "name": test_name,
-                "description": f"Actual pytest test: {test_name}",
+                "description": f"Actual pytest test: {test_name}()",
                 "test_id": "",
                 "status": status,
                 "duration": 0,

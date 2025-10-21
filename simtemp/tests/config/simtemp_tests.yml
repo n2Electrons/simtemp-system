@@ -42,8 +42,8 @@ tests:
       BUILD_DIR: 'obj'
     module_path: "${MODULE_DIR}/${BUILD_DIR}/${MODULE_NAME}"
     test_cases:
-      - name: "insmod_registers_driver"
-        description: "Verifies driver registration via insmod"
+      - name: "test_insmod_registers_driver"
+        description: "test_insmod_registers_driver() - Verifies driver registration via insmod"
         enabled: true
         test_id: "F-K1-TC-001"  # Maps to test plan ID
         pytest_file: "test_f_k1_tc_001.py"  # Specific pytest file for this test case
@@ -63,15 +63,15 @@ tests:
       BUILD_DIR: 'obj'
     module_path: "${MODULE_DIR}/${BUILD_DIR}/${MODULE_NAME}"
     test_cases:
-      - name: "driver_load_unload"
-        description: "Load/unload kernel module without WARN/OOPS"
+      - name: "test_driver_load_unload"
+        description: "test_driver_load_unload() - Load/unload kernel module without WARN/OOPS"
         enabled: true
         test_id: "F-K8-TC-001"
         pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this test case
         verbose_output: false  # Disable verbose output for this test
         debug_info: "This test verifies clean module load/unload operations"
-      - name: "platform_driver_dt_registration"
-        description: "TDD test for platform driver with Device Tree support"
+      - name: "test_f_k1_platform_driver_dt_registration"
+        description: "test_f_k1_platform_driver_dt_registration() - TDD test for platform driver with Device Tree support"
         enabled: true
         test_id: "F-K1-TC-003"  # TDD test for platform driver registration
         pytest_file: "test_f_k1_tc_003.py"  # Comprehensive platform driver validation
@@ -97,7 +97,7 @@ tests:
       # BUILD_SCRIPT removed - binaries are pre-compiled on host
     test_cases:
       - name: "test_basic_qemu_boot"
-        description: "Verifies basic QEMU boot and kernel messages"
+        description: "test_basic_qemu_boot() - Verifies basic QEMU boot and kernel messages"
         enabled: true
         test_id: "F-K1-TC-002-QEMU"
         pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this test case
@@ -106,8 +106,8 @@ tests:
         qemu_specific:
           expects_boot: true
           validation_patterns: ["Booting Linux", "initramfs ready"]
-      - name: "qemu_module_load_unload"
-        description: "Load/unload kernel module in QEMU without WARN/OOPS"
+      - name: "test_qemu_driver_load_unload"
+        description: "test_qemu_driver_load_unload() - Load/unload kernel module in QEMU without WARN/OOPS"
         enabled: false
         test_id: "F-K8-TC-003"
         pytest_file: "test_f_k8_tc_003.py"  # Specific pytest file for this test case
@@ -118,7 +118,7 @@ tests:
           validation_patterns: ["initramfs ready", "nxp_simtemp"]
           module_operations: ["insmod", "rmmod", "lsmod"]
       - name: "device_tree_loading"
-        description: "Verifies Device Tree loading in QEMU"
+        description: "device_tree_loading() - Verifies Device Tree loading in QEMU"
         enabled: false
         test_id: "F-K1-TC-004"
         pytest_file: "test_f_k1_tc_004.py"  # Specific pytest file for this test case
@@ -127,7 +127,7 @@ tests:
           expects_dtb_load: true
           validation_patterns: ["Device tree", "imx6ul"]
       - name: "test_f_k1_platform_driver_dt_registration"
-        description: "Validate platform driver with Device Tree in QEMU environment"
+        description: "test_f_k1_platform_driver_dt_registration() - Validate platform driver with Device Tree in QEMU environment"
         enabled: true
         test_id: "F-K1-TC-003-QEMU"  # QEMU variant of platform driver test
         pytest_file: "test_f_k1_tc_003.py"  # Same test but detects QEMU mode internally
