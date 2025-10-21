@@ -28,20 +28,20 @@ echo "==========================================================================
 # Step 1: Update traceability.yml with GitHub status
 echo ""
 echo "STEP 1: Updating traceability.yml with GitHub information..."
-echo "Command: python3 generate_traceability_yaml.py --github-repo n2Electrons/n2Electrons-Infra $DRY_RUN"
+echo "Command: python3 traceability/generate_traceability_yaml.py --github-repo n2Electrons/n2Electrons-Infra $DRY_RUN"
 
 if [[ -n "$DRY_RUN" ]]; then
-    python3 generate_traceability_yaml.py --github-repo n2Electrons/n2Electrons-Infra $DRY_RUN
+    python3 traceability/generate_traceability_yaml.py --github-repo n2Electrons/n2Electrons-Infra $DRY_RUN
 else
-    python3 generate_traceability_yaml.py --github-repo n2Electrons/n2Electrons-Infra
+    python3 traceability/generate_traceability_yaml.py --github-repo n2Electrons/n2Electrons-Infra
 fi
 
 # Step 2: Generate HTML/JSON/Mermaid reports (only if not dry run)
 if [[ -z "$DRY_RUN" ]]; then
     echo ""
     echo "STEP 2: Generating HTML, JSON, and Mermaid reports..."
-    echo "Command: python3 generate_traceability_view.py"
-    python3 generate_traceability_view.py
+    echo "Command: python3 traceability/generate_traceability_view.py"
+    python3 traceability/generate_traceability_view.py
 fi
 
 # Final message
