@@ -1,7 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * NXP SimTemp Device Tree Overlay for F-K8-TC-003 Testing
+ * 
+ * Copyright (c) 2025 Jorge Rodriguez Moreno
+ * 
+ * This overlay adds a simulated temperature sensor device for testing
+ * the nxp_simtemp driver on i.MX6 QEMU emulation environments.
+ */
+
 /dts-v1/;
 /plugin/;
-
-/* NXP SimTemp Device Tree Overlay for F-K8-TC-003 Testing */
 
 / {
     compatible = "fsl,imx6ul-evk", "fsl,imx6ul";
@@ -9,11 +17,10 @@
     fragment@0 {
         target-path = "/";
         __overlay__ {
-            simtemp_device: simtemp@0 {
+            simtemp_device: simtemp {
                 compatible = "nxp,simtemp";
-                reg = <0x0 0x1000>;
-                sampling_ms = <100>;
-                threshold_mC = <75000>;
+                sampling_ms = <500>;
+                threshold_mC = <25000>;
                 mode = "continuous";
                 status = "okay";
             };
