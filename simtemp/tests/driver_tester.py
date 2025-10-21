@@ -41,18 +41,31 @@ class TestLogger:
     def __init__(self, verbose=False):
         self.verbose = verbose
     
+    def _safe_print(self, text):
+        try:
+            print(text)
+        except BlockingIOError:
+            # Handle case when stdout/stderr blocks
+            try:
+                # Try writing to a file instead
+                with open("/tmp/driver_tester_log.txt", "a") as f:
+                    f.write(text + "\n")
+            except Exception:
+                # If all logging fails, silently continue
+                pass
+    
     def info(self, message):
-        print(f"[INFO] {message}")
+        self._safe_print(f"[INFO] {message}")
     
     def debug(self, message):
         if self.verbose:
-            print(f"[DEBUG] {message}")
+            self._safe_print(f"[DEBUG] {message}")
     
     def warning(self, message):
-        print(f"[WARNING] {message}")
+        self._safe_print(f"[WARNING] {message}")
     
     def error(self, message):
-        print(f"[ERROR] {message}")
+        self._safe_print(f"[ERROR] {message}")
 
 
 class DriverTestOrchestrator:
@@ -1466,34 +1479,67 @@ def main():
     
     args = parser.parse_args()
     
-    print("DRIVER_TESTER: Arguments parsed:")
-    print(f"   - verbose: {args.verbose}")
-    print(f"   - input_dir: {args.input_dir}")
-    print(f"   - output_dir: {args.output_dir}")
+    # Define safe_print here for early messages
+    def safe_print(text):
+        try:
+            print(text)
+        except BlockingIOError:
+            # If stdout blocks, try writing to a file
+            try:
+                with open("/tmp/driver_tester_log.txt", "a") as f:
+                    f.write(text + "\n")
+            except Exception:
+                pass
     
-    print("DRIVER_TESTER: Creating orchestrator instance...")
+    safe_print("DRIVER_TESTER: Arguments parsed:")
+    safe_print(f"   - verbose: {args.verbose}")
+    safe_print(f"   - input_dir: {args.input_dir}")
+    safe_print(f"   - output_dir: {args.output_dir}")
+    
+    safe_print("DRIVER_TESTER: Creating orchestrator instance...")
     orchestrator = DriverTestOrchestrator(
         input_dir=args.input_dir,
         output_dir=args.output_dir,
         verbose=args.verbose
     )
     
-    print("DRIVER_TESTER: Starting test orchestration...")
+    safe_print("DRIVER_TESTER: Starting test orchestration...")
     try:
         success = orchestrator.generate_reports()
         if success:
-            print(
+            safe_print(
                 "DRIVER_TESTER: Script completed successfully - "
                 "all tests passed"
             )
             return 0
         else:
-            print("DRIVER_TESTER: Script completed with test failures")
+            safe_print("DRIVER_TESTER: Script completed with test failures")
             return 1
     except Exception as e:
-        print(f"DRIVER_TESTER: Script failed with error: {e}")
+        safe_print(f"DRIVER_TESTER: Script failed with error: {e}")
         import traceback
-        traceback.print_exc()
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        traceback_file = f"/tmp/driver_tester_traceback_{timestamp}.txt"
+        
+        try:
+            # Try printing to stdout first
+            traceback.print_exc()
+        except BlockingIOError:
+            # If stdout blocks, log to file
+            try:
+                with open(traceback_file, "a") as f:
+                    f.write(f"Exception occurred at {timestamp}:\n")
+                    traceback.print_exc(file=f)
+                safe_print(f"Traceback written to {traceback_file}")
+            except Exception as trace_err:
+                # Last resort - try to log the error
+                try:
+                    error_path = "/tmp/driver_tester_critical_error.txt"
+                    with open(error_path, "a") as f:
+                        f.write(f"Critical error at {timestamp}: {str(e)}\n")
+                        f.write(f"Failed to log traceback: {str(trace_err)}\n")
+                except Exception:
+                    pass
         return 1
 
 
