@@ -71,9 +71,11 @@ nxp-driver-arm: prepare-nxp-driver-arm $(OBJ_DIR)
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
 		echo "✅ NXP ARM module built successfully in $(OBJ_DIR)/"; \
+	else \
+		echo "ERROR: nxp_simtemp.ko was not created"; \
+		exit 1; \
 	fi
-	@echo "Signing NXP ARM module..."
-	$(MAKE) sign_module
+	$(call sign_module_inline)
 	@echo "✅ NXP ARM module built and signed successfully"
 
 prepare-nxp-driver-arm64:
@@ -89,9 +91,11 @@ nxp-driver-arm64: prepare-nxp-driver-arm64 $(OBJ_DIR)
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
 		echo "✅ NXP ARM64 module built successfully in $(OBJ_DIR)/"; \
+	else \
+		echo "ERROR: nxp_simtemp.ko was not created"; \
+		exit 1; \
 	fi
-	@echo "Signing NXP ARM64 module..."
-	$(MAKE) sign_module
+	$(call sign_module_inline)
 	@echo "✅ NXP ARM64 module built and signed successfully"
 
 # Debian Docker build for x86_64 testing
@@ -147,42 +151,6 @@ define sign_module_inline
 		echo "Signing keys not found - module built WITHOUT signing in $(OBJ_DIR)/"; \
 	fi
 endef
-
-# Sign the kernel module (only called when keys are verified to exist)
-sign_module:
-	@if [ -f "$(SIGNING_PRIV)" ] && [ -f "$(SIGNING_DER)" ]; then \
-		echo "Found signing keys: $(SIGNING_PRIV) and $(SIGNING_DER)"; \
-		if [ -f "/.dockerenv" ]; then \
-			echo "Signing kernel module in Docker container..."; \
-		else \
-			echo " Signing kernel module on host..."; \
-		fi; \
-		SIGN_FILE_PATH=""; \
-		if [ -f "/usr/src/linux-headers-$(shell uname -r)/scripts/sign-file" ]; then \
-			SIGN_FILE_PATH="/usr/src/linux-headers-$(shell uname -r)/scripts/sign-file"; \
-		elif [ -f "$(KERNEL_SRC)/scripts/sign-file" ]; then \
-			SIGN_FILE_PATH="$(KERNEL_SRC)/scripts/sign-file"; \
-		else \
-			echo "ERROR: sign-file script not found"; \
-			exit 1; \
-		fi; \
-		if [ "$$(id -u)" = "0" ]; then \
-			echo "Running sign-file as root..."; \
-			$$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
-		else \
-			echo "Running sign-file with sudo (non-interactive)..."; \
-			# Try without password first, fall back to sudo if needed and user has rights \
-			if ! $$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko 2>/dev/null; then \
-				if ! sudo -n $$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; then \
-					echo "WARNING: Could not sign module - permissions issue"; \
-				fi; \
-			fi; \
-		fi; \
-		echo "Kernel module built and signed successfully in $(OBJ_DIR)/"; \
-	else \
-		echo "Signing keys not found - module built WITHOUT signing in $(OBJ_DIR)/"; \
-		echo "   Missing: $(SIGNING_PRIV) or $(SIGNING_DER)"; \
-	fi
 
 # Host x86_64 native compilation with signing (production build)
 host-driver: $(OBJ_DIR)
@@ -260,4 +228,4 @@ info:
 	@echo "  make nxp-driver-arm64  - Build and sign for NXP ARM64 devices (i.MX8)"
 	@echo "  make info              - Show this information"
 
-.PHONY: host-driver deb-driver sign_module clean prepare-nxp-driver-arm prepare-nxp-driver-arm64 nxp-driver-arm nxp-driver-arm64 info
+.PHONY: host-driver deb-driver clean prepare-nxp-driver-arm prepare-nxp-driver-arm64 nxp-driver-arm nxp-driver-arm64 info
