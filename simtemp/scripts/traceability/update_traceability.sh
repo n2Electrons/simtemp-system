@@ -107,7 +107,7 @@ echo "==========================================================================
 # Step 0: Generate traceability.yml
 echo ""
 echo "STEP 0: Generate traceability.yml"
-GEN_CMD="python3 simtemp/scripts/traceability/generate_traceability_yaml.py"
+GEN_CMD="python3 scripts/traceability/generate_traceability_yaml.py"
 $GEN_CMD
 
 # Step 1: Search GitHub for issues with patterns

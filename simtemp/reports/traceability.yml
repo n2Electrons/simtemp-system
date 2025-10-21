@@ -1,5 +1,5 @@
 metadata:
-  generated_on: '2025-10-16'
+  generated_on: '2025-10-21'
   source_files:
   - simtemp/docs/TESTPLAN.md
   notes: Regenerated from TESTPLAN.md via generate_traceability_yaml.py (preserving
@@ -11,24 +11,24 @@ requirements:
   submodule: Driver core
   summary: Register as platform driver via DT or local device
   priority: Medium
-  status: in-progress
-  github_link: https://github.com/n2Electrons/challenge_2509/issues/58
+  status: completed
+  github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/58
   branches:
-  - f-k1-tc-002-qemu-dt
+  - f-k1-tc-003-driverby-dt
   tests:
   - id: F-K1-TC-001
     description: '`insmod` registers driver; sysfs entries created'
     expected: '`insmod` registers driver; sysfs entries created'
-    status: planned
+    status: completed
     automation: true
-    github_link: https://github.com/n2Electrons/challenge_2509/issues/61
+    github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/61
     branch: ''
   - id: F-K1-TC-002
     description: DT overlay binds driver; properties parsed with no errors
     expected: DT overlay binds driver; properties parsed with no errors
-    status: in-progress
+    status: completed
     automation: true
-    github_link: https://github.com/n2Electrons/challenge_2509/issues/62
+    github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/62
     branch: f-k1-tc-002-qemu-dt
 - id: F-K2
   group: functional
@@ -208,17 +208,17 @@ requirements:
   submodule: Lifecycle mgmt
   summary: Clean load/unload sequence
   priority: Medium
-  status: in-progress
-  github_link: ''
+  status: completed
+  github_link: https://github.com/n2Electrons/simtemp-system/issues/19
   branches:
   - f-k8-tc-001-loadunload
   tests:
   - id: F-K8-TC-001
     description: Load/unload no WARN/OOPS
     expected: Load/unload no WARN/OOPS
-    status: in-progress
+    status: completed
     automation: true
-    github_link: ''
+    github_link: https://github.com/n2Electrons/simtemp-system/issues/19
     branch: f-k8-tc-001-loadunload
   - id: F-K8-TC-002
     description: Readers exit gracefully on unload
@@ -226,6 +226,14 @@ requirements:
     status: planned
     automation: true
     github_link: ''
+    branch: ''
+  - id: F-K8-TC-003
+    description: DTB driver binding and functionality verification
+    expected: Driver loaded via Device Tree binds correctly and all DTB properties
+      are functional
+    status: completed
+    automation: true
+    github_link: https://github.com/n2Electrons/simtemp-system/issues/20
     branch: ''
 - id: F-K9
   group: functional
@@ -517,14 +525,14 @@ requirements:
     expected: Struct/API match code
     status: planned
     automation: false
-    github_link: https://github.com/n2Electrons/challenge_2509/issues/64
+    github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/64
     branch: ''
   - id: F-D2-TC-002
     description: Locking rationale consistent
     expected: Locking rationale consistent
     status: planned
     automation: false
-    github_link: https://github.com/n2Electrons/challenge_2509/issues/65
+    github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/65
     branch: ''
 - id: F-D3
   group: functional
@@ -557,15 +565,15 @@ requirements:
   summary: Prompts and validation notes
   priority: Medium
   status: planned
-  github_link: https://github.com/n2Electrons/challenge_2509/issues/57
+  github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/57
   branches: []
   tests:
   - id: F-D4-TC-001
     description: Prompts recorded
     expected: Prompts recorded
-    status: planned
+    status: completed
     automation: false
-    github_link: https://github.com/n2Electrons/challenge_2509/issues/59
+    github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/59
     branch: ''
   - id: F-D4-TC-002
     description: Mitigations listed

@@ -73,26 +73,26 @@ All tests are executed after each milestone (M0–M10) in the development roadma
 | **11–12** | F-K5 | Kernel / Alert logic | Raise alert flag when threshold exceeded. | • **F-K5-TC-001** → Alert within ≤ 2 periods; `stats.alerts++`.<br>• **F-K5-TC-002** → No alert when threshold > value. |
 | **13–16** | F-K6 | Kernel / Sysfs interface | Provide attributes for config and stats. | • **F-K6-TC-001** → `sampling_ms` validates range.<br>• **F-K6-TC-002** → `threshold_mC` affects alerts.<br>• **F-K6-TC-003** → `mode` accepts valid enums.<br>• **F-K6-TC-004** → `stats` read-only and consistent. |
 | **17–18** | F-K7 | Kernel / Config handler | Apply configuration atomically via sysfs/ioctl. | • **F-K7-TC-001** → Readers never see partial values.<br>• **F-K7-TC-002** → Ioctl applies all-or-nothing update. |
-| **19–20** | F-K8 | Kernel / Lifecycle mgmt | Clean load/unload sequence. | • **F-K8-TC-001** → Load/unload no WARN/OOPS.<br>• **F-K8-TC-002** → Readers exit gracefully on unload. |
-| **21–22** | F-K9 | Kernel / DT parser | Parse DT properties and apply defaults. | • **F-K9-TC-001** → DT props appear in sysfs.<br>• **F-K9-TC-002** → Defaults used when DT missing. |
-| **23–25** | F-U1 | User space / CLI config | CLI configures sampling, threshold, and mode. | • **F-U1-TC-001** → `--set sampling_ms=50` updates sysfs.<br>• **F-U1-TC-002** → Invalid input rejected.<br>• **F-U1-TC-003** → Mode persists. |
-| **26–28** | F-U2 | User space / CLI read loop | Read and display temperature samples. | • **F-U2-TC-001** → Record parsed correctly.<br>• **F-U2-TC-002** → 100 Hz 5 s → no errors.<br>• **F-U2-TC-003** → Alert printed on threshold cross. |
-| **29–31** | F-U3 | User space / Event monitor | Poll/epoll for events. | • **F-U3-TC-001** → Poll triggers per sample.<br>• **F-U3-TC-002** → Poll wakes on alert ≤ 2 periods.<br>• **F-U3-TC-003** → Non-blocking returns immediately. |
-| **32–33** | F-U4 | User space / Self-test mode | CLI validates alert detection. | • **F-U4-TC-001** → Self-test PASS (≤ 2 periods).<br>• **F-U4-TC-002** → High threshold → FAIL (exit ≠ 0). |
-| **34–35** | F-U5 | User space / GUI | Visualize readings and live control. | • **F-U5-TC-001** → GUI updates ≥ 5 Hz.<br>• **F-U5-TC-002** → Parameter edits reflected in sysfs. |
-| **36–38** | F-S1 | Scripts / build.sh | Automate kernel + CLI build. | • **F-S1-TC-001** → Build succeeds; artifacts present.<br>• **F-S1-TC-002** → Missing headers → clear error.<br>• **F-S1-TC-003** → Re-run idempotent. |
-| **39–41** | F-S2 | Scripts / run_demo.sh | Automate demo pipeline. | • **F-S2-TC-001** → Demo runs OK; exit 0.<br>• **F-S2-TC-002** → Error → exit ≠ 0.<br>• **F-S2-TC-003** → Cleanup on failure. |
-| **42–43** | F-S3 | Scripts / lint.sh | Lint and style verification. | • **F-S3-TC-001** → Clean run → return 0.<br>• **F-S3-TC-002** → Missing tools → graceful skip. |
-| **44–45** | F-D1 | Docs / README.md | Build/run/demo guide. | • **F-D1-TC-001** → Fresh VM → success.<br>• **F-D1-TC-002** → Links valid. |
-| **46–47** | F-D2 | Docs / DESIGN.md | Architecture & API. | • **F-D2-TC-001** → Struct/API match code.<br>• **F-D2-TC-002** → Locking rationale consistent. |
-| **48–49** | F-D3 | Docs / TESTPLAN.md | Test coverage matrix. | • **F-D3-TC-001** → All reqs mapped.<br>• **F-D3-TC-002** → Commands + criteria documented. |
-| **50–51** | F-D4 | Docs / AI_NOTES.md | Prompts and validation notes. | • **F-D4-TC-001** → Prompts recorded.<br>• **F-D4-TC-002** → Mitigations listed. |
-| **52–53** | F-D5 | Docs / Git history | Repository structure. | • **F-D5-TC-001** → Tag v1.0 exists; Signed-off-by used.<br>• **F-D5-TC-002** → No binaries tracked. |
-| **54–56** | N-F1 | Non-Functional / Performance | Operate ≤ 100 Hz with low latency. | • **N-F1-TC-001** → Sampling stable ±10 %.<br>• **N-F1-TC-002** → p95 latency < 10 ms.<br>• **N-F1-TC-003** → CPU usage < 5 %. |
-| **57–58** | N-F2 | Non-Functional / Reliability | No kernel warnings/leaks. | • **N-F2-TC-001** → 200 load/unload → 0 WARN/OOPS.<br>• **N-F2-TC-002** → 6 h run → no leaks/crash. |
-| **59–60** | N-F3 | Non-Functional / Concurrency | Thread-safe multi-access. | • **N-F3-TC-001** → 8 threads → no deadlock.<br>• **N-F3-TC-002** → Concurrent sysfs writes stable. |
-| **61–62** | N-F4 | Non-Functional / Portability | Build/run on Ubuntu + ARM. | • **N-F4-TC-001** → Host build passes.<br>• **N-F4-TC-002** → ARM run in QEMU. |
-| **63–64** | N-F5 | Non-Functional / Security | Input validation and permissions. | • **N-F5-TC-001** → Invalid sysfs → `-EINVAL`.<br>• **N-F5-TC-002** → Root-only RW verified. |
+| **19–21** | F-K8 | Kernel / Lifecycle mgmt | Clean load/unload sequence. | • **F-K8-TC-001** → Load/unload no WARN/OOPS.<br>• **F-K8-TC-002** → Readers exit gracefully on unload.<br>• **F-K8-TC-003** → DTB driver binding and functionality verification. |
+| **22–23** | F-K9 | Kernel / DT parser | Parse DT properties and apply defaults. | • **F-K9-TC-001** → DT props appear in sysfs.<br>• **F-K9-TC-002** → Defaults used when DT missing. |
+| **24–26** | F-U1 | User space / CLI config | CLI configures sampling, threshold, and mode. | • **F-U1-TC-001** → `--set sampling_ms=50` updates sysfs.<br>• **F-U1-TC-002** → Invalid input rejected.<br>• **F-U1-TC-003** → Mode persists. |
+| **27–29** | F-U2 | User space / CLI read loop | Read and display temperature samples. | • **F-U2-TC-001** → Record parsed correctly.<br>• **F-U2-TC-002** → 100 Hz 5 s → no errors.<br>• **F-U2-TC-003** → Alert printed on threshold cross. |
+| **30–32** | F-U3 | User space / Event monitor | Poll/epoll for events. | • **F-U3-TC-001** → Poll triggers per sample.<br>• **F-U3-TC-002** → Poll wakes on alert ≤ 2 periods.<br>• **F-U3-TC-003** → Non-blocking returns immediately. |
+| **33–34** | F-U4 | User space / Self-test mode | CLI validates alert detection. | • **F-U4-TC-001** → Self-test PASS (≤ 2 periods).<br>• **F-U4-TC-002** → High threshold → FAIL (exit ≠ 0). |
+| **35–36** | F-U5 | User space / GUI | Visualize readings and live control. | • **F-U5-TC-001** → GUI updates ≥ 5 Hz.<br>• **F-U5-TC-002** → Parameter edits reflected in sysfs. |
+| **37–39** | F-S1 | Scripts / build.sh | Automate kernel + CLI build. | • **F-S1-TC-001** → Build succeeds; artifacts present.<br>• **F-S1-TC-002** → Missing headers → clear error.<br>• **F-S1-TC-003** → Re-run idempotent. |
+| **40–42** | F-S2 | Scripts / run_demo.sh | Automate demo pipeline. | • **F-S2-TC-001** → Demo runs OK; exit 0.<br>• **F-S2-TC-002** → Error → exit ≠ 0.<br>• **F-S2-TC-003** → Cleanup on failure. |
+| **44–45** | F-S3 | Scripts / lint.sh | Lint and style verification. | • **F-S3-TC-001** → Clean run → return 0.<br>• **F-S3-TC-002** → Missing tools → graceful skip. |
+| **46–47** | F-D1 | Docs / README.md | Build/run/demo guide. | • **F-D1-TC-001** → Fresh VM → success.<br>• **F-D1-TC-002** → Links valid. |
+| **48–49** | F-D2 | Docs / DESIGN.md | Architecture & API. | • **F-D2-TC-001** → Struct/API match code.<br>• **F-D2-TC-002** → Locking rationale consistent. |
+| **50–51** | F-D3 | Docs / TESTPLAN.md | Test coverage matrix. | • **F-D3-TC-001** → All reqs mapped.<br>• **F-D3-TC-002** → Commands + criteria documented. |
+| **52–53** | F-D4 | Docs / AI_NOTES.md | Prompts and validation notes. | • **F-D4-TC-001** → Prompts recorded.<br>• **F-D4-TC-002** → Mitigations listed. |
+| **54–55** | F-D5 | Docs / Git history | Repository structure. | • **F-D5-TC-001** → Tag v1.0 exists; Signed-off-by used.<br>• **F-D5-TC-002** → No binaries tracked. |
+| **56–58** | N-F1 | Non-Functional / Performance | Operate ≤ 100 Hz with low latency. | • **N-F1-TC-001** → Sampling stable ±10 %.<br>• **N-F1-TC-002** → p95 latency < 10 ms.<br>• **N-F1-TC-003** → CPU usage < 5 %. |
+| **59–60** | N-F2 | Non-Functional / Reliability | No kernel warnings/leaks. | • **N-F2-TC-001** → 200 load/unload → 0 WARN/OOPS.<br>• **N-F2-TC-002** → 6 h run → no leaks/crash. |
+| **61–62** | N-F3 | Non-Functional / Concurrency | Thread-safe multi-access. | • **N-F3-TC-001** → 8 threads → no deadlock.<br>• **N-F3-TC-002** → Concurrent sysfs writes stable. |
+| **63–64** | N-F4 | Non-Functional / Portability | Build/run on Ubuntu + ARM. | • **N-F4-TC-001** → Host build passes.<br>• **N-F4-TC-002** → ARM run in QEMU. |
+| **65–66** | N-F5 | Non-Functional / Security | Input validation and permissions. | • **N-F5-TC-001** → Invalid sysfs → `-EINVAL`.<br>• **N-F5-TC-002** → Root-only RW verified. |
 | **65–66** | N-F6 | Non-Functional / Maintainability | Code style & modularity. | • **N-F6-TC-001** → `checkpatch` 0 errors.<br>• **N-F6-TC-002** → Modules isolated; no symbol leak. |
 | **67–68** | N-F7 | Non-Functional / Usability | CLI clarity & error handling. | • **N-F7-TC-001** → `--help` complete.<br>• **N-F7-TC-002** → Device removal error handled. |
 | **69–70** | N-F8 | Non-Functional / Traceability | Req ↔ Test ↔ Code mapping. | • **N-F8-TC-001** → 1:1 mapping verified.<br>• **N-F8-TC-002** → Auto coverage 100 %. |

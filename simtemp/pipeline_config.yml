@@ -31,6 +31,21 @@ global:
 repository:
   # Repository where the current PR is located (for PR comments)
   pr_target: "simtemp-system"
+  # Current development repository
+  current_repo: "https://github.com/n2Electrons/simtemp-system"
+  # Legacy repository for historical issues/PRs (before migration)
+  legacy_repo: "https://github.com/n2Electrons/n2Electrons-Infra"
+  
+  # Repository mapping for different issue ranges
+  issue_mapping:
+    # Legacy issues (created before migration to simtemp-system)
+    legacy:
+      repository: "https://github.com/n2Electrons/n2Electrons-Infra"
+      issue_range: [57, 65]  # Issues 57-65 are in the legacy repo
+    # Current issues (created after migration)
+    current:
+      repository: "https://github.com/n2Electrons/simtemp-system"
+      issue_range: [66, 999]  # Future issues will be in simtemp-system
   
 # Build tools and environment
 build_tools:

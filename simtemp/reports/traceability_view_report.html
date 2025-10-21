@@ -21,20 +21,20 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <script>function tg(id){const e=document.getElementById(id);if(!e)return;e.style.display=(e.style.display==="none"?"block":"none");}</script>
 </head><body>
 <h1>Requirements ↔ Test Cases Traceability</h1>
-<div class="legend"><span style="background:#f8f9fa">planned</span><span style="background:#fff3cd">in-progress</span><span style="background:#d1e7dd">implemented</span><span style="background:#d4edda">verified</span><span style="background:#f8d7da">blocked</span><span style="background:#d1d8e7">partial</span><span>🔗 = GitHub Issue</span><span>🌿 = Git Branch</span></div>
-<div class="summary">Requirements: 32 | Tests: 74 | Completed Tests: 0 (0.0%)</div>
-<div class="req" style="background:#fff3cd">
+<div class="legend"><span style="background:#f8f9fa">planned</span><span style="background:#fff3cd">in-progress</span><span style="background:#d1e7dd">implemented</span><span style="background:#d1e7dd">completed</span><span style="background:#d4edda">verified</span><span style="background:#f8d7da">blocked</span><span style="background:#d1d8e7">partial</span><span>🔗 = GitHub Issue</span><span>🌿 = Git Branch</span></div>
+<div class="summary">Requirements: 32 | Tests: 75 | Completed Tests: 5 (6.7%)</div>
+<div class="req" style="background:#d1e7dd">
 <div class="req-number">1-2</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_0')">▸</span> <strong>F-K1</strong>: Register as platform driver via DT or local device
- <a href="https://github.com/n2Electrons/challenge_2509/issues/58" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
-<span class="status-pill">in-progress</span>
-<span class="counts">(0/2 tests completed)</span>
+ <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/58" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
+<span class="status-pill">completed</span>
+<span class="counts">(2/2 tests completed)</span>
 </div>
 </div>
 <div class="tests" id="tests_0" style="display:none">
-<div class="test" style="background:#f8f9fa"><strong>F-K1-TC-001</strong>: `insmod` registers driver; sysfs entries created <a href="https://github.com/n2Electrons/challenge_2509/issues/61" target="_blank" title="GitHub Issue for F-K1-TC-001" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
-<div class="test" style="background:#fff3cd"><strong>F-K1-TC-002</strong>: DT overlay binds driver; properties parsed with no errors <a href="https://github.com/n2Electrons/challenge_2509/issues/62" target="_blank" title="GitHub Issue for F-K1-TC-002" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/challenge_2509/tree/f-k1-tc-002-qemu-dt" target="_blank" title="Git branch: f-k1-tc-002-qemu-dt" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
+<div class="test" style="background:#d1e7dd"><strong>F-K1-TC-001</strong>: `insmod` registers driver; sysfs entries created <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/61" target="_blank" title="GitHub Issue for F-K1-TC-001" class="gh-link">🔗</a> <span class="status-pill">completed</span></div>
+<div class="test" style="background:#d1e7dd"><strong>F-K1-TC-002</strong>: DT overlay binds driver; properties parsed with no errors <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/62" target="_blank" title="GitHub Issue for F-K1-TC-002" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/n2Electrons-Infra/tree/f-k1-tc-002-qemu-dt" target="_blank" title="Git branch: f-k1-tc-002-qemu-dt" class="branch-link">🌿</a> <span class="status-pill">completed</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
 <div class="req-number">3-4</div>
@@ -112,20 +112,22 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-K7-TC-001</strong>: Readers never see partial values <span class="status-pill">planned</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-K7-TC-002</strong>: Ioctl applies all-or-nothing update <span class="status-pill">planned</span></div>
 </div>
-<div class="req" style="background:#fff3cd">
-<div class="req-number">19-20</div>
+<div class="req" style="background:#d1e7dd">
+<div class="req-number">19-21</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_7')">▸</span> <strong>F-K8</strong>: Clean load/unload sequence
-<span class="status-pill">in-progress</span>
-<span class="counts">(0/2 tests completed)</span>
+ <a href="https://github.com/n2Electrons/simtemp-system/issues/19" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
+<span class="status-pill">completed</span>
+<span class="counts">(2/3 tests completed)</span>
 </div>
 </div>
 <div class="tests" id="tests_7" style="display:none">
-<div class="test" style="background:#fff3cd"><strong>F-K8-TC-001</strong>: Load/unload no WARN/OOPS <a href="https://github.com/n2Electrons/challenge_2509/tree/f-k8-tc-001-loadunload" target="_blank" title="Git branch: f-k8-tc-001-loadunload" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
+<div class="test" style="background:#d1e7dd"><strong>F-K8-TC-001</strong>: Load/unload no WARN/OOPS <a href="https://github.com/n2Electrons/simtemp-system/issues/19" target="_blank" title="GitHub Issue for F-K8-TC-001" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/n2Electrons-Infra/tree/f-k8-tc-001-loadunload" target="_blank" title="Git branch: f-k8-tc-001-loadunload" class="branch-link">🌿</a> <span class="status-pill">completed</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-K8-TC-002</strong>: Readers exit gracefully on unload <span class="status-pill">planned</span></div>
+<div class="test" style="background:#d1e7dd"><strong>F-K8-TC-003</strong>: DTB driver binding and functionality verification <a href="https://github.com/n2Electrons/simtemp-system/issues/20" target="_blank" title="GitHub Issue for F-K8-TC-003" class="gh-link">🔗</a> <span class="status-pill">completed</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">21-22</div>
+<div class="req-number">22-23</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_8')">▸</span> <strong>F-K9</strong>: Parse DT properties and apply defaults
 <span class="status-pill">planned</span>
@@ -137,7 +139,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-K9-TC-002</strong>: Defaults used when DT missing <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">23-25</div>
+<div class="req-number">24-26</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_9')">▸</span> <strong>F-U1</strong>: CLI configures sampling, threshold, and mode
 <span class="status-pill">planned</span>
@@ -150,7 +152,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-U1-TC-003</strong>: Mode persists <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">26-28</div>
+<div class="req-number">27-29</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_10')">▸</span> <strong>F-U2</strong>: Read and display temperature samples
 <span class="status-pill">planned</span>
@@ -163,7 +165,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-U2-TC-003</strong>: Alert printed on threshold cross <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">29-31</div>
+<div class="req-number">30-32</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_11')">▸</span> <strong>F-U3</strong>: Poll/epoll for events
 <span class="status-pill">planned</span>
@@ -176,7 +178,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-U3-TC-003</strong>: Non-blocking returns immediately <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">32-33</div>
+<div class="req-number">33-34</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_12')">▸</span> <strong>F-U4</strong>: CLI validates alert detection
 <span class="status-pill">planned</span>
@@ -188,7 +190,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-U4-TC-002</strong>: High threshold → FAIL (exit ≠ 0) <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">34-35</div>
+<div class="req-number">35-36</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_13')">▸</span> <strong>F-U5</strong>: Visualize readings and live control
 <span class="status-pill">planned</span>
@@ -200,7 +202,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-U5-TC-002</strong>: Parameter edits reflected in sysfs <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">36-38</div>
+<div class="req-number">37-39</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_14')">▸</span> <strong>F-S1</strong>: Automate kernel + CLI build
 <span class="status-pill">planned</span>
@@ -213,7 +215,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-S1-TC-003</strong>: Re-run idempotent <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">39-41</div>
+<div class="req-number">40-42</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_15')">▸</span> <strong>F-S2</strong>: Automate demo pipeline
 <span class="status-pill">planned</span>
@@ -226,7 +228,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-S2-TC-003</strong>: Cleanup on failure <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">42-43</div>
+<div class="req-number">43-44</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_16')">▸</span> <strong>F-S3</strong>: Lint and style verification
 <span class="status-pill">planned</span>
@@ -238,7 +240,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-S3-TC-002</strong>: Missing tools → graceful skip <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">44-45</div>
+<div class="req-number">45-46</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_17')">▸</span> <strong>F-D1</strong>: Build/run/demo guide
 <span class="status-pill">planned</span>
@@ -250,7 +252,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-D1-TC-002</strong>: Links valid <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">46-47</div>
+<div class="req-number">47-48</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_18')">▸</span> <strong>F-D2</strong>: Architecture &amp; API
 <span class="status-pill">planned</span>
@@ -258,11 +260,11 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 </div>
 </div>
 <div class="tests" id="tests_18" style="display:none">
-<div class="test" style="background:#f8f9fa"><strong>F-D2-TC-001</strong>: Struct/API match code <a href="https://github.com/n2Electrons/challenge_2509/issues/64" target="_blank" title="GitHub Issue for F-D2-TC-001" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
-<div class="test" style="background:#f8f9fa"><strong>F-D2-TC-002</strong>: Locking rationale consistent <a href="https://github.com/n2Electrons/challenge_2509/issues/65" target="_blank" title="GitHub Issue for F-D2-TC-002" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-D2-TC-001</strong>: Struct/API match code <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/64" target="_blank" title="GitHub Issue for F-D2-TC-001" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
+<div class="test" style="background:#f8f9fa"><strong>F-D2-TC-002</strong>: Locking rationale consistent <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/65" target="_blank" title="GitHub Issue for F-D2-TC-002" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">48-49</div>
+<div class="req-number">49-50</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_19')">▸</span> <strong>F-D3</strong>: Test coverage matrix
 <span class="status-pill">planned</span>
@@ -273,21 +275,21 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-D3-TC-001</strong>: All reqs mapped <span class="status-pill">planned</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-D3-TC-002</strong>: Commands + criteria documented <span class="status-pill">planned</span></div>
 </div>
-<div class="req" style="background:#f8f9fa">
-<div class="req-number">50-51</div>
+<div class="req" style="background:#d1d8e7">
+<div class="req-number">51-52</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_20')">▸</span> <strong>F-D4</strong>: Prompts and validation notes
- <a href="https://github.com/n2Electrons/challenge_2509/issues/57" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
-<span class="status-pill">planned</span>
-<span class="counts">(0/2 tests completed)</span>
+ <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/57" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
+<span class="status-pill">partial</span>
+<span class="counts">(1/2 tests completed)</span>
 </div>
 </div>
 <div class="tests" id="tests_20" style="display:none">
-<div class="test" style="background:#f8f9fa"><strong>F-D4-TC-001</strong>: Prompts recorded <a href="https://github.com/n2Electrons/challenge_2509/issues/59" target="_blank" title="GitHub Issue for F-D4-TC-001" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
+<div class="test" style="background:#d1e7dd"><strong>F-D4-TC-001</strong>: Prompts recorded <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/59" target="_blank" title="GitHub Issue for F-D4-TC-001" class="gh-link">🔗</a> <span class="status-pill">completed</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-D4-TC-002</strong>: Mitigations listed <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">52-53</div>
+<div class="req-number">53-54</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_21')">▸</span> <strong>F-D5</strong>: Repository structure
 <span class="status-pill">planned</span>
@@ -299,7 +301,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-D5-TC-002</strong>: No binaries tracked <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">54-56</div>
+<div class="req-number">55-57</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_22')">▸</span> <strong>N-F1</strong>: Operate ≤ 100 Hz with low latency
 <span class="status-pill">planned</span>
@@ -312,7 +314,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>N-F1-TC-003</strong>: CPU usage &lt; 5 % <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">57-58</div>
+<div class="req-number">58-59</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_23')">▸</span> <strong>N-F2</strong>: No kernel warnings/leaks
 <span class="status-pill">planned</span>
@@ -324,7 +326,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>N-F2-TC-002</strong>: 6 h run → no leaks/crash <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">59-60</div>
+<div class="req-number">60-61</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_24')">▸</span> <strong>N-F3</strong>: Thread-safe multi-access
 <span class="status-pill">planned</span>
@@ -336,7 +338,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>N-F3-TC-002</strong>: Concurrent sysfs writes stable <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">61-62</div>
+<div class="req-number">62-63</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_25')">▸</span> <strong>N-F4</strong>: Build/run on Ubuntu + ARM
 <span class="status-pill">planned</span>
@@ -348,7 +350,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>N-F4-TC-002</strong>: ARM run in QEMU <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">63-64</div>
+<div class="req-number">64-65</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_26')">▸</span> <strong>N-F5</strong>: Input validation and permissions
 <span class="status-pill">planned</span>
@@ -360,7 +362,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>N-F5-TC-002</strong>: Root-only RW verified <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">65-66</div>
+<div class="req-number">66-67</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_27')">▸</span> <strong>N-F6</strong>: Code style &amp; modularity
 <span class="status-pill">planned</span>
@@ -372,7 +374,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>N-F6-TC-002</strong>: Modules isolated; no symbol leak <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">67-68</div>
+<div class="req-number">68-69</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_28')">▸</span> <strong>N-F7</strong>: CLI clarity &amp; error handling
 <span class="status-pill">planned</span>
@@ -384,7 +386,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>N-F7-TC-002</strong>: Device removal error handled <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">69-70</div>
+<div class="req-number">70-71</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_29')">▸</span> <strong>N-F8</strong>: Req ↔ Test ↔ Code mapping
 <span class="status-pill">planned</span>
@@ -396,7 +398,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>N-F8-TC-002</strong>: Auto coverage 100 % <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">71-72</div>
+<div class="req-number">72-73</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_30')">▸</span> <strong>N-F9</strong>: Kernel coding style adherence
 <span class="status-pill">planned</span>
@@ -408,7 +410,7 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>N-F9-TC-002</strong>: `clang-format --dry-run` no diff <span class="status-pill">planned</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
-<div class="req-number">73-74</div>
+<div class="req-number">74-75</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_31')">▸</span> <strong>N-F10</strong>: Consistency and reproducibility
 <span class="status-pill">planned</span>

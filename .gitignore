@@ -122,3 +122,5 @@ deployment/docker/jenkins-minimal-backup.tar.gz
 simtemp/scripts/sysroot-arm/
 *pr_comment_data.json
 *pr_comment_table.md
+
+# Temporary summary and documentation files
