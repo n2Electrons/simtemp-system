@@ -1859,12 +1859,12 @@ def postPRComment(pipelineConfig = null) {
 pipeline {
     agent any
     
-    triggers {
-        // Disabled to prevent duplicate executions with infra_ext/Jenkinsfile
-        // Use webhook triggers instead for better performance
-        // pollSCM('* * * * *')  // Check for changes every minute (most frequent allowed)
-        // Note: SCM polling doesn't support seconds, minimum is 1 minute
-    }
+    // Triggers disabled to prevent duplicate executions with infra_ext/Jenkinsfile
+    // Use webhook triggers instead for better performance
+    // triggers {
+    //     pollSCM('* * * * *')  // Check for changes every minute (most frequent allowed)
+    //     // Note: SCM polling doesn't support seconds, minimum is 1 minute
+    // }
     
     parameters {
         // Infrastructure configuration
