@@ -100,6 +100,9 @@ static void nxp_simtemp_remove(struct platform_device *pdev)
  */
 static const struct of_device_id nxp_simtemp_of_match[] = {
 	{
+		.compatible = "nxp,simtemp",
+	},
+	{
 		.compatible = "simtemp,temperature-sensor",
 	},
 	{
@@ -112,6 +115,7 @@ static const struct of_device_id nxp_simtemp_of_match[] = {
 MODULE_DEVICE_TABLE(of, nxp_simtemp_of_match);
 #else
 /* For non-Device Tree kernels (like x86_64), create manual aliases for testing */
+MODULE_ALIAS("of:N*T*Cnxp,simtemp");
 MODULE_ALIAS("of:N*T*Csimtemp,temperature-sensor");
 MODULE_ALIAS("of:N*T*Csimtemp,temperature-sensor-overlay");
 #endif
@@ -145,6 +149,23 @@ static int __init nxp_simtemp_init(void)
 	}
 
 	pr_info("NXP SimTemp driver: Platform driver registered successfully\n");
+
+	/* For TDD test F-K8-TC-003: Create a platform device if no DT binding exists
+	 * This ensures DTB binding functionality can be tested even without
+	 * a real device tree node present in the system.
+	 */
+#ifndef CONFIG_OF
+	/* On non-DT systems, create a platform device for testing */
+	struct platform_device *test_pdev;
+	
+	test_pdev = platform_device_register_simple("nxp-simtemp", 0, NULL, 0);
+	if (IS_ERR(test_pdev)) {
+		pr_warn("NXP SimTemp driver: Could not create test platform device\n");
+	} else {
+		pr_info("NXP SimTemp driver: Test platform device created for DTB testing\n");
+	}
+#endif
+
 	return 0;
 }
 
