@@ -180,7 +180,16 @@ clean:
 	@echo "Cleaning build artifacts..."
 	@if [ -d "$(OBJ_DIR)" ]; then \
 		echo "Removing $(OBJ_DIR) directory and contents..."; \
-		if [ "$$(id -u)" = "0" ]; then \
+		if [ -f "/.dockerenv" ]; then \
+			echo "Docker environment detected - using root permissions"; \
+			chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
+			rm -rf $(OBJ_DIR) 2>/dev/null || { \
+				echo "ERROR: Failed to remove $(OBJ_DIR) in Docker"; \
+				ls -la $(OBJ_DIR) 2>/dev/null || true; \
+				exit 1; \
+			}; \
+		elif [ "$$(id -u)" = "0" ]; then \
+			echo "Running as root - direct removal"; \
 			chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
 			rm -rf $(OBJ_DIR) 2>/dev/null || { \
 				echo "ERROR: Failed to remove $(OBJ_DIR) as root"; \
@@ -188,6 +197,7 @@ clean:
 				exit 1; \
 			}; \
 		else \
+			echo "Running as user - trying with sudo"; \
 			chmod -R u+w $(OBJ_DIR) 2>/dev/null || sudo chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
 			rm -rf $(OBJ_DIR) 2>/dev/null || sudo rm -rf $(OBJ_DIR) 2>/dev/null || { \
 				echo "ERROR: Failed to remove $(OBJ_DIR) with user/sudo permissions"; \
