@@ -21,6 +21,11 @@ MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Jorge Rodriguez Moreno");
 MODULE_DESCRIPTION("Temperature Simulator Driver");
 
+/* For x86 systems without Device Tree, request the stub module */
+#ifdef CONFIG_X86
+MODULE_SOFTDEP("pre: nxp_simtemp_stub");
+#endif
+
 #define DRIVER_NAME "nxp-simtemp"
 
 /**
@@ -183,4 +188,34 @@ static struct platform_driver nxp_simtemp_driver = {
 	},
 	.id_table = nxp_simtemp_id, /* key for non-DT */
 };
-module_platform_driver(nxp_simtemp_driver);
+
+static int __init nxp_simtemp_init(void)
+{
+	int ret;
+
+	pr_info("NXP SimTemp driver: Initializing\n");
+
+#ifdef CONFIG_X86
+	/* On x86 systems, recommend loading the stub module for testing */
+	pr_info("NXP SimTemp driver: x86 detected - consider loading nxp_simtemp_stub for testing\n");
+#endif
+
+	ret = platform_driver_register(&nxp_simtemp_driver);
+	if (ret) {
+		pr_err("NXP SimTemp driver: Failed to register platform driver: %d\n", ret);
+		return ret;
+	}
+
+	pr_info("NXP SimTemp driver: Platform driver registered\n");
+	return 0;
+}
+
+static void __exit nxp_simtemp_exit(void)
+{
+	pr_info("NXP SimTemp driver: Cleaning up\n");
+	platform_driver_unregister(&nxp_simtemp_driver);
+	pr_info("NXP SimTemp driver: Platform driver unregistered\n");
+}
+
+module_init(nxp_simtemp_init);
+module_exit(nxp_simtemp_exit);

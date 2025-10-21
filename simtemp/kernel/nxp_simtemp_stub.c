@@ -15,6 +15,9 @@ MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Jorge Rodriguez Moreno");
 MODULE_DESCRIPTION("NXP SimTemp Stub Driver for Testing");
 
+/* This module provides test devices for the nxp_simtemp driver on x86 */
+MODULE_SOFTDEP("post: nxp_simtemp");
+
 static const struct property_entry simtemp_props[] = {
 	PROPERTY_ENTRY_U32("sampling-ms", 200),
 	PROPERTY_ENTRY_U32("threshold-microc", 60000),
@@ -33,7 +36,8 @@ static int __init nxp_simtemp_stub_init(void)
 {
 	int ret;
 
-	pr_info("nxp_simtemp_stub: Initializing\n");
+	pr_info("nxp_simtemp_stub: Initializing test device provider\n");
+	pr_info("nxp_simtemp_stub: Creating simulated DTB device for nxp_simtemp driver\n");
 
 	ret = software_node_register(&simtemp_swnode);
 	if (ret) {

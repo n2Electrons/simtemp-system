@@ -138,3 +138,69 @@ When moving to the embedded target:
 ---
 
 **Purpose:** enable DT-based driver validation on non-DT hosts while keeping code portable and production-ready.
+
+---
+
+# X86 Module Dependencies for NXP SimTemp Driver
+
+## Overview
+
+On x86_64 systems, the NXP SimTemp driver requires additional components to simulate Device Tree functionality since x86 systems typically don't have Device Tree support.
+
+## Module Dependencies
+
+### Primary Module: `nxp_simtemp.ko`
+- **Description**: Main platform driver for temperature simulation
+- **Dependencies on x86**: Requires `nxp_simtemp_stub.ko` for device creation
+- **Auto-loading**: Configured with `MODULE_SOFTDEP("pre: nxp_simtemp_stub")`
+
+### Stub Module: `nxp_simtemp_stub.ko`
+- **Description**: Creates platform devices with software node properties
+- **Purpose**: Simulates DTB devices on non-DT systems
+- **Dependency**: Works with `nxp_simtemp.ko` (configured with `MODULE_SOFTDEP("post: nxp_simtemp")`)
+
+## Loading Order
+
+### Automatic Loading (Recommended)
+```bash
+# The modules will auto-load in correct order due to softdep configuration
+sudo modprobe nxp_simtemp
+```
+
+### Manual Loading
+```bash
+# Load in this order:
+sudo insmod obj/nxp_simtemp.ko       # Main driver
+sudo insmod obj/nxp_simtemp_stub.ko  # Stub creates test device
+```
+
+## Verification
+
+Check that both devices are created:
+```bash
+ls /sys/devices/platform/nxp-simtemp*
+# Should show:
+# /sys/devices/platform/nxp-simtemp.0      (default device)
+# /sys/devices/platform/nxp-simtemp.1.auto (stub-created device)
+```
+
+## Device Properties
+
+### Default Device (nxp-simtemp.0)
+- `sampling_ms`: 1000
+- `threshold_mC`: 50000
+- `mode`: "default"
+
+### Stub Device (nxp-simtemp.1.auto)
+- `sampling_ms`: 200 
+- `threshold_mC`: 60000
+- `mode`: "lab"
+
+## Build Configuration
+
+Both modules are built together:
+```bash
+make host-driver  # Builds and signs both modules
+```
+
+The dependency is platform-specific and only active on x86 systems due to the `#ifdef CONFIG_X86` guard.
