@@ -84,6 +84,8 @@ nxp-driver-arm: prepare-nxp-driver-arm $(OBJ_DIR)
 	fi
 	$(call sign_module_inline)
 	@echo "✅ NXP ARM module built and signed successfully"
+	@echo "📦 Populating prebuilt directories..."
+	@../scripts/populate_arm_driver.sh
 
 prepare-nxp-driver-arm64:
 	@echo "Preparing NXP ARM64 (i.MX8) cross-compilation environment..."
