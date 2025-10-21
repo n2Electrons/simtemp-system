@@ -150,10 +150,11 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
  * Note: Return type varies by kernel version - void for older kernels,
  * int for newer kernels. We use a wrapper approach for compatibility.
  */
-static void nxp_simtemp_remove(struct platform_device *pdev)
+static int nxp_simtemp_remove(struct platform_device *pdev)
 {
 	/* Nothing needed if using devm_device_add_group */
 	dev_info(&pdev->dev, "NXP SimTemp driver remove called\n");
+	return 0;
 }
 
 /**
@@ -163,6 +164,8 @@ static void nxp_simtemp_remove(struct platform_device *pdev)
  */
 static const struct of_device_id nxp_simtemp_of_match[] = {
 	{ .compatible = "nxp,simtemp" },
+	{ .compatible = "simtemp,temperature-sensor" },
+	{ .compatible = "simtemp,temperature-sensor-overlay" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, nxp_simtemp_of_match);

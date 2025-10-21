@@ -77,6 +77,13 @@ tests:
         pytest_file: "test_f_k1_tc_003.py"  # Comprehensive platform driver validation
         verbose_output: true  # Enable verbose output for TDD debugging
         debug_info: "TDD test - expected to fail until platform driver is implemented"
+      - name: "test_driver_validation"
+        description: "test_driver_validation() - Comprehensive driver validation including sysfs, dependencies, kernel logs, and bind/unbind operations"
+        enabled: true
+        test_id: "F-K8-TC-004"
+        pytest_file: "test_driver_validation.py"  # Comprehensive driver validation suite
+        verbose_output: true  # Enable verbose output for validation debugging
+        debug_info: "Comprehensive validation test suite for driver functionality including device creation, sysfs attributes, module dependencies, kernel logs, and driver bind/unbind operations"
 
   qemu_integration:
     enabled: true

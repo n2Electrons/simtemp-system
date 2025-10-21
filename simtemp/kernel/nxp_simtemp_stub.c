@@ -18,6 +18,9 @@ MODULE_DESCRIPTION("NXP SimTemp Stub Driver for Testing");
 /* This module provides test devices for the nxp_simtemp driver on x86 */
 MODULE_SOFTDEP("post: nxp_simtemp");
 
+#ifdef CONFIG_X86
+/* Software nodes are primarily for x86 testing - ARM uses real DT */
+
 static const struct property_entry simtemp_props[] = {
 	PROPERTY_ENTRY_U32("sampling-ms", 200),
 	PROPERTY_ENTRY_U32("threshold-microc", 60000),
@@ -85,6 +88,22 @@ static void __exit nxp_simtemp_stub_exit(void)
 
 	pr_info("nxp_simtemp_stub: Unregistered\n");
 }
+
+#else /* !CONFIG_X86 */
+
+/* On ARM platforms, use real Device Tree - no stub needed */
+static int __init nxp_simtemp_stub_init(void)
+{
+	pr_info("nxp_simtemp_stub: ARM platform detected - using real Device Tree\n");
+	return 0;
+}
+
+static void __exit nxp_simtemp_stub_exit(void)
+{
+	pr_info("nxp_simtemp_stub: ARM cleanup - nothing to do\n");
+}
+
+#endif /* CONFIG_X86 */
 
 module_init(nxp_simtemp_stub_init);
 module_exit(nxp_simtemp_stub_exit);
