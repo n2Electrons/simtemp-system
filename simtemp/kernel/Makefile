@@ -189,11 +189,13 @@ clean:
 		echo "Removing $(OBJ_DIR) directory and contents..."; \
 		if [ -f "/.dockerenv" ]; then \
 			echo "Docker environment detected - using root permissions"; \
-			chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
-			rm -rf $(OBJ_DIR) 2>/dev/null || { \
-				echo "ERROR: Failed to remove $(OBJ_DIR) in Docker"; \
-				ls -la $(OBJ_DIR) 2>/dev/null || true; \
-				exit 1; \
+			chmod -R 777 $(OBJ_DIR) 2>/dev/null || true; \
+			find $(OBJ_DIR) -type f -delete 2>/dev/null || true; \
+			rmdir $(OBJ_DIR) 2>/dev/null || rm -rf $(OBJ_DIR) 2>/dev/null || { \
+				echo "WARNING: Could not fully remove $(OBJ_DIR) - trying alternative cleanup"; \
+				find $(OBJ_DIR) -name ".*" -delete 2>/dev/null || true; \
+				find $(OBJ_DIR) -type f -exec rm -f {} \; 2>/dev/null || true; \
+				rmdir $(OBJ_DIR) 2>/dev/null || echo "Directory $(OBJ_DIR) may still exist"; \
 			}; \
 		elif [ "$$(id -u)" = "0" ]; then \
 			echo "Running as root - direct removal"; \
