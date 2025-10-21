@@ -158,17 +158,26 @@ def get_driver_path(test_suite_name=None):
                             return precompiled_path
                         
                         # On host - try different possible paths
+                        # Remove leading /tmp from precompiled_path for host access
+                        if precompiled_path.startswith('/tmp/'):
+                            # Remove '/tmp/'
+                            relative_path = precompiled_path[5:]
+                        else:
+                            relative_path = precompiled_path.lstrip('/')
+                            
                         host_paths = [
-                            precompiled_path,  # Try as-is first
-                            "/workspace/deployment/qemu/rootfs" + precompiled_path,
+                            # Try as-is first (host with /tmp/prebuild)
+                            precompiled_path,
+                            f"/workspace/deployment/qemu/rootfs/tmp/"
+                            f"{relative_path}",
                         ]
                         
                         # Try Jenkins workspace path
                         jenkins_workspace = os.environ.get('WORKSPACE', '')
                         if jenkins_workspace:
                             jenkins_path = os.path.join(
-                                jenkins_workspace, 
-                                "deployment/qemu/rootfs" + precompiled_path
+                                jenkins_workspace,
+                                f"deployment/qemu/rootfs/tmp/{relative_path}"
                             )
                             host_paths.append(jenkins_path)
                         
@@ -177,7 +186,8 @@ def get_driver_path(test_suite_name=None):
                                 return path
                         
                         print(f"⚠️  Precompiled driver not found at any of: "
-                              f"{host_paths}, falling back to compiled version")
+                              f"{host_paths}, falling back to compiled "
+                              f"version")
     except Exception as e:
         print(f"⚠️  Could not load test configuration: {e}, "
               f"using compiled driver")
