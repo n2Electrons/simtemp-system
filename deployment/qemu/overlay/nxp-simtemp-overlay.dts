@@ -1,0 +1,22 @@
+/dts-v1/;
+/plugin/;
+
+/* NXP SimTemp Device Tree Overlay for F-K8-TC-003 Testing */
+
+/ {
+    compatible = "fsl,imx6ul-evk", "fsl,imx6ul";
+    
+    fragment@0 {
+        target-path = "/";
+        __overlay__ {
+            simtemp_device: simtemp@0 {
+                compatible = "nxp,simtemp";
+                reg = <0x0 0x1000>;
+                sampling_ms = <100>;
+                threshold_mC = <75000>;
+                mode = "continuous";
+                status = "okay";
+            };
+        };
+    };
+};
