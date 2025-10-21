@@ -81,7 +81,7 @@ tests:
         description: "test_driver_validation() - Comprehensive driver validation including sysfs, dependencies, kernel logs, and bind/unbind operations"
         enabled: true
         test_id: "F-K8-TC-004"
-        pytest_file: "test_driver_validation.py"  # Comprehensive driver validation suite
+        pytest_file: "test_f_k8_tc_004.py"  # Comprehensive driver validation suite
         verbose_output: true  # Enable verbose output for validation debugging
         debug_info: "Comprehensive validation test suite for driver functionality including device creation, sysfs attributes, module dependencies, kernel logs, and driver bind/unbind operations"
 
@@ -114,6 +114,20 @@ tests:
         qemu_specific:
           expects_boot: true
           validation_patterns: ["Booting Linux", "initramfs ready"]
+
+      - name: "test_qemu_driver_load_unload"
+        description: "QEMU / test_qemu_driver_load_unload() - Load/unload kernel module in QEMU environment without WARN/OOPS"
+        enabled: true
+        test_id: "F-K8-TC-001-QEMU"
+        pytest_file: "test_f_k8_tc_001_qemu.py"  # QEMU-specific version of load/unload test
+        verbose_output: true  # Enable verbose output for QEMU debugging
+        debug_info: "QEMU-based version of F-K8-TC-001 that tests module load/unload operations in ARM emulation environment"
+        qemu_specific:
+          expects_boot: true
+          expects_module_load: true
+          expects_clean_unload: true
+          validation_patterns: ["initramfs ready", "insmod", "rmmod", "module loaded", "module unloaded"]
+          timeout_seconds: 90
 
       - name: "test_f_k1_platform_driver_dt_registration"
         description: "QEMU / test_f_k1_platform_driver_dt_registration() - Validate platform driver with Device Tree in QEMU environment"
