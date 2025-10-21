@@ -1186,7 +1186,22 @@ def sendConsolidatedPRComment() {
     try {
         def pythonScript = "simtemp/tests/jenkins_pr_comment_generator.py"
         if (fileExists(pythonScript)) {
-            sh "cd ${WORKSPACE} && python3 ${pythonScript}"
+            // Set environment variables for the Python script
+            def actualConfigPath = env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH
+            def testConfigPath = pipelineConfig?.testing?.test_config_file ?: "simtemp/tests/config/simtemp_tests.yml"
+            
+            echo "DEBUG: Using config paths - pipeline: ${actualConfigPath}, test: ${testConfigPath}"
+            
+            sh """
+                cd ${WORKSPACE}
+                export TEST_CONFIG_PATH="${testConfigPath}"
+                export ACTUAL_PIPELINE_CONFIG_PATH="${actualConfigPath}"
+                export BUILD_NUMBER="${env.BUILD_NUMBER}"
+                export BUILD_URL="${env.BUILD_URL}"
+                export JOB_NAME="${env.JOB_NAME}"
+                export BRANCH_NAME="${env.BRANCH_NAME}"
+                python3 ${pythonScript}
+            """
             
             // Check if the generated comment files exist
             if (fileExists('pr_comment_table.md')) {

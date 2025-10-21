@@ -537,3 +537,126 @@ def list_qemu_binaries(qemu_dir_path=None):
     except Exception as e:
         print(f"❌ Error listing binaries: {e}")
         return []
+
+
+def is_qemu_test():
+    """
+    Detect if this test should run in QEMU mode.
+    Checks for QEMU configuration with expects_boot: true
+    """
+    try:
+        import yaml
+        
+        # Check for F-K1-TC-003-QEMU configuration
+        config_path = os.environ.get('TEST_CONFIG_PATH',
+                                     'simtemp/tests/config/simtemp_tests.yml')
+        if not os.path.exists(config_path):
+            return False
+            
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+            
+        # Look for qemu_integration section with F-K1-TC-003-QEMU
+        qemu_tests = config.get('tests', {}).get('qemu_integration', {})
+        if not qemu_tests.get('enabled', False):
+            return False
+            
+        # Check if F-K1-TC-003-QEMU test is enabled and has qemu_specific config
+        test_cases = qemu_tests.get('test_cases', [])
+        for test_case in test_cases:
+            if (test_case.get('test_id') == 'F-K1-TC-003-QEMU' and
+                test_case.get('enabled', False) and
+                test_case.get('qemu_specific', {}).get('expects_boot', False)):
+                return True
+                
+        return False
+    except Exception:
+        return False
+
+
+def start_qemu_and_wait_for_boot():
+    """
+    Start QEMU process and wait for boot completion.
+    Returns the QEMU process handle.
+    """
+    import subprocess
+    import pytest
+    
+    # Cleanup any existing QEMU processes first
+    cleanup_qemu_processes(force_kill=True)
+    
+    # Verify QEMU files exist
+    required_files = [
+        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage",
+        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/"
+        "imx6q-sabrelite.dtb",
+        "/workspace/deployment/qemu/rootfs.cpio.gz"
+    ]
+    
+    for file_path in required_files:
+        if not os.path.exists(file_path):
+            pytest.fail(f"Required QEMU file not found: {file_path}")
+    
+    # Start QEMU process
+    qemu_cmd = [
+        "qemu-system-arm",
+        "-M", "sabrelite",
+        "-cpu", "cortex-a9",
+        "-m", "1024",
+        "-nographic",
+        "-kernel",
+        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage",
+        "-dtb",
+        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/"
+        "imx6q-sabrelite.dtb",
+        "-initrd", "/workspace/deployment/qemu/rootfs.cpio.gz",
+        "-append",
+        "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 "
+        "loglevel=8 debug",
+        "-no-reboot"
+    ]
+    
+    print("Starting QEMU for platform driver testing...")
+    qemu_process = subprocess.Popen(
+        qemu_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+        universal_newlines=True
+    )
+    
+    # Wait for ARM initramfs ready message
+    print("Waiting for QEMU boot completion...")
+    boot_success, boot_output = wait_for_qemu_message(
+        qemu_process, "=== ARM initramfs ready ===", timeout=120
+    )
+    
+    if not boot_success:
+        qemu_process.terminate()
+        pytest.fail("QEMU failed to boot - ARM initramfs ready "
+                    "message not found")
+    
+    print("✓ QEMU boot completed - ARM initramfs ready")
+    
+    # Wait for shell prompt
+    print("Waiting for shell prompt...")
+    shell_success, shell_output = wait_for_qemu_message(
+        qemu_process, "~ #", timeout=30
+    )
+    
+    if not shell_success:
+        # Try sending enter to get prompt
+        qemu_process.stdin.write("\n")
+        qemu_process.stdin.flush()
+        shell_success, shell_output = wait_for_qemu_message(
+            qemu_process, "~ #", timeout=10
+        )
+    
+    if not shell_success:
+        qemu_process.terminate()
+        pytest.fail("Shell prompt not available after QEMU boot")
+    
+    print("✓ Shell prompt available - QEMU ready for platform driver tests")
+    return qemu_process

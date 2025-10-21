@@ -17,23 +17,50 @@ def load_pipeline_config():
     """Load pipeline configuration"""
     config_path = os.environ.get('ACTUAL_PIPELINE_CONFIG_PATH', 'simtemp/pipeline_config.yml')
     
-    if not os.path.exists(config_path):
-        print(f"Warning: Pipeline config not found: {config_path}")
-        return {}
+    # Try alternative paths if the default doesn't exist
+    alternative_paths = [
+        config_path,
+        'simtemp/pipeline_config.yml',
+        'pipeline_config.yml'
+    ]
     
-    with open(config_path, 'r') as f:
-        return yaml.safe_load(f)
+    for path in alternative_paths:
+        if os.path.exists(path):
+            print(f"Loading pipeline config from: {path}")
+            try:
+                with open(path, 'r') as f:
+                    return yaml.safe_load(f)
+            except Exception as e:
+                print(f"Warning: Could not load {path}: {e}")
+                continue
+    
+    print(f"Warning: No pipeline config found in any of: {alternative_paths}")
+    return {}
 
 def load_test_config():
     """Load test configuration from environment or default path"""
     test_config_path = os.environ.get('TEST_CONFIG_PATH', 'simtemp/tests/config/simtemp_tests.yml')
     
-    if not os.path.exists(test_config_path):
-        print(f"Warning: Test config not found: {test_config_path}")
-        return {}
+    # Try alternative paths if the default doesn't exist
+    alternative_paths = [
+        test_config_path,
+        'simtemp/tests/config/simtemp_tests.yml',
+        'tests/config/simtemp_tests.yml',
+        'config/simtemp_tests.yml'
+    ]
     
-    with open(test_config_path, 'r') as f:
-        return yaml.safe_load(f)
+    for path in alternative_paths:
+        if os.path.exists(path):
+            print(f"Loading test config from: {path}")
+            try:
+                with open(path, 'r') as f:
+                    return yaml.safe_load(f)
+            except Exception as e:
+                print(f"Warning: Could not load {path}: {e}")
+                continue
+    
+    print(f"Warning: No test config found in any of: {alternative_paths}")
+    return {}
 
 def load_detailed_test_report():
     """Load detailed test report JSON if available"""
@@ -67,6 +94,10 @@ def extract_python_files_from_config(test_config):
             
         test_cases = suite_config.get('test_cases', [])
         for test_case in test_cases:
+            # Only include enabled test cases
+            if not test_case.get('enabled', True):
+                continue
+                
             pytest_file = test_case.get('pytest_file')
             test_id = test_case.get('test_id', 'N/A')
             
@@ -85,19 +116,57 @@ def extract_python_files_from_config(test_config):
     
     return python_files
 
-def get_test_status_from_report(pytest_file, detailed_report):
-    """Get test status for a specific Python file from detailed report"""
+
+def extract_disabled_test_files(test_config):
+    """Extract disabled test files for counting purposes"""
+    disabled_files = {}
+    
+    if not test_config.get('tests'):
+        return disabled_files
+    
+    for suite_name, suite_config in test_config['tests'].items():
+        if not suite_config.get('enabled', True):
+            continue
+            
+        test_cases = suite_config.get('test_cases', [])
+        for test_case in test_cases:
+            # Only include disabled test cases
+            if test_case.get('enabled', True):
+                continue
+                
+            pytest_file = test_case.get('pytest_file')
+            test_id = test_case.get('test_id', 'N/A')
+            
+            if pytest_file and pytest_file.endswith('.py'):
+                unique_key = f"{test_id}#{pytest_file}"
+                disabled_files[unique_key] = {
+                    'pytest_file': pytest_file,
+                    'test_id': test_id,
+                    'suite': suite_name
+                }
+    
+    return disabled_files
+
+
+def get_test_status_from_report(pytest_file, test_id, detailed_report):
+    """Get test status for a specific Python file and test ID from detailed report"""
     if not detailed_report or not detailed_report.get('modules'):
         return None
-    
+
     # Search through all modules in the report
     for module_name, module_data in detailed_report['modules'].items():
         if module_data.get('tests'):
             for test in module_data['tests']:
+                # Match by test_id first (most reliable)
+                report_test_id = test.get('test_id', '')
+                if report_test_id == test_id:
+                    return test.get('status', 'unknown')
+                
+                # Fallback: match by pytest_file if test_id doesn't match
                 test_pytest_file = test.get('pytest_file', '')
                 if test_pytest_file == pytest_file:
                     return test.get('status', 'unknown')
-    
+
     return None
 
 def generate_build_status_section():
@@ -155,7 +224,7 @@ def generate_python_files_table(test_config, detailed_report=None):
             if not info['enabled']:
                 status_icon = "⚪"  # Disabled
             elif detailed_report:
-                test_status = get_test_status_from_report(pytest_file, detailed_report)
+                test_status = get_test_status_from_report(pytest_file, info['test_id'], detailed_report)
                 if test_status:
                     status_map = {
                         'passed': '✅',
@@ -181,42 +250,33 @@ def generate_summary_section(test_config, detailed_report=None):
     """Generate summary section with suite breakdown"""
     python_files = extract_python_files_from_config(test_config)
     
+    # Also get counts of disabled tests for informational purposes
+    disabled_files = extract_disabled_test_files(test_config)
+    
     lines = []
     lines.append("### 📊 Summary")
     
-    # Overall summary
-    lines.append(f"- **Total Python test files:** {len(python_files)}")
+    # Overall summary (only showing enabled tests)
+    lines.append(f"- **Enabled test files displayed:** {len(python_files)}")
     
-    enabled_count = sum(1 for info in python_files.values() if info['enabled'])
-    disabled_count = len(python_files) - enabled_count
+    if disabled_files:
+        lines.append(f"- **Disabled tests (not shown):** {len(disabled_files)}")
     
-    lines.append(f"- **Enabled:** {enabled_count}")
-    if disabled_count > 0:
-        lines.append(f"- **Disabled:** {disabled_count}")
-    
-    # Suite breakdown
+    # Suite breakdown (only enabled tests)
     if python_files:
         lines.append("")
-        lines.append("**By Test Suite:**")
+        lines.append("**Enabled Tests by Suite:**")
         
         # Group by suite for summary
         suite_counts = {}
         for info in python_files.values():
             suite_name = info['suite']
             if suite_name not in suite_counts:
-                suite_counts[suite_name] = {'total': 0, 'enabled': 0}
-            suite_counts[suite_name]['total'] += 1
-            if info['enabled']:
-                suite_counts[suite_name]['enabled'] += 1
+                suite_counts[suite_name] = 0
+            suite_counts[suite_name] += 1
         
-        for suite_name, counts in sorted(suite_counts.items()):
-            total = counts['total']
-            enabled = counts['enabled']
-            disabled = total - enabled
-            status = f"{enabled}/{total} enabled"
-            if disabled > 0:
-                status += f" ({disabled} disabled)"
-            lines.append(f"- **{suite_name}:** {status}")
+        for suite_name, count in sorted(suite_counts.items()):
+            lines.append(f"- **{suite_name}:** {count} enabled")
     
     # Add test execution summary if we have detailed report
     if detailed_report and detailed_report.get('summary'):
