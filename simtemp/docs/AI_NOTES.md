@@ -189,4 +189,15 @@ This section documents the AI-assisted implementation of shared QEMU session man
 | **7** | "Run tests" | Comprehensive testing of all components, verified Jenkins compatibility | Complete system validation and documentation |
 | **8** | "Add changes to stage area" | Staged all files for commit preparation | All QEMU session management files staged |
 
+---
+
+## 3.12 Test Analysis and Module Creation Prompts
+
+This section documents AI prompts for analyzing testing history and creating new test modules based on important test patterns.
+
+| **#** | **User Prompt** | **Purpose / Outcome** | **Expected AI Response** |
+|------|-----------------|------------------------|--------------------------|
+| **1** | "Show me the last 100 commands we have executed for testing the nxp_simtemp driver. Include terminal commands, pytest executions, QEMU operations, and any driver-related validation." | Comprehensive analysis of testing history to identify patterns and key validation steps for the nxp_simtemp driver | AI should extract and categorize all driver testing commands from conversation history, terminal outputs, and tool executions, presenting them in chronological order with pattern analysis |
+| **2** | "Filter the most important tests. Focus on: critical driver functionality tests,  and key integration tests. Create a new test module for complete driver validation." | Creation of a consolidated test module based on the most critical testing patterns identified from historical analysis | AI should analyze the filtered important tests and create a new Python test module that encapsulates the essential driver validation patterns, following TDD principles and project testing conventions |
+
 **End of AI_NOTES.md**
