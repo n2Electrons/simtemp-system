@@ -1111,9 +1111,12 @@ def runModuleTests() {
         }
         
         // Ensure reports directory exists and clean any stale reports
-        sh "mkdir -p ${WORKSPACE}/${reportsDirectory}"
-        sh "rm -f ${WORKSPACE}/${reportsDirectory}/test_report_detailed.json || true"
-        sh "rm -f ${WORKSPACE}/${reportsDirectory}/test_report_detailed.html || true"
+    sh "mkdir -p ${WORKSPACE}/${reportsDirectory}"
+    sh "rm -f ${WORKSPACE}/${reportsDirectory}/test_report_detailed.json || true"
+    sh "rm -f ${WORKSPACE}/${reportsDirectory}/test_report_detailed.html || true"
+
+    // Copy all /tmp/test_details_*.json files to the reports directory (if any)
+    sh "cp -v /tmp/test_details_*.json ${WORKSPACE}/${reportsDirectory}/ 2>/dev/null || true"
         
         // Use the simtemp test composer with configuration-driven paths
         def reportGenerator = pipelineConfig.testing?.test_composer
