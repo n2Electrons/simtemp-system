@@ -1200,6 +1200,7 @@ def sendConsolidatedPRComment() {
                 export BUILD_URL="${env.BUILD_URL}"
                 export JOB_NAME="${env.JOB_NAME}"
                 export BRANCH_NAME="${env.BRANCH_NAME}"
+                export BUILD_STATUS="${(globalBuildStatus == 'failure' || globalTestStatus == 'failure') ? 'failure' : 'success'}"
                 python3 ${pythonScript}
             """
             

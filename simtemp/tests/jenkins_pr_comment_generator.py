@@ -173,18 +173,30 @@ def generate_build_status_section():
     """Generate build status section"""
     build_number = os.environ.get('BUILD_NUMBER', 'unknown')
     build_url = os.environ.get('BUILD_URL', '')
-    job_name = os.environ.get('JOB_NAME', 'unknown')
     branch_name = os.environ.get('BRANCH_NAME', 'unknown')
     
+    # Get status from environment (set by Jenkins) or default to failure
+    build_status = os.environ.get('BUILD_STATUS', 'failure')
+    if build_status.lower() == 'success':
+        status_title = "Tests Success Details"
+    else:
+        status_title = "Tests Failure Details"
+    
     lines = []
-    lines.append("## 🧪 Test Results with Python Files")
-    lines.append(f"**Branch:** `{branch_name}` | **Build:** [#{build_number}]({build_url}) | **Job:** {job_name}")
+    lines.append(f"## {status_title}")
+    lines.append(f"Branch: `{branch_name}`")
+    lines.append(f"Pipeline: [Overview]({build_url}display/redirect)")
+    lines.append(f"Jenkins Job: [#{build_number}]({build_url})")
+    lines.append(f"Console output: [Log]({build_url}console)")
+    lines.append(f"Download [Artifacts]({build_url}artifact/)")
+    lines.append("")
+    lines.append("## Build Results:")
     lines.append("")
     
     return lines
 
 def generate_python_files_table(test_config, detailed_report=None):
-    """Generate Markdown table with all Python test files organized by test suite"""
+    """Generate readable list with all Python test files organized by test suite"""
     python_files = extract_python_files_from_config(test_config)
     
     if not python_files:
@@ -208,10 +220,6 @@ def generate_python_files_table(test_config, detailed_report=None):
         lines.append(f"### 📋 {suite_name}")
         lines.append("")
         
-        # Add table header for this suite
-        lines.append("| Status | Test ID | Python File | Test Name | Description |")
-        lines.append("|--------|---------|-------------|-----------|-------------|")
-        
         # Sort files within suite by test ID
         sorted_files = sorted(suite_files, key=lambda x: x[1]['test_id'])
         
@@ -220,27 +228,32 @@ def generate_python_files_table(test_config, detailed_report=None):
             
             # Determine status icon
             status_icon = "🔵"  # Default for configured
+            status_text = "Configured"
             
             if not info['enabled']:
                 status_icon = "⚪"  # Disabled
+                status_text = "Disabled"
             elif detailed_report:
                 test_status = get_test_status_from_report(pytest_file, info['test_id'], detailed_report)
                 if test_status:
                     status_map = {
-                        'passed': '✅',
-                        'failed': '❌',
-                        'skipped': '⏭️',
-                        'not implemented': '⚪',
-                        'error': '❌'
+                        'passed': ('✅', 'Passed'),
+                        'failed': ('❌', 'Failed'),
+                        'skipped': ('⏭️', 'Skipped'),
+                        'not implemented': ('⚪', 'Not Implemented'),
+                        'error': ('❌', 'Error')
                     }
-                    status_icon = status_map.get(test_status.lower(), '🔵')
+                    status_icon, status_text = status_map.get(test_status.lower(), ('🔵', 'Configured'))
             
             test_id = info['test_id']
             test_name = info['test_name'] or 'N/A'
-            description = info['description'] or 'N/A'
+            # description removed as requested
             
-            # Format table row
-            lines.append(f"| {status_icon} | `{test_id}` | `{pytest_file}` | {test_name} | {description} |")
+            # Format as readable list item with line breaks and double indentation
+            lines.append(f"    **{status_icon} {test_id}** - {status_text}")
+            lines.append(f"        - **File:** `{pytest_file}`")
+            lines.append(f"        - **Test:** {test_name}")
+            lines.append("")  # Add space between test items
         
         lines.append("")  # Add space between suites
     
@@ -253,32 +266,67 @@ def generate_summary_section(test_config, detailed_report=None):
     # Also get counts of disabled tests for informational purposes
     disabled_files = extract_disabled_test_files(test_config)
     
+    # Calculate totals including disabled tests
+    total_enabled = len(python_files)
+    total_disabled = len(disabled_files)
+    total_configured = total_enabled + total_disabled
+    
     lines = []
     lines.append("### 📊 Summary")
     
-    # Overall summary (only showing enabled tests)
-    lines.append(f"- **Enabled test files displayed:** {len(python_files)}")
+    # Overall summary
+    lines.append(f"- **Enabled test files displayed:** {total_enabled}")
     
     if disabled_files:
-        lines.append(f"- **Disabled tests (not shown):** {len(disabled_files)}")
+        lines.append(f"- **Disabled tests (not shown):** {total_disabled}")
     
-    # Suite breakdown (only enabled tests)
+    # Suite breakdown with enabled/total and success rates
     if python_files:
         lines.append("")
         lines.append("**Enabled Tests by Suite:**")
         
-        # Group by suite for summary
-        suite_counts = {}
+        # Group by suite for summary and calculate totals
+        suite_stats = {}
+        all_configured_files = {}
+        
+        # Get all configured files (enabled + disabled) by suite
+        for suite_name, suite_config in test_config.get('tests', {}).items():
+            if not suite_config.get('enabled', True):
+                continue
+            test_cases = suite_config.get('test_cases', [])
+            suite_stats[suite_name] = {'enabled': 0, 'total': len(test_cases)}
+        
+        # Count enabled files by suite
         for info in python_files.values():
             suite_name = info['suite']
-            if suite_name not in suite_counts:
-                suite_counts[suite_name] = 0
-            suite_counts[suite_name] += 1
+            if suite_name in suite_stats:
+                suite_stats[suite_name]['enabled'] += 1
         
-        for suite_name, count in sorted(suite_counts.items()):
-            lines.append(f"- **{suite_name}:** {count} enabled")
+        # Calculate success rates from detailed report if available
+        suite_success_rates = {}
+        if detailed_report and detailed_report.get('modules'):
+            for module_name, module_data in detailed_report['modules'].items():
+                if module_data.get('tests'):
+                    total_tests = len(module_data['tests'])
+                    passed_tests = sum(1 for test in module_data['tests'] 
+                                     if test.get('status') == 'passed')
+                    if total_tests > 0:
+                        success_rate = (passed_tests * 100) // total_tests
+                        suite_success_rates[module_name] = success_rate
+        
+        for suite_name, stats in sorted(suite_stats.items()):
+            enabled = stats['enabled']
+            total = stats['total']
+            status_text = f"{enabled}/{total} enabled"
+            
+            # Add success rate if available
+            if suite_name in suite_success_rates:
+                success_rate = suite_success_rates[suite_name]
+                status_text += f". Success rate: {success_rate}%"
+            
+            lines.append(f"- **{suite_name}:** {status_text}")
     
-    # Add test execution summary if we have detailed report
+    # Add overall test execution summary if we have detailed report
     if detailed_report and detailed_report.get('summary'):
         summary = detailed_report['summary']
         total_tests = summary.get('total_tests', 0)
@@ -310,7 +358,7 @@ def generate_legend_section():
     return lines
 
 def generate_pr_comment_with_table():
-    """Generate complete PR comment with Python files in table format"""
+    """Generate complete PR comment with Python files in readable list format"""
     # Load configurations
     test_config = load_test_config()
     detailed_report = load_detailed_test_report()
@@ -321,22 +369,14 @@ def generate_pr_comment_with_table():
     # Build status section
     comment_lines.extend(generate_build_status_section())
     
-    # Python files table
+    # Python files list (changed from table to more readable format)
     comment_lines.extend(generate_python_files_table(test_config, detailed_report))
     comment_lines.append("")
     
     # Summary section
     comment_lines.extend(generate_summary_section(test_config, detailed_report))
-    comment_lines.append("")
     
-    # Legend section
-    comment_lines.extend(generate_legend_section())
-    comment_lines.append("")
-    
-    # Footer
-    comment_lines.append("---")
-    comment_lines.append("*Generated automatically by Jenkins CI with Python test file mapping*")
-    comment_lines.append(f"*Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
+    # No legend or footer as requested
     
     return '\n'.join(comment_lines)
 
