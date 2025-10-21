@@ -539,10 +539,10 @@ def list_qemu_binaries(qemu_dir_path=None):
         return []
 
 
-def is_qemu_test():
+def check_qemu_test():
     """
-    Detect if this test should run in QEMU mode.
-    Checks for QEMU configuration with expects_boot: true
+    Check if this test should run in QEMU mode and start QEMU if needed.
+    Returns the QEMU process handle if QEMU is started, None otherwise.
     """
     try:
         import yaml
@@ -551,7 +551,7 @@ def is_qemu_test():
         config_path = os.environ.get('TEST_CONFIG_PATH',
                                      'simtemp/tests/config/simtemp_tests.yml')
         if not os.path.exists(config_path):
-            return False
+            return None
             
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
@@ -559,7 +559,7 @@ def is_qemu_test():
         # Look for qemu_integration section with F-K1-TC-003-QEMU
         qemu_tests = config.get('tests', {}).get('qemu_integration', {})
         if not qemu_tests.get('enabled', False):
-            return False
+            return None
             
         # Check if F-K1-TC-003-QEMU test is enabled and has qemu_specific config
         test_cases = qemu_tests.get('test_cases', [])
@@ -567,11 +567,16 @@ def is_qemu_test():
             if (test_case.get('test_id') == 'F-K1-TC-003-QEMU' and
                 test_case.get('enabled', False) and
                 test_case.get('qemu_specific', {}).get('expects_boot', False)):
-                return True
+                # QEMU mode detected - start QEMU and wait for boot
+                print("\n=== QEMU Mode Detected ===")
+                print("Starting QEMU environment for testing...")
+                qemu_process = start_qemu_and_wait_for_boot()
+                print("QEMU ready - proceeding with tests...")
+                return qemu_process
                 
-        return False
+        return None
     except Exception:
-        return False
+        return None
 
 
 def start_qemu_and_wait_for_boot():

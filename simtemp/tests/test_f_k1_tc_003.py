@@ -12,8 +12,7 @@ import pytest
 import subprocess
 import time
 from test_utils import (SUDO, obj_path, SHELL_PARAMS, wait_for_qemu_message,
-                        cleanup_qemu_processes, restore_terminal, is_qemu_test,
-                        start_qemu_and_wait_for_boot)
+                        cleanup_qemu_processes, restore_terminal, check_qemu_test)
 
 # Test configuration
 MODULE_NAME = "nxp_simtemp"
@@ -73,12 +72,7 @@ def test_f_k1_platform_driver_dt_registration():
     """
     
     # Check if this should run in QEMU mode
-    qemu_process = None
-    if is_qemu_test():
-        print("\n=== QEMU Mode Detected for F-K1-TC-003 ===")
-        print("Starting QEMU environment for platform driver testing...")
-        qemu_process = start_qemu_and_wait_for_boot()
-        print("QEMU ready - proceeding with platform driver tests...")
+    qemu_process = check_qemu_test()
     
     try:
         module_path = os.path.join(obj_path, "nxp_simtemp.ko")
