@@ -242,7 +242,6 @@ def generate_python_files_table(test_config, detailed_report=None):
     for suite_name, suite_files in sorted_suites:
         # Add suite header
         lines.append(f"### 📋 {suite_name}")
-        lines.append("")
         
         # Sort files within suite by configuration order (execution order)
         sorted_files = sorted(suite_files, key=lambda x: x[1]['config_order'])
@@ -277,9 +276,8 @@ def generate_python_files_table(test_config, detailed_report=None):
             # Simple format: icon - test_id / status: test_name
             lines.append(f"    {status_icon} - {test_id} / {status_text}: {test_name}")
             lines.append(f"        - **Test file:** `{pytest_file}`")
-            lines.append("")  # Add space between test items
         
-        lines.append("")  # Add space between suites
+        lines.append("")  # Add single space between suites
     
     return lines
 
