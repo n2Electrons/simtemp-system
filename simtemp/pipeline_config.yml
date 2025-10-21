@@ -177,6 +177,8 @@ artifacts:
   test_reports:
     - path: "simtemp/tests/reports/test_report_detailed.html"
       description: "Detailed HTML test report"
+    - path: "simtemp/tests/reports/test_report_detailed.json"
+      description: "Detailed JSON test report with test results"
     - path: "simtemp/tests/reports/*.html"
       description: "All HTML test reports"
     - path: "simtemp/tests/reports/*.json"

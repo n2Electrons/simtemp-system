@@ -1860,8 +1860,9 @@ pipeline {
     agent any
     
     triggers {
-        // Poll SCM every minute for rapid feedback during development
-        pollSCM('* * * * *')  // Check for changes every minute (most frequent allowed)
+        // Disabled to prevent duplicate executions with infra_ext/Jenkinsfile
+        // Use webhook triggers instead for better performance
+        // pollSCM('* * * * *')  // Check for changes every minute (most frequent allowed)
         // Note: SCM polling doesn't support seconds, minimum is 1 minute
     }
     
@@ -2203,6 +2204,7 @@ pipeline {
                                     "${reportsDirectory}/test_report.html",
                                     "${reportsDirectory}/test_report_detailed.html",
                                     "${reportsDirectory}/test_report.json",
+                                    "${reportsDirectory}/test_report_detailed.json",
                                     "${reportsDirectory}/**/*"
                                 ]
                                 
