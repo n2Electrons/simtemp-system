@@ -99,7 +99,7 @@ tests:
       - name: "test_basic_qemu_boot"
         description: "Verifies basic QEMU boot and kernel messages"
         enabled: true
-        test_id: "F-K1-TC-002"
+        test_id: "F-K1-TC-002-QEMU"
         pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this test case
         verbose_output: true  # Enable verbose output for debugging QEMU boot
         debug_info: "This test checks for successful QEMU boot and kernel log patterns"

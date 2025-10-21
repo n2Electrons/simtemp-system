@@ -27,6 +27,15 @@ import re
 import requests
 from pathlib import Path
 
+# Import QEMU session management functions
+try:
+    from test_utils import is_qemu_session_active
+    from qemu_session_manager import manual_cleanup_qemu_sessions
+    QEMU_SUPPORT_AVAILABLE = True
+except ImportError:
+    print("Warning: QEMU session management not available")
+    QEMU_SUPPORT_AVAILABLE = False
+
 
 class TestLogger:
     def __init__(self, verbose=False):
@@ -1298,12 +1307,81 @@ class DriverTestOrchestrator:
         except Exception as e:
             self.logger.error(f"Error generating HTML report: {e}")
 
+    def wait_for_qemu_sessions_completion(self, max_wait_time=60):
+        """
+        Wait for all QEMU sessions to complete before generating final reports.
+        This ensures that all QEMU test results are properly captured.
+        
+        Args:
+            max_wait_time (int): Maximum time to wait in seconds
+        
+        Returns:
+            bool: True if all sessions completed, False if timeout
+        """
+        if not QEMU_SUPPORT_AVAILABLE:
+            self.logger.info("QEMU support not available, skipping session wait")
+            return True
+        
+        self.logger.info("Checking for active QEMU sessions...")
+        
+        start_time = time.time()
+        wait_interval = 2  # Check every 2 seconds
+        
+        while time.time() - start_time < max_wait_time:
+            try:
+                if not is_qemu_session_active():
+                    self.logger.info("No active QEMU sessions detected - proceeding with report generation")
+                    return True
+                
+                elapsed = time.time() - start_time
+                self.logger.info(f"QEMU session still active - waiting... ({elapsed:.1f}s elapsed)")
+                time.sleep(wait_interval)
+                
+            except Exception as e:
+                self.logger.warning(f"Error checking QEMU session status: {e}")
+                break
+        
+        # Timeout reached
+        elapsed = time.time() - start_time
+        self.logger.warning(f"Timeout waiting for QEMU sessions to complete ({elapsed:.1f}s)")
+        self.logger.info("Proceeding with report generation anyway...")
+        return False
+
+    def ensure_qemu_cleanup(self):
+        """
+        Ensure QEMU sessions are properly cleaned up before report generation.
+        This is a safety measure to prevent resource leaks.
+        """
+        if not QEMU_SUPPORT_AVAILABLE:
+            return
+        
+        try:
+            self.logger.info("Performing final QEMU session cleanup...")
+            manual_cleanup_qemu_sessions()
+            self.logger.info("QEMU session cleanup completed")
+        except Exception as e:
+            self.logger.warning(f"Error during QEMU cleanup: {e}")
+
     def generate_reports(self):
         """Generate all test reports"""
         self.logger.info("STARTING TEST REPORT GENERATION")
         self.logger.info(f"Input directory: {self.input_dir}")
         self.logger.info(f"Output directory: {self.output_dir}")
         self.logger.info(f"Test config file: {self.test_config_file}")
+        
+        # NEW: Wait for QEMU sessions to complete before collecting results
+        self.logger.info("Step 0: Waiting for QEMU sessions to complete...")
+        qemu_completed = self.wait_for_qemu_sessions_completion(max_wait_time=120)
+        if qemu_completed:
+            self.logger.info("All QEMU sessions completed successfully")
+        else:
+            self.logger.warning("QEMU sessions did not complete within timeout")
+        
+        # NEW: Ensure cleanup before collecting results
+        self.ensure_qemu_cleanup()
+        
+        # Small delay to allow file system operations to complete
+        time.sleep(2)
         
         self.logger.info("Step 1: Collecting test results...")
         self.collect_test_results()

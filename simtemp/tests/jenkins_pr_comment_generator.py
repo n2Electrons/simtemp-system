@@ -72,13 +72,18 @@ def load_detailed_test_report():
     ]
     
     for report_path in report_paths:
+        print(f"Checking for report at: {report_path}")
         if os.path.exists(report_path):
             try:
+                print(f"Found and loading report from: {report_path}")
                 with open(report_path, 'r') as f:
-                    return json.load(f)
+                    report_data = json.load(f)
+                    print(f"Report loaded successfully with {len(report_data.get('modules', {}))} modules")
+                    return report_data
             except Exception as e:
                 print(f"Warning: Could not load {report_path}: {e}")
     
+    print("No detailed test report found in any of the expected locations")
     return None
 
 def extract_python_files_from_config(test_config):
@@ -151,8 +156,11 @@ def extract_disabled_test_files(test_config):
 def get_test_status_from_report(pytest_file, test_id, detailed_report):
     """Get test status for a specific Python file and test ID from detailed report"""
     if not detailed_report or not detailed_report.get('modules'):
+        print(f"No detailed report available for {test_id}")
         return None
 
+    print(f"Looking for status of {test_id} (file: {pytest_file})")
+    
     # Search through all modules in the report
     for module_name, module_data in detailed_report['modules'].items():
         if module_data.get('tests'):
@@ -160,13 +168,18 @@ def get_test_status_from_report(pytest_file, test_id, detailed_report):
                 # Match by test_id first (most reliable)
                 report_test_id = test.get('test_id', '')
                 if report_test_id == test_id:
-                    return test.get('status', 'unknown')
+                    status = test.get('status', 'unknown')
+                    print(f"Found match for {test_id}: {status}")
+                    return status
                 
                 # Fallback: match by pytest_file if test_id doesn't match
                 test_pytest_file = test.get('pytest_file', '')
                 if test_pytest_file == pytest_file:
-                    return test.get('status', 'unknown')
+                    status = test.get('status', 'unknown')
+                    print(f"Found file match for {pytest_file}: {status}")
+                    return status
 
+    print(f"No match found for {test_id} in report")
     return None
 
 def generate_build_status_section():
