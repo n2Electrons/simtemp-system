@@ -142,20 +142,26 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 
 /**
  * nxp_simtemp_remove - Platform driver remove function
- * @pdev: Platform device
+ * @pdev: Platform device being removed
  *
- * This function is called when the device is removed or the driver
- * is unloaded.
- * 
+ * This function is called when the platform device is being removed.
  * Note: Return type varies by kernel version - void for older kernels,
  * int for newer kernels. We use a wrapper approach for compatibility.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+static void nxp_simtemp_remove(struct platform_device *pdev)
+{
+	/* Nothing needed if using devm_device_add_group */
+	dev_info(&pdev->dev, "NXP SimTemp driver remove called\n");
+}
+#else
 static int nxp_simtemp_remove(struct platform_device *pdev)
 {
 	/* Nothing needed if using devm_device_add_group */
 	dev_info(&pdev->dev, "NXP SimTemp driver remove called\n");
 	return 0;
 }
+#endif
 
 /**
  * Device Tree compatible strings
@@ -188,6 +194,7 @@ static struct platform_driver nxp_simtemp_driver = {
 #ifdef CONFIG_OF
 		.of_match_table = nxp_simtemp_of_match,
 #endif
+		.groups = nxp_simtemp_groups,
 	},
 	.id_table = nxp_simtemp_id, /* key for non-DT */
 };

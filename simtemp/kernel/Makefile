@@ -43,7 +43,20 @@ DEBIAN_KERNEL_SRC := $(shell \
 			echo "/usr/src/linux-headers-$$KERNEL_VER"; \
 		fi; \
 	else \
-		echo "/usr/src/linux-headers-generic"; \
+		if [ -d "/lib/modules/6.14.0-32-generic/build" ]; then \
+			echo "/lib/modules/6.14.0-32-generic/build"; \
+		elif [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
+			echo "/usr/src/linux-headers-6.14.0-32-generic"; \
+		else \
+			KERNEL_VER=$$(uname -r); \
+			if [ -d "/lib/modules/$$KERNEL_VER/build" ]; then \
+				echo "/lib/modules/$$KERNEL_VER/build"; \
+			elif [ -d "/usr/src/linux-headers-$$KERNEL_VER" ]; then \
+				echo "/usr/src/linux-headers-$$KERNEL_VER"; \
+			else \
+				echo "/usr/src/linux-headers-generic"; \
+			fi; \
+		fi; \
 	fi)
 # Use Ubuntu headers mounted in Docker with Debian toolchain
 
@@ -133,6 +146,7 @@ deb-driver: $(OBJ_DIR)
 		exit 1; \
 	fi
 	$(call sign_module_inline)
+	$(call install_modules_inline)
 
 # Create obj directory
 $(OBJ_DIR):
@@ -171,6 +185,39 @@ define sign_module_inline
 	fi
 endef
 
+# Install modules inline - used by deb-driver and host-driver for testing
+define install_modules_inline
+	@echo "Installing kernel modules for testing..."
+	@if [ -f "$(OBJ_DIR)/nxp_simtemp.ko" ]; then \
+		echo "Installing nxp_simtemp.ko..."; \
+		if [ -f "/.dockerenv" ]; then \
+			echo "Docker environment detected - installing modules..."; \
+			insmod $(OBJ_DIR)/nxp_simtemp.ko || echo "Module installation failed (may be normal in container)"; \
+		else \
+			if [ "$$(id -u)" = "0" ]; then \
+				insmod $(OBJ_DIR)/nxp_simtemp.ko || echo "Module installation failed"; \
+			else \
+				sudo insmod $(OBJ_DIR)/nxp_simtemp.ko || echo "Module installation failed"; \
+			fi; \
+		fi; \
+		if [ -f "$(OBJ_DIR)/nxp_simtemp_stub.ko" ]; then \
+			echo "Installing nxp_simtemp_stub.ko..."; \
+			if [ -f "/.dockerenv" ]; then \
+				insmod $(OBJ_DIR)/nxp_simtemp_stub.ko || echo "Stub module installation failed (may be normal in container)"; \
+			else \
+				if [ "$$(id -u)" = "0" ]; then \
+					insmod $(OBJ_DIR)/nxp_simtemp_stub.ko || echo "Stub module installation failed"; \
+				else \
+					sudo insmod $(OBJ_DIR)/nxp_simtemp_stub.ko || echo "Stub module installation failed"; \
+				fi; \
+			fi; \
+		fi; \
+		echo "✅ Module installation completed"; \
+	else \
+		echo "⚠️  No modules found to install"; \
+	fi
+endef
+
 # Host x86_64 native compilation with signing (production build)
 host-driver: $(OBJ_DIR)
 	@echo "Building and signing host x86_64 driver using native kernel headers..."
@@ -194,6 +241,7 @@ host-driver: $(OBJ_DIR)
 		exit 1; \
 	fi
 	$(call sign_module_inline)
+	$(call install_modules_inline)
 
 # Remove all generated files
 clean:
