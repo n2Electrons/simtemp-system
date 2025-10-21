@@ -6,6 +6,8 @@ import os
 import subprocess
 import shutil
 import pytest
+import json
+import time
 from contextlib import contextmanager
 
 
@@ -114,6 +116,84 @@ def get_obj_path():
         )
     
     return obj_dir
+
+
+def get_driver_path(test_suite_name=None):
+    """
+    Get the appropriate driver path based on test configuration.
+    
+    For QEMU tests with use_precompiled_driver=true, returns precompiled path.
+    Otherwise returns the compiled obj path.
+    
+    Args:
+        test_suite_name: Name of the test suite (e.g., 'qemu_integration')
+        
+    Returns:
+        str: Absolute path to the nxp_simtemp.ko module
+        
+    Raises:
+        FileNotFoundError: If the module file doesn't exist
+    """
+    import yaml
+    
+    # Try to load test configuration
+    try:
+        test_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(test_dir, 'config', 'simtemp_tests.yml')
+        
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            
+            # Check if this is a QEMU test suite with precompiled driver
+            if test_suite_name and test_suite_name in config.get('tests', {}):
+                suite_config = config['tests'][test_suite_name]
+                
+                if suite_config.get('use_precompiled_driver', False):
+                    precompiled_path = suite_config.get('precompiled_path')
+                    if precompiled_path:
+                        # Check if we're inside QEMU (test environment)
+                        if check_qemu_test():
+                            # Inside QEMU - use the path as configured
+                            return precompiled_path
+                        
+                        # On host - try different possible paths
+                        # Remove leading /tmp from precompiled_path for host access
+                        if precompiled_path.startswith('/tmp/'):
+                            # Remove '/tmp/'
+                            relative_path = precompiled_path[5:]
+                        else:
+                            relative_path = precompiled_path.lstrip('/')
+                            
+                        host_paths = [
+                            # Try as-is first (host with /tmp/prebuild)
+                            precompiled_path,
+                            f"/workspace/deployment/qemu/rootfs/tmp/"
+                            f"{relative_path}",
+                        ]
+                        
+                        # Try Jenkins workspace path
+                        jenkins_workspace = os.environ.get('WORKSPACE', '')
+                        if jenkins_workspace:
+                            jenkins_path = os.path.join(
+                                jenkins_workspace,
+                                f"deployment/qemu/rootfs/tmp/{relative_path}"
+                            )
+                            host_paths.append(jenkins_path)
+                        
+                        for path in host_paths:
+                            if os.path.exists(path):
+                                return path
+                        
+                        print(f"⚠️  Precompiled driver not found at any of: "
+                              f"{host_paths}, falling back to compiled "
+                              f"version")
+    except Exception as e:
+        print(f"⚠️  Could not load test configuration: {e}, "
+              f"using compiled driver")
+    
+    # Fall back to compiled driver path
+    return os.path.join(get_obj_path(), 'nxp_simtemp.ko')
 
 
 def restore_terminal():
@@ -237,7 +317,7 @@ def restore_working_directory(original_dir=None):
         return False
 
 
-def test_cleanup():
+def cleanup_test_environment():
     """
     Complete test cleanup function that should be called at the end of tests.
     
@@ -284,7 +364,7 @@ def load_environment():
         yield original_dir
     finally:
         print("\nTest completed, performing cleanup...")
-        test_cleanup()
+        cleanup_test_environment()
 
 
 # Convenience variable for the object directory path
@@ -537,3 +617,327 @@ def list_qemu_binaries(qemu_dir_path=None):
     except Exception as e:
         print(f"❌ Error listing binaries: {e}")
         return []
+
+
+def get_module_path_for_context():
+    """
+    Determine the correct module path based on execution context.
+    
+    Returns:
+        tuple: (module_path: str, context_description: str)
+               module_path is the absolute path to the kernel module
+               context_description is a human-readable description
+    """
+    # Check execution context
+    qemu_process = check_qemu_test()
+    
+    if qemu_process:
+        # Real QEMU mode: use prebuilt ARM driver from rootfs
+        module_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
+        context = "QEMU mode - using ARM prebuilt driver"
+    else:
+        # In host/Docker/Jenkins mode: use locally compiled driver
+        module_path = os.path.join(get_obj_path(), "nxp_simtemp.ko")
+        context = "host/Docker/Jenkins mode - using local driver"
+    
+    return module_path, context
+
+
+def check_qemu_test():
+    """
+    Check if this test should run in QEMU mode and manage shared QEMU session.
+    Returns the QEMU process handle if QEMU is started/running, None otherwise.
+    
+    Uses shared QEMU session management:
+    - First test starts QEMU and creates session marker
+    - Subsequent tests reuse existing QEMU session
+    - Session marker prevents multiple QEMU boots
+    """
+    try:
+        import yaml
+        
+        # Check for F-K1-TC-003-QEMU configuration
+        config_path = os.environ.get('TEST_CONFIG_PATH',
+                                     'simtemp/tests/config/simtemp_tests.yml')
+        if not os.path.exists(config_path):
+            return None
+            
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+            
+        # Look for qemu_integration section with F-K1-TC-003-QEMU
+        qemu_tests = config.get('tests', {}).get('qemu_integration', {})
+        if not qemu_tests.get('enabled', False):
+            return None
+            
+        # Check if F-K1-TC-003-QEMU test is enabled and has qemu_specific config
+        test_cases = qemu_tests.get('test_cases', [])
+        for test_case in test_cases:
+            if (test_case.get('test_id') == 'F-K1-TC-003-QEMU' and
+                test_case.get('enabled', False) and
+                test_case.get('qemu_specific', {}).get('expects_boot', False)):
+                # QEMU mode detected - check for shared session
+                print("\n=== QEMU Mode Detected ===")
+                return get_or_start_shared_qemu_session()
+                
+        return None
+    except Exception:
+        return None
+
+
+def get_qemu_session_marker_path():
+    """Get the path for QEMU session marker file."""
+    return '/tmp/qemu_session_active.marker'
+
+
+def is_qemu_session_active():
+    """Check if a QEMU session is already running."""
+    marker_path = get_qemu_session_marker_path()
+    if not os.path.exists(marker_path):
+        return False
+    
+    try:
+        with open(marker_path, 'r') as f:
+            data = json.loads(f.read())
+            pid = data.get('pid')
+            
+        # Check if the process is still running
+        if pid:
+            try:
+                os.kill(pid, 0)  # Signal 0 just checks if process exists
+                print(f"Found active QEMU session with PID {pid}")
+                return True
+            except OSError:
+                # Process doesn't exist, remove stale marker
+                print(f"Removing stale QEMU session marker (PID {pid} not found)")
+                os.remove(marker_path)
+                return False
+    except (json.JSONDecodeError, IOError, OSError):
+        # Corrupted or unreadable marker, remove it
+        try:
+            os.remove(marker_path)
+        except OSError:
+            pass
+        return False
+    
+    return False
+
+
+def create_qemu_session_marker(qemu_process):
+    """Create a marker file indicating active QEMU session."""
+    marker_path = get_qemu_session_marker_path()
+    marker_data = {
+        'pid': qemu_process.pid,
+        'started_at': time.time(),
+        'started_by': os.path.basename(__file__),
+        'test_name': os.environ.get('PYTEST_CURRENT_TEST', 'unknown')
+    }
+    
+    try:
+        with open(marker_path, 'w') as f:
+            json.dump(marker_data, f, indent=2)
+        print(f"Created QEMU session marker: PID {qemu_process.pid}")
+    except IOError as e:
+        print(f"Warning: Could not create QEMU session marker: {e}")
+
+
+def get_or_start_shared_qemu_session():
+    """
+    Get existing QEMU session or start a new one with session management.
+    Returns QEMU process handle or None.
+    """
+    # Check if QEMU session is already active
+    if is_qemu_session_active():
+        print("Reusing existing QEMU session...")
+        
+        # Try to get the process handle from the marker
+        marker_path = get_qemu_session_marker_path()
+        try:
+            with open(marker_path, 'r') as f:
+                data = json.loads(f.read())
+                pid = data.get('pid')
+                
+            # Create a mock process object for compatibility
+            # (We can't get the actual process object, but tests just need to know QEMU is running)
+            class MockQemuProcess:
+                def __init__(self, pid):
+                    self.pid = pid
+                    self.returncode = None
+                
+                def poll(self):
+                    try:
+                        os.kill(self.pid, 0)
+                        return None  # Process is still running
+                    except OSError:
+                        return -1  # Process has terminated
+                
+                def terminate(self):
+                    try:
+                        os.kill(self.pid, 15)  # SIGTERM
+                    except OSError:
+                        pass
+                
+                def kill(self):
+                    try:
+                        os.kill(self.pid, 9)  # SIGKILL
+                    except OSError:
+                        pass
+                
+                def wait(self, timeout=None):
+                    # Simple wait implementation
+                    import time
+                    start_time = time.time()
+                    while self.poll() is None:
+                        if timeout and (time.time() - start_time) > timeout:
+                            raise subprocess.TimeoutExpired([], timeout)
+                        time.sleep(0.1)
+                    return self.returncode
+            
+            return MockQemuProcess(pid)
+            
+        except (json.JSONDecodeError, IOError, KeyError):
+            print("Warning: Could not read QEMU session marker, starting new session")
+    
+    # No active session, start new QEMU
+    print("Starting new shared QEMU session...")
+    qemu_process = start_qemu_and_wait_for_boot()
+    if qemu_process:
+        create_qemu_session_marker(qemu_process)
+        print("QEMU session ready - other tests will reuse this session")
+    
+    return qemu_process
+
+
+def cleanup_qemu_session():
+    """Clean up shared QEMU session and remove marker."""
+    marker_path = get_qemu_session_marker_path()
+    
+    # Get process info from marker if it exists
+    qemu_pid = None
+    if os.path.exists(marker_path):
+        try:
+            with open(marker_path, 'r') as f:
+                data = json.loads(f.read())
+                qemu_pid = data.get('pid')
+        except (json.JSONDecodeError, IOError):
+            pass
+    
+    # Terminate QEMU process
+    if qemu_pid:
+        try:
+            print(f"Terminating QEMU session (PID {qemu_pid})...")
+            os.kill(qemu_pid, 15)  # SIGTERM
+            
+            # Wait a bit for graceful shutdown
+            time.sleep(2)
+            
+            # Check if it's still running
+            try:
+                os.kill(qemu_pid, 0)
+                print(f"QEMU still running, forcing termination...")
+                os.kill(qemu_pid, 9)  # SIGKILL
+            except OSError:
+                pass  # Process already terminated
+                
+        except OSError:
+            print(f"QEMU process {qemu_pid} not found (may have already terminated)")
+    
+    # Clean up any remaining QEMU processes
+    cleanup_qemu_processes(force_kill=True)
+    
+    # Remove session marker
+    try:
+        if os.path.exists(marker_path):
+            os.remove(marker_path)
+            print("QEMU session marker removed")
+    except OSError as e:
+        print(f"Warning: Could not remove QEMU session marker: {e}")
+    
+    # Restore terminal state
+    restore_terminal()
+    print("QEMU session cleanup completed")
+    """
+    Start QEMU process and wait for boot completion.
+    Returns the QEMU process handle.
+    """
+    import subprocess
+    import pytest
+    
+    # Cleanup any existing QEMU processes first
+    cleanup_qemu_processes(force_kill=True)
+    
+    # Verify QEMU files exist
+    required_files = [
+        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage",
+        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/"
+        "imx6q-sabrelite.dtb",
+        "/workspace/deployment/qemu/rootfs.cpio.gz"
+    ]
+    
+    for file_path in required_files:
+        if not os.path.exists(file_path):
+            pytest.fail(f"Required QEMU file not found: {file_path}")
+    
+    # Start QEMU process
+    qemu_cmd = [
+        "qemu-system-arm",
+        "-M", "sabrelite",
+        "-cpu", "cortex-a9",
+        "-m", "1024",
+        "-nographic",
+        "-kernel",
+        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage",
+        "-dtb",
+        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/"
+        "imx6q-sabrelite.dtb",
+        "-initrd", "/workspace/deployment/qemu/rootfs.cpio.gz",
+        "-append",
+        "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 "
+        "loglevel=8 debug",
+        "-no-reboot"
+    ]
+    
+    print("Starting QEMU for platform driver testing...")
+    qemu_process = subprocess.Popen(
+        qemu_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+        universal_newlines=True
+    )
+    
+    # Wait for ARM initramfs ready message
+    print("Waiting for QEMU boot completion...")
+    boot_success, boot_output = wait_for_qemu_message(
+        qemu_process, "=== ARM initramfs ready ===", timeout=120
+    )
+    
+    if not boot_success:
+        qemu_process.terminate()
+        pytest.fail("QEMU failed to boot - ARM initramfs ready "
+                    "message not found")
+    
+    print("✓ QEMU boot completed - ARM initramfs ready")
+    
+    # Wait for shell prompt
+    print("Waiting for shell prompt...")
+    shell_success, shell_output = wait_for_qemu_message(
+        qemu_process, "~ #", timeout=30
+    )
+    
+    if not shell_success:
+        # Try sending enter to get prompt
+        qemu_process.stdin.write("\n")
+        qemu_process.stdin.flush()
+        shell_success, shell_output = wait_for_qemu_message(
+            qemu_process, "~ #", timeout=10
+        )
+    
+    if not shell_success:
+        qemu_process.terminate()
+        pytest.fail("Shell prompt not available after QEMU boot")
+    
+    print("✓ Shell prompt available - QEMU ready for platform driver tests")
+    return qemu_process

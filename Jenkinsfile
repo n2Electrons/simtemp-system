@@ -1111,9 +1111,12 @@ def runModuleTests() {
         }
         
         // Ensure reports directory exists and clean any stale reports
-        sh "mkdir -p ${WORKSPACE}/${reportsDirectory}"
-        sh "rm -f ${WORKSPACE}/${reportsDirectory}/test_report_detailed.json || true"
-        sh "rm -f ${WORKSPACE}/${reportsDirectory}/test_report_detailed.html || true"
+    sh "mkdir -p ${WORKSPACE}/${reportsDirectory}"
+    sh "rm -f ${WORKSPACE}/${reportsDirectory}/test_report_detailed.json || true"
+    sh "rm -f ${WORKSPACE}/${reportsDirectory}/test_report_detailed.html || true"
+
+    // Copy all /tmp/test_details_*.json files to the reports directory (if any)
+    sh "cp -v /tmp/test_details_*.json ${WORKSPACE}/${reportsDirectory}/ 2>/dev/null || true"
         
         // Use the simtemp test composer with configuration-driven paths
         def reportGenerator = pipelineConfig.testing?.test_composer
@@ -1178,8 +1181,54 @@ def sendConsolidatedPRComment() {
         return
     }
     
-    // Load pipeline configuration to get module repositories
+    // Load pipeline configuration first (needed for repository configuration)
     def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
+    
+    // Generate Python test files table comment using the dedicated script
+    echo "🧪 Generating PR comment with Python test files table..."
+    try {
+        def pythonScript = "simtemp/tests/jenkins_pr_comment_generator.py"
+        if (fileExists(pythonScript)) {
+            // Set environment variables for the Python script
+            def actualConfigPath = env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH
+            def testConfigPath = pipelineConfig?.testing?.test_config_file ?: "simtemp/tests/config/simtemp_tests.yml"
+            
+            echo "DEBUG: Using config paths - pipeline: ${actualConfigPath}, test: ${testConfigPath}"
+            
+            sh """
+                cd ${WORKSPACE}
+                export TEST_CONFIG_PATH="${testConfigPath}"
+                export ACTUAL_PIPELINE_CONFIG_PATH="${actualConfigPath}"
+                export BUILD_NUMBER="${env.BUILD_NUMBER}"
+                export BUILD_URL="${env.BUILD_URL}"
+                export JOB_NAME="${env.JOB_NAME}"
+                export BRANCH_NAME="${env.BRANCH_NAME}"
+                export BUILD_STATUS="${(globalBuildStatus == 'failure' || globalTestStatus == 'failure') ? 'failure' : 'success'}"
+                python3 ${pythonScript}
+            """
+            
+            // Check if the generated comment files exist
+            if (fileExists('pr_comment_table.md')) {
+                echo "✅ Python test files comment generated successfully"
+                
+                // Read the generated comment
+                def pythonFilesComment = readFile('pr_comment_table.md')
+                
+                // Send the Python files comment and return early
+                def overallStatus = (globalBuildStatus == 'failure' || globalTestStatus == 'failure') ? 'failure' : 'success'
+                def githubRepo = getPRTargetRepository(pipelineConfig)
+                sendPRComment(overallStatus, pythonFilesComment, githubRepo)
+                return
+            } else {
+                echo "⚠️ Python files comment generation failed - pr_comment_table.md not found"
+            }
+        } else {
+            echo "⚠️ Python comment generator script not found at ${pythonScript}"
+        }
+    } catch (Exception e) {
+        echo "⚠️ Error generating Python files comment: ${e.message}"
+        echo "Falling back to standard PR comment format"
+    }
     
     // Load GitHub issue mappings dynamically from configuration files
     def githubIssueMapping = loadGitHubIssueMappings()
@@ -1813,11 +1862,12 @@ def postPRComment(pipelineConfig = null) {
 pipeline {
     agent any
     
-    triggers {
-        // Poll SCM every minute for rapid feedback during development
-        pollSCM('* * * * *')  // Check for changes every minute (most frequent allowed)
-        // Note: SCM polling doesn't support seconds, minimum is 1 minute
-    }
+    // Triggers disabled to prevent duplicate executions with infra_ext/Jenkinsfile
+    // Use webhook triggers instead for better performance
+    // triggers {
+    //     pollSCM('* * * * *')  // Check for changes every minute (most frequent allowed)
+    //     // Note: SCM polling doesn't support seconds, minimum is 1 minute
+    // }
     
     parameters {
         // Infrastructure configuration
@@ -2157,6 +2207,7 @@ pipeline {
                                     "${reportsDirectory}/test_report.html",
                                     "${reportsDirectory}/test_report_detailed.html",
                                     "${reportsDirectory}/test_report.json",
+                                    "${reportsDirectory}/test_report_detailed.json",
                                     "${reportsDirectory}/**/*"
                                 ]
                                 

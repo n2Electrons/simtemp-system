@@ -48,11 +48,21 @@ mkdir -p results
 # -v: verbose output
 # --tb=short: shorter traceback
 # -rA: show all test results summary
+# --junitxml: generate JUnit XML report for CI/CD
+# --html: generate HTML report for detailed viewing
+# Include all test_*.py files in the run
 python3 -m pytest \
     -v \
     --tb=short \
     -rA \
+    --junitxml=results/test_results.xml \
+    --html=results/test_report.html \
+    --self-contained-html \
     test_f_k1_tc_001.py \
+    test_f_k1_tc_002.py \
+    test_f_k1_tc_003.py \
+    test_f_k8_tc_001.py \
+    test_f_k8_tc_003.py \
     "$@"
 
 TEST_EXIT_CODE=$?

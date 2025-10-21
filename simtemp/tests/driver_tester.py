@@ -27,6 +27,15 @@ import re
 import requests
 from pathlib import Path
 
+# Import QEMU session management functions
+try:
+    from test_utils import is_qemu_session_active
+    from qemu_session_manager import manual_cleanup_qemu_sessions
+    QEMU_SUPPORT_AVAILABLE = True
+except ImportError:
+    print("Warning: QEMU session management not available")
+    QEMU_SUPPORT_AVAILABLE = False
+
 
 class TestLogger:
     def __init__(self, verbose=False):
@@ -850,14 +859,34 @@ class DriverTestOrchestrator:
             if result.stderr:
                 self.logger.warning(f"Pytest stderr for {suite_name}:\n{result.stderr}")
             
-            # Parse pytest output
+            # Parse pytest output even if there were errors 
+            # Often tests pass but there are write issues
             self.parse_pytest_output(result.stdout, module_data)
             
             # Generate incremental test detail file for this suite
             self.generate_suite_detail_file(suite_name, module_data, result)
             
         except Exception as e:
-            self.logger.error(f"Error running pytest for {suite_name}: {e}")
+            try:
+                self.logger.error(f"Error running pytest for {suite_name}: {e}")
+            except:
+                # If even logging fails due to write blocking, continue silently
+                pass
+            # Try to extract any successful results from the error context
+            if 'result' in locals() and result.stdout:
+                try:
+                    self.logger.info("Attempting to parse partial results despite error")
+                except:
+                    pass  # Silent fallback if logging fails
+                try:
+                    self.parse_pytest_output(result.stdout, module_data)
+                except Exception as parse_error:
+                    try:
+                        self.logger.warning(
+                            f"Could not parse partial results: {parse_error}"
+                        )
+                    except:
+                        pass  # Silent fallback if logging fails
 
     def generate_suite_detail_file(self, suite_name, module_data, pytest_result):
         """Generate a test detail file for this specific suite"""
@@ -967,7 +996,7 @@ class DriverTestOrchestrator:
                 
                 old_status = test['status']
                 test['status'] = status
-                test['message'] = "Test executed via pytest"
+                test['message'] = f"Test executed via pytest: {test_name}()"
                 
                 # Update summary counts
                 if old_status == 'unknown':
@@ -986,7 +1015,7 @@ class DriverTestOrchestrator:
             # If no matching configured test found, add the actual test result
             new_test = {
                 "name": test_name,
-                "description": f"Actual pytest test: {test_name}",
+                "description": f"Actual pytest test: {test_name}()",
                 "test_id": "",
                 "status": status,
                 "duration": 0,
@@ -1072,10 +1101,13 @@ class DriverTestOrchestrator:
     def generate_json_report(self):
         """Generate JSON test report"""
         json_file = os.path.join(self.output_dir, "test_report_detailed.json")
+        absolute_json_file = os.path.abspath(json_file)
         try:
             with open(json_file, 'w') as f:
                 json.dump(self.test_results, f, indent=2)
             self.logger.info(f"Generated JSON report: {json_file}")
+            self.logger.info(f"JSON report absolute path: {absolute_json_file}")
+            self.logger.info(f"File exists after creation: {os.path.exists(json_file)}")
         except Exception as e:
             self.logger.error(f"Error generating JSON report: {e}")
 
@@ -1298,12 +1330,95 @@ class DriverTestOrchestrator:
         except Exception as e:
             self.logger.error(f"Error generating HTML report: {e}")
 
+    def wait_for_qemu_sessions_completion(self, max_wait_time=60):
+        """
+        Wait for all QEMU sessions to complete before generating final reports.
+        This ensures that all QEMU test results are properly captured.
+        
+        Args:
+            max_wait_time (int): Maximum time to wait in seconds
+        
+        Returns:
+            bool: True if all sessions completed, False if timeout
+        """
+        if not QEMU_SUPPORT_AVAILABLE:
+            self.logger.info("QEMU support not available, skipping session wait")
+            return True
+        
+        self.logger.info("Checking for active QEMU sessions...")
+        
+        start_time = time.time()
+        wait_interval = 2  # Check every 2 seconds
+        
+        while time.time() - start_time < max_wait_time:
+            try:
+                if not is_qemu_session_active():
+                    self.logger.info("No active QEMU sessions detected - proceeding with report generation")
+                    return True
+                
+                elapsed = time.time() - start_time
+                self.logger.info(f"QEMU session still active - waiting... ({elapsed:.1f}s elapsed)")
+                time.sleep(wait_interval)
+                
+            except Exception as e:
+                self.logger.warning(f"Error checking QEMU session status: {e}")
+                break
+        
+        # Timeout reached
+        elapsed = time.time() - start_time
+        self.logger.warning(f"Timeout waiting for QEMU sessions to complete ({elapsed:.1f}s)")
+        self.logger.info("Proceeding with report generation anyway...")
+        return False
+
+    def ensure_qemu_cleanup(self):
+        """
+        Ensure QEMU sessions are properly cleaned up before report generation.
+        This is a safety measure to prevent resource leaks.
+        """
+        if not QEMU_SUPPORT_AVAILABLE:
+            return
+        
+        try:
+            self.logger.info("Performing final QEMU session cleanup...")
+            manual_cleanup_qemu_sessions()
+            self.logger.info("QEMU session cleanup completed")
+        except Exception as e:
+            self.logger.warning(f"Error during QEMU cleanup: {e}")
+
     def generate_reports(self):
         """Generate all test reports"""
         self.logger.info("STARTING TEST REPORT GENERATION")
         self.logger.info(f"Input directory: {self.input_dir}")
         self.logger.info(f"Output directory: {self.output_dir}")
         self.logger.info(f"Test config file: {self.test_config_file}")
+        
+        # Check if there are active QEMU tests running before cleanup
+        self.logger.info("Step 0: Checking for active QEMU sessions...")
+        if QEMU_SUPPORT_AVAILABLE:
+            try:
+                from test_utils import is_qemu_session_active
+                if is_qemu_session_active():
+                    self.logger.info(
+                        "Active QEMU session detected - skipping cleanup "
+                        "to avoid interference")
+                    self.logger.info(
+                        "QEMU cleanup will be handled by test completion")
+                else:
+                    self.logger.info(
+                        "No active QEMU sessions - proceeding with cleanup")
+                    self.ensure_qemu_cleanup()
+            except Exception as e:
+                self.logger.warning(
+                    f"Could not check QEMU session status: {e}")
+                # If we can't check, err on the side of caution and skip
+                self.logger.info(
+                    "Skipping QEMU cleanup due to status check failure")
+        else:
+            self.logger.info(
+                "QEMU support not available - skipping QEMU cleanup")
+        
+        # Small delay to allow file system operations to complete
+        time.sleep(2)
         
         self.logger.info("Step 1: Collecting test results...")
         self.collect_test_results()

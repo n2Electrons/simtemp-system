@@ -133,51 +133,16 @@ This section documents the AI-assisted setup of QEMU emulation environment for D
 
 This section documents the actual user prompts from our conversation that led to creating a fully functional QEMU i.MX6 environment with ARM-native filesystem and Hello World integration for Jenkins CI/CD.
 
-| **#** | **User Prompt** | **Purpose** | **AI Response/Outcome** | **Validation Performed** |
-|-------|-----------------|-------------|------------------------|--------------------------|
-| **1** | "We need to create an ARM-compatible rootfs because x86_64 binaries fail with ENOEXEC errors in ARM emulation" | Create ARM-native filesystem to resolve binary compatibility issues in QEMU ARM emulation | Cross-compiled BusyBox for ARM with static linking, created minimal rootfs directory structure, packaged as compressed CPIO archive | Verified 1.5MB ARM BusyBox binary, created 1.1MB compressed rootfs.cpio.gz, confirmed ELF 32-bit ARM EABI5 format |
-| **2** | "implement a hello world that runs in QEMU in jenkins" | Create Hello World application for QEMU execution in Jenkins CI/CD | Created ARM Hello World C program with system information display, cross-compilation Makefile, and Jenkins test integration | Verified 424KB ARM EABI5 binary, confirmed QEMU compatibility, tested Jenkins pipeline integration |
-| **3** | "create a src/hello/ directory for hello_world files. Update dependencies" | Organize source code in proper directory structure | Created src/hello/ directory with hello_world.c, Makefile, and proper build system. Updated test dependencies for structured approach | Confirmed proper file organization, updated simtemp_tests.yml configuration, verified build targets |
-| **4** | "We had discussed that we would do cross-compilation on the host and Jenkins would provide the test binaries to QEMU, was that right?" | Clarify compilation approach: cross-compile on host vs compile in Jenkins | Confirmed pre-compilation approach: Jenkins uses pre-compiled ARM binaries instead of compiling during test execution. Removed BUILD_SCRIPT from pipeline configuration | Updated pipeline to verification-only approach, optimized for faster execution, separated build from test responsibilities |
-
-### Key Technical Commands Generated from User Prompts
-
-Based on the user prompts above, the following critical technical commands were generated and executed:
-
-| **Command Category** | **Generated Commands** | **Origin Prompt** |
-|---------------------|----------------------|------------------|
-| **ARM Cross-Compilation** | `arm-linux-gnueabihf-gcc -Wall -Wextra -O2 -static -o hello_world hello_world.c` | Prompt #1: "implementa un hello world que corran en QEMU en jenkins" |
-| **QEMU Execution** | `qemu-system-arm -M sabrelite -cpu cortex-a9 -m 1024 -nographic -kernel zImage -dtb imx6q-sabrelite.dtb -initrd rootfs.cpio.gz -append "console=ttymxc0,115200"` | Prompt #1: "implementa un hello world que corran en QEMU en jenkins" |
-| **Source Organization** | `mkdir -p src/hello/ && mv hello_world.c src/hello/ && mv Makefile src/hello/` | Prompt #2: "create a src/hello/ directory for hello_world files" |
-| **Pipeline Optimization** | Removed `BUILD_SCRIPT` from `simtemp_tests.yml`, updated to pre-compiled binary approach | Prompt #3: "Habiamos comentado que realizariamos compilacion cruzasda en el host" |
-| **Rootfs Integration** | `cp hello_world deployment/qemu/rootfs/bin/` and rootfs packaging commands | Prompt #5: "src/hello/ debe estar en algun directorio de rootfs/" |
-
-### Critical Success Factors Identified
-
-| **Factor** | **Issue Resolved** | **Origin Prompt** |
-|------------|-------------------|------------------|
-| **Pre-compiled Binaries** | Jenkins pipeline optimization | Prompt #3: Compilation approach clarification |
-| **Source Code Organization** | Proper directory structure | Prompt #2: Directory creation request |
-| **Binary Location Clarity** | Understanding source vs binary placement | Prompt #5: Rootfs directory question |
-| **ARM Static Linking** | QEMU execution compatibility | Prompt #1: QEMU Hello World implementation |
-
-### Final Integration Status
-- ✅ **Hello World Implementation**: Complete ARM C program with system information display (424KB)
-- ✅ **Source Organization**: Proper src/hello/ directory structure with Makefile
-- ✅ **Jenkins Integration**: Pre-compiled binary approach with 4 test cases (F-K1-TC-002-005)
-- ✅ **QEMU Environment**: ARM i.MX6 emulation with interactive shell and Hello World execution
-- ✅ **Pipeline Optimization**: Fast verification-only testing instead of compilation during CI/CD
-- ✅ **Documentation**: Complete prompt history preserved in AI_NOTES.md for reproducibility
-
-This documentation captures the authentic conversation flow that led to a complete QEMU i.MX6 Hello World implementation ready for Jenkins CI/CD integration.
+| **#** | **User Prompt** | **Purpose / Outcome** | **Validation Performed** |
+|-------|-----------------|------------------------|--------------------------|
+| **1** | "We need to create an ARM-compatible rootfs because x86_64 binaries fail with ENOEXEC errors in ARM emulation" | Create ARM-native filesystem to resolve binary compatibility issues in QEMU ARM emulation | Verified 1.5MB ARM BusyBox binary, created 1.1MB compressed rootfs.cpio.gz, confirmed ELF 32-bit ARM EABI5 format |
+| **2** | "implement a hello world that runs in QEMU in jenkins" | Create Hello World application for QEMU execution in Jenkins CI/CD | Verified 424KB ARM EABI5 binary, confirmed QEMU compatibility, tested Jenkins pipeline integration |
+| **3** | "create a src/hello/ directory for hello_world files. Update dependencies" | Organize source code in proper directory structure | Confirmed proper file organization, updated simtemp_tests.yml configuration, verified build targets |
+| **4** | "We had discussed that we would do cross-compilation on the host and Jenkins would provide the test binaries to QEMU, was that right?" | Clarify compilation approach: cross-compile on host vs compile in Jenkins | Updated pipeline to verification-only approach, optimized for faster execution, separated build from test responsibilities |
 
 ---
 
-**End of AI_NOTES.md**
-
----
-
-## QEMU Setup and Device Tree Overlay Testing Infrastructure
+## 3.9 QEMU Setup and Device Tree Overlay Testing Infrastructure
 
 This section documents the AI-assisted setup of QEMU emulation environment for Device Tree overlay testing, continuation of F-K1-TC-002 development.
 
@@ -186,5 +151,35 @@ This section documents the AI-assisted setup of QEMU emulation environment for D
 | **1** | "I need to install QEMU for an i.MX6 system. I've completed the F-K1-TC-002 test implementation and it's working correctly - it fails when there's no real Device Tree overlay infrastructure, which is the expected behavior. Now I want to set up a proper emulation environment for i.MX6 to enable real Device Tree overlay testing in the future. This is the next logical step to move from mock testing to actual hardware emulation." | Install QEMU with ARM support for i.MX6 emulation to enable real Device Tree overlay testing environment | Verified QEMU installation with mcimx6ul-evk machine support available, confirmed ARM cross-compilation toolchain installation |
 | **2** | "Can we make the kernel headers match those of this host? Instead of downloading an external kernel image for QEMU, I'd prefer to use the host system's kernel headers for consistency and compatibility. This approach should avoid version mismatches and simplify the development environment by leveraging the existing kernel infrastructure on my development machine." | Use host kernel headers instead of external kernel for compatibility and consistency | Installed linux-headers matching host kernel version (6.14.0-33-generic), avoided downloading external kernel |
 | **3** | "I don't want to simulate the test passing" | Ensure test still fails correctly without real DT overlay infrastructure - maintain test integrity | Confirmed F-K1-TC-002 fails as expected - this is the correct behavior. Mock infrastructure only for development testing |
+
+---
+
+## 3.10 TDD Test creation commands
+
+### F-K1-TC-002
+
+| **#** | **Prompt (User Input)** | **Purpose / Outcome** | **Validation Performed** |
+|------|---------------------------|------------------------|---------------------------|
+| **1** | "I need to register the platform driver via dt" | Initial request to implement platform driver with Device Tree support | Examined existing DT configuration files and kernel driver structure, implemented complete platform driver with DT support |
+| **2** | "Create a TDD test for F-K1 requirement. The test is expected to fail. Also create a proper description for the test to be included in the PR." | Implement comprehensive TDD test with proper documentation for PR submission | Generated complete TDD test with comprehensive validation and PR-ready documentation |
+| **3** | "Create an entry in simtemp_tests.yml for test_f_k1_tc_003.py" | Integrate new test into test configuration system | Added test entry to kernel_driver_base section with proper TDD configuration and debug settings |
+| **4** | "put it as part of kernel_driver_suite and also another entry to test the same in the qemu_integration suite" | Move test to appropriate suite and add QEMU variant | Moved test to kernel_driver_suite and added QEMU integration variant for cross-platform validation |
+
+---
+
+## 3.11 QEMU Shared Session Management Implementation
+
+This section documents the AI-assisted implementation of shared QEMU session management system for efficient test execution optimization.
+
+| **#** | **User Prompt** | **Purpose / Outcome** | **Key Changes Made** |
+|------|-----------------|------------------------|---------------------|
+| **1** | "The F-K1-TC-003-QEMU test must be implemented with the same code as F-K1-TC-003, with the difference that it has to wait for QEMU to finish booting" | Created separate QEMU test file with boot waiting logic | test_f_k1_tc_003_qemu.py created |
+| **2** | "I asked you to use a test utils function in the test_f_k1_tc_003 test in case it's QEMU" | Modified existing test to detect QEMU mode and use test_utils functions | test_f_k1_tc_003.py updated with QEMU detection |
+| **3** | "Can it be renamed: is_qemu_test() --> check_qemu_test() and call start_qemu_and_wait_for_boot() inside it and return qemu_process?" | Refactored to combine functions into single check_qemu_test() API | Simplified API with automatic QEMU startup |
+| **4** | "When the first QEMU test case runs, it should leave QEMU running and create a marker so other QEMU tests don't restart the boot process. At the end, the test runner terminates QEMU and removes the marker" | Implemented shared QEMU session system with marker files and session reuse | Complete session management system |
+| **5** | "Who executes: run_tests_enhanced?" | Analyzed current pipeline using driver_tester.py, explained integration options | Understanding of current architecture |
+| **6** | "Hybrid integration. With a name like test_monitor.py or something similar" | Created hybrid integration wrapper preserving all existing functionality | test_monitor.py + pipeline_config.yml update |
+| **7** | "Run tests" | Comprehensive testing of all components, verified Jenkins compatibility | Complete system validation and documentation |
+| **8** | "Add changes to stage area" | Staged all files for commit preparation | All QEMU session management files staged |
 
 **End of AI_NOTES.md**

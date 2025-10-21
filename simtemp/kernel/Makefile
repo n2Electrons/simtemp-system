@@ -20,10 +20,8 @@ NXP_KERNEL_SRC := $(shell \
 
 # Host kernel source detection - supports both Ubuntu host and Debian Jenkins container
 HOST_KERNEL_SRC := $(shell \
-	if [ -f "/.dockerenv" ] && [ -d "/usr/src/linux-headers-6.1.0-40-amd64" ]; then \
-		echo "/usr/src/linux-headers-6.1.0-40-amd64"; \
-	elif [ -f "/.dockerenv" ]; then \
-		find /usr/src -name "linux-headers-*-amd64" -type d | head -1; \
+	if [ -f "/.dockerenv" ]; then \
+		echo "/usr/src/linux-headers-6.14.0-32-generic"; \
 	elif [ -d "/lib/modules/6.14.0-32-generic/build" ]; then \
 		echo "/lib/modules/6.14.0-32-generic/build"; \
 	elif [ -d "/lib/modules/$$(uname -r)/build" ]; then \
@@ -31,6 +29,23 @@ HOST_KERNEL_SRC := $(shell \
 	else \
 		find /lib/modules -name "build" -type d | head -1; \
 	fi)
+
+# Debian Docker build with Ubuntu headers (mounted from host)
+# Auto-detect working kernel headers in Docker (prioritize known working versions)
+DEBIAN_KERNEL_SRC := $(shell \
+	if [ -f "/.dockerenv" ]; then \
+		if [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
+			echo "/usr/src/linux-headers-6.14.0-32-generic"; \
+		elif [ -d "/usr/src/linux-headers-6.14.0-33-generic" ]; then \
+			echo "/usr/src/linux-headers-6.14.0-33-generic"; \
+		else \
+			KERNEL_VER=$$(uname -r); \
+			echo "/usr/src/linux-headers-$$KERNEL_VER"; \
+		fi; \
+	else \
+		echo "/usr/src/linux-headers-generic"; \
+	fi)
+# Use Ubuntu headers mounted in Docker with Debian toolchain
 
 # Legacy KERNEL_SRC for info display (uses NXP when available)
 KERNEL_SRC := $(NXP_KERNEL_SRC)
@@ -43,18 +58,19 @@ SIGNING_DER := /var/jenkins_home/kernel_enroll/MOK.der
 
 obj-m := nxp_simtemp.o
 
-# Default target - Host build (Jenkins CI/CD compatible)
-all: host-signed
+# Default target - Auto-detect environment (Docker vs Host)
+all: $(shell if [ -f "/.dockerenv" ]; then echo "deb-driver"; else echo "host-driver"; fi)
 
-# Use explicit targets: 'make host' for native x86_64, 'make nxp-arm' for cross-compilation
+# Use explicit targets: 'make host-driver' for native x86_64, 'make nxp-driver-arm' for cross-compilation
+# All targets build signed kernel modules for production deployment
 
 # NXP i.MX cross-compilation targets
-prepare-nxp-arm:
+prepare-nxp-driver-arm:
 	@echo "Preparing NXP ARM (i.MX6/i.MX7) cross-compilation environment..."
-	cd ../scripts && ./nxp_prepare_headers_imx.sh --arch arm --modules
-	@echo "NXP ARM environment ready. Use 'make nxp-arm' to build."
+	@bash -c 'cd ../scripts && ./nxp_prepare_headers_imx.sh --arch arm --modules'
+	@echo "✅ NXP ARM environment ready. Use 'make nxp-driver-arm' to build."
 
-nxp-arm: prepare-nxp-arm $(OBJ_DIR)
+nxp-driver-arm: prepare-nxp-driver-arm $(OBJ_DIR)
 	@echo "Building and signing NXP ARM module..."
 	bash -c 'cd ../scripts && source ./imx-env.sh && cd ../kernel && \
 	$(MAKE) -C $$KDIR ARCH=$$ARCH CROSS_COMPILE=$$CROSS_COMPILE M=$(PWD) modules'
@@ -62,25 +78,21 @@ nxp-arm: prepare-nxp-arm $(OBJ_DIR)
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
 		echo "✅ NXP ARM module built successfully in $(OBJ_DIR)/"; \
+	else \
+		echo "ERROR: nxp_simtemp.ko was not created"; \
+		exit 1; \
 	fi
-	@echo "Signing NXP ARM module..."
-	$(MAKE) sign_module
-	@echo "Copying binaries to QEMU rootfs for deployment..."
-	mkdir -p ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
-	cp $(OBJ_DIR)/nxp_simtemp.ko ../../deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/
-	@echo "Packaging updated rootfs..."
-	cd ../../deployment/qemu && ./scripts/update_rootfs.sh
-	@echo "✅ NXP ARM module built, signed, and packaged successfully"
+	$(call sign_module_inline)
+	@echo "✅ NXP ARM module built and signed successfully"
+	@echo "📦 Populating prebuilt directories..."
+	@../scripts/populate_arm_driver.sh
 
-prepare-nxp-arm64:
-	@echo "Comming soon:"
-	@echo "NXP ARM64 environment preparation"
-	@echo ""
-#	@echo "Preparing NXP ARM64 (i.MX8) cross-compilation environment..."
-#	cd ../scripts && ./nxp_prepare_headers_imx.sh --arch arm64 --modules
-#	@echo "NXP ARM64 environment ready. Use 'make nxp-arm64' to build."
+prepare-nxp-driver-arm64:
+	@echo "Preparing NXP ARM64 (i.MX8) cross-compilation environment..."
+	@echo "Note: ARM64 NXP setup not yet implemented"
+	@false
 
-nxp-arm64: prepare-nxp-arm64 $(OBJ_DIR)
+nxp-driver-arm64: prepare-nxp-driver-arm64 $(OBJ_DIR)
 	@echo "Building and signing NXP ARM64 module..."
 	bash -c 'cd ../scripts && source ./imx-env.sh && cd ../kernel && \
 	$(MAKE) -C $$KDIR ARCH=$$ARCH CROSS_COMPILE=$$CROSS_COMPILE M=$(PWD) modules'
@@ -88,90 +100,140 @@ nxp-arm64: prepare-nxp-arm64 $(OBJ_DIR)
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
 		echo "✅ NXP ARM64 module built successfully in $(OBJ_DIR)/"; \
-	fi
-	@echo "Signing NXP ARM64 module..."
-	$(MAKE) sign_module
-	@echo "✅ NXP ARM64 module built and signed successfully"
-
-# Native host x86_64 build (quick development, no signing)
-host: $(OBJ_DIR)
-	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(HOST_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
-	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
-	@if [ -f nxp_simtemp.ko ]; then \
-		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
-		echo "✅ Host x86_64 module built successfully in $(OBJ_DIR)/"; \
 	else \
 		echo "ERROR: nxp_simtemp.ko was not created"; \
 		exit 1; \
 	fi
+	$(call sign_module_inline)
+	@echo "✅ NXP ARM64 module built and signed successfully"
+
+# Debian Docker build for x86_64 testing
+deb-driver: $(OBJ_DIR)
+	@echo "Building Debian x86_64 driver for testing..."
+	@echo "Using Ubuntu headers: $(DEBIAN_KERNEL_SRC)"
+	@if [ ! -d "$(DEBIAN_KERNEL_SRC)" ]; then \
+		echo "ERROR: Ubuntu headers not found at $(DEBIAN_KERNEL_SRC)"; \
+		echo "Available headers:"; \
+		find /usr/src -name "linux-headers-*" -type d | head -5; \
+		exit 1; \
+	else \
+		echo "✅ Found Ubuntu headers at $(DEBIAN_KERNEL_SRC)"; \
+	fi
+	@echo "Compiling with Debian toolchain..."
+	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(DEBIAN_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
+	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
+	@if [ -f nxp_simtemp.ko ]; then \
+		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
+		echo "✅ Debian x86_64 module built successfully for testing in $(OBJ_DIR)/"; \
+	else \
+		echo "ERROR: nxp_simtemp.ko was not created"; \
+		exit 1; \
+	fi
+	$(call sign_module_inline)
 
 # Create obj directory
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
 
-# Sign the kernel module (only called when keys are verified to exist)
-sign_module:
+# Sign module inline (without recursive make call) - used by deb-driver and host-driver
+define sign_module_inline
+	@echo "Signing kernel module..."
 	@if [ -f "$(SIGNING_PRIV)" ] && [ -f "$(SIGNING_DER)" ]; then \
+		echo "Found signing keys: $(SIGNING_PRIV) and $(SIGNING_DER)"; \
 		if [ -f "/.dockerenv" ]; then \
-			echo "Signing kernel module in container..."; \
+			echo "Signing kernel module in Docker container..."; \
 		else \
 			echo "Signing kernel module on host..."; \
 		fi; \
-		SIGN_FILE_PATH=""; \
-		if [ -f "/usr/src/linux-headers-$(shell uname -r)/scripts/sign-file" ]; then \
-			SIGN_FILE_PATH="/usr/src/linux-headers-$(shell uname -r)/scripts/sign-file"; \
-		elif [ -f "$(KERNEL_SRC)/scripts/sign-file" ]; then \
-			SIGN_FILE_PATH="$(KERNEL_SRC)/scripts/sign-file"; \
+		echo "Running sign-file as root..."; \
+		if [ -f "/.dockerenv" ]; then \
+			/usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
 		else \
-			echo "ERROR: sign-file script not found"; \
-			exit 1; \
-		fi; \
-		if [ "$$(id -u)" = "0" ]; then \
-			echo "Running sign-file as root..."; \
-			$$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
-		else \
-			echo "Running sign-file with sudo (non-interactive)..."; \
-			# Try without password first, fall back to sudo if needed and user has rights \
-			if ! $$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko 2>/dev/null; then \
-				if ! sudo -n $$SIGN_FILE_PATH sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; then \
-					echo "WARNING: Could not sign module - permissions issue"; \
-				fi; \
+			if [ "$$(id -u)" = "0" ]; then \
+				/usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
+			else \
+				sudo /usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
 			fi; \
 		fi; \
-		echo "   Kernel module built and signed successfully in $(OBJ_DIR)/"; \
+		echo "Kernel module built and signed successfully in $(OBJ_DIR)/"; \
 	else \
-		echo "   Kernel module built WITHOUT signing in $(OBJ_DIR)/"; \
+		echo "Signing keys not found - module built WITHOUT signing in $(OBJ_DIR)/"; \
 	fi
+endef
 
 # Host x86_64 native compilation with signing (production build)
-host-signed: $(OBJ_DIR)
-	@echo "Building for host x86_64 using native kernel headers..."
-	@echo "Using priority headers: $(HOST_KERNEL_SRC)"
+host-driver: $(OBJ_DIR)
+	@echo "Building and signing host x86_64 driver using native kernel headers..."
+	@echo "Using host headers: $(HOST_KERNEL_SRC)"
+	@if [ ! -d "$(HOST_KERNEL_SRC)" ]; then \
+		echo "ERROR: Host headers not found at $(HOST_KERNEL_SRC)"; \
+		echo "Available kernel modules:"; \
+		ls -la /lib/modules/ | head -5 || echo "No modules found"; \
+		exit 1; \
+	else \
+		echo "✅ Found host headers at $(HOST_KERNEL_SRC)"; \
+	fi
 	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(HOST_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
 	@if [ -f nxp_simtemp.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
 		echo "✅ Host x86_64 module built successfully in $(OBJ_DIR)/"; \
-		$(MAKE) sign_module; \
 	else \
 		echo "ERROR: nxp_simtemp.ko was not created"; \
 		exit 1; \
 	fi
+	$(call sign_module_inline)
 
 # Remove all generated files
 clean:
+	@echo "Cleaning build artifacts..."
 	@if [ -d "$(OBJ_DIR)" ]; then \
-		chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
-		rm -rf $(OBJ_DIR) 2>/dev/null && echo "All build artifacts cleaned" || \
-		echo "Clean failed - manual intervention required"; \
+		echo "Removing $(OBJ_DIR) directory and contents..."; \
+		if [ -f "/.dockerenv" ]; then \
+			echo "Docker environment detected - using root permissions"; \
+			chmod -R 777 $(OBJ_DIR) 2>/dev/null || true; \
+			find $(OBJ_DIR) -type f -delete 2>/dev/null || true; \
+			rmdir $(OBJ_DIR) 2>/dev/null || rm -rf $(OBJ_DIR) 2>/dev/null || { \
+				echo "WARNING: Could not fully remove $(OBJ_DIR) - trying alternative cleanup"; \
+				find $(OBJ_DIR) -name ".*" -delete 2>/dev/null || true; \
+				find $(OBJ_DIR) -type f -exec rm -f {} \; 2>/dev/null || true; \
+				rmdir $(OBJ_DIR) 2>/dev/null || echo "Directory $(OBJ_DIR) may still exist"; \
+			}; \
+		elif [ "$$(id -u)" = "0" ]; then \
+			echo "Running as root - direct removal"; \
+			chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
+			rm -rf $(OBJ_DIR) 2>/dev/null || { \
+				echo "ERROR: Failed to remove $(OBJ_DIR) as root"; \
+				ls -la $(OBJ_DIR) 2>/dev/null || true; \
+				exit 1; \
+			}; \
+		else \
+			echo "Running as user - trying with sudo"; \
+			chmod -R u+w $(OBJ_DIR) 2>/dev/null || sudo chmod -R u+w $(OBJ_DIR) 2>/dev/null || true; \
+			rm -rf $(OBJ_DIR) 2>/dev/null || sudo rm -rf $(OBJ_DIR) 2>/dev/null || { \
+				echo "ERROR: Failed to remove $(OBJ_DIR) with user/sudo permissions"; \
+				ls -la $(OBJ_DIR) 2>/dev/null || true; \
+				echo "Manual cleanup required: sudo rm -rf $(OBJ_DIR)"; \
+				exit 1; \
+			}; \
+		fi; \
+		echo "Build artifacts cleaned successfully"; \
 	else \
 		echo "No build artifacts to clean"; \
 	fi
+	@# Also clean any stray files in current directory
+	@rm -f *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order 2>/dev/null || true
 
 
 info:
 	@echo "=== Kernel Build Configuration ==="
-	@echo "KERNEL_SRC: $(KERNEL_SRC)"
+	@echo "Environment: $(shell if [ -f "/.dockerenv" ]; then echo "Docker Container"; else echo "Host System"; fi)"
+	@echo "Default target: $(shell if [ -f "/.dockerenv" ]; then echo "deb-driver (x86_64 for testing)"; else echo "host-driver (Ubuntu native)"; fi)"
+	@echo ""
+	@echo "Auto-detected paths:"
+	@echo "  HOST_KERNEL_SRC: $(HOST_KERNEL_SRC)"
+	@echo "  DEBIAN_KERNEL_SRC: $(DEBIAN_KERNEL_SRC)"
+	@echo "  KERNEL_SRC (NXP): $(KERNEL_SRC)"
 	@if [ -f "../scripts/imx-env.sh" ]; then \
 		echo "NXP Environment: Available (source ../scripts/imx-env.sh)"; \
 		bash -c 'cd ../scripts && source ./imx-env.sh && echo "  ARCH=$$ARCH, CROSS_COMPILE=$$CROSS_COMPILE"'; \
@@ -180,10 +242,11 @@ info:
 	fi
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make host         - Native x86_64 build (development, no signing)"
-	@echo "  make host-signed  - Native x86_64 build with signing (production)"
-	@echo "  make nxp-arm      - Build and sign for NXP ARM devices (i.MX6/i.MX7)"
-	@echo "  make nxp-arm64    - Build and sign for NXP ARM64 devices (i.MX8)"
-	@echo "  make info         - Show this information"
+	@echo "  make all               - Auto-detect environment (Docker=deb-driver, Host=host-driver)"
+	@echo "  make host-driver       - Native x86_64 build with signing (Ubuntu host)"
+	@echo "  make deb-driver        - Build x86_64 driver for testing (Docker container)"
+	@echo "  make nxp-driver-arm    - Build and sign for NXP ARM devices (i.MX6/i.MX7)"
+	@echo "  make nxp-driver-arm64  - Build and sign for NXP ARM64 devices (i.MX8)"
+	@echo "  make info              - Show this information"
 
-.PHONY: host host-signed sign_module clean prepare-nxp-arm prepare-nxp-arm64 nxp-arm nxp-arm64 info
+.PHONY: host-driver deb-driver clean prepare-nxp-driver-arm prepare-nxp-driver-arm64 nxp-driver-arm nxp-driver-arm64 info

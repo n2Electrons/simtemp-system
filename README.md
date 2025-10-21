@@ -240,21 +240,93 @@ struct simtemp_sample {
 
 ## Docker Development Environment
 
-- **Containerized kernel development**: Isolated Linux environment
-- **Module compilation**: Out-of-tree build with proper headers
-- **Device simulation**: `/dev/simtemp` and sysfs in container
+### Automated Setup (Recommended)
+
+The fastest way to set up the complete kernel development environment:
+
+```bash
+# Run the automated setup script
+./deployment/docker/setup-kernel-dev-docker.sh
+```
+
+**What it configures:**
+- Privileged Jenkins container for kernel module development
+- Complete build toolchain with auto-detection (Docker vs Host)
+- Python testing framework (pytest, PyYAML, requests)
+- Sudoers configuration for jenkins user kernel operations
+- glibc compatibility for Ubuntu kernel headers
+- Digital signing with MOK keys
+- Environment verification and health checks
+
+### Manual Docker Commands
+
+```bash
+# Build and test kernel module
+docker exec -u root jenkins-minimal bash -c "
+cd /var/jenkins_home/workspace/simtemp-system/simtemp/kernel && 
+make all"  # Auto-detects Docker environment
+
+# Run automated tests as jenkins user
+docker exec -u jenkins jenkins-minimal bash -c "
+cd /var/jenkins_home/workspace/simtemp-system/simtemp/tests && 
+python3 -m pytest -v"
+
+# Load/unload module for testing
+docker exec -u jenkins jenkins-minimal bash -c "
+sudo insmod /var/jenkins_home/workspace/simtemp-system/simtemp/kernel/obj/nxp_simtemp.ko &&
+sudo rmmod nxp_simtemp"
+```
+
+### Development Features
+
+- **Environment auto-detection**: Makefile automatically detects Docker vs Host
+- **Improved clean operations**: Robust error handling for build artifacts
+- **Automated testing**: Python pytest framework with kernel module operations
+- **Permission management**: Configured sudoers for seamless jenkins user operations
+- **Containerized kernel development**: Isolated Linux environment with privileged access
+- **Module compilation**: Out-of-tree build with proper Ubuntu kernel headers
+- **Device simulation**: `/dev/simtemp` and sysfs accessible in container
+
+For detailed setup instructions and troubleshooting, see:
+**[deployment/docker/KERNEL_DEV_ENVIRONMENT.md](deployment/docker/KERNEL_DEV_ENVIRONMENT.md)**
 
 ## QEMU Infrastructure
 
 This project includes QEMU-based testing infrastructure for Device Tree overlay validation on i.MX6UL platform, supporting F-K1-TC-002 test case execution with Jenkins CI/CD integration.
 
-For detailed setup instructions, kernel compilation, Jenkins integration, and advanced configuration, see:
-**[deployment/qemu/docs/IMX6_QEMU_BUILD.md](deployment/qemu/docs/IMX6_QEMU_BUILD.md)**
+### Host QEMU Integration (October 2025)
+
+The project now uses **host QEMU tools** instead of complex container installations, providing a more stable and maintainable solution:
+
+```bash
+# Quick QEMU test (after Docker setup)
+docker exec jenkins-minimal qemu-system-arm --version
+# Output: QEMU emulator version 8.2.2
+
+# Run F-K1-TC-002 test  
+docker exec jenkins-minimal bash -c "
+cd /var/jenkins_home/workspace/lenge-from-Github_f-k1-reg-by-dt/deployment/qemu && 
+timeout 10 /host-workspace/deployment/qemu/scripts/run_qemu.sh"
+```
+
+**Benefits of Host Integration:**
+- ✅ **No complex dependencies**: Uses stable host QEMU instead of container installation
+- ✅ **Immediate availability**: QEMU tools accessible via host filesystem mounting
+- ✅ **Easy maintenance**: Host QEMU updates don't require container rebuilds
+- ✅ **Reliable execution**: F-K1-TC-002 test now passes consistently
+
+For detailed implementation process and troubleshooting, see:
+**[deployment/docker/QEMU_HOST_INTEGRATION_SETUP.md](deployment/docker/QEMU_HOST_INTEGRATION_SETUP.md)**
 
 ### Key Features
 
 - **Target Platform**: i.MX6UL (ARM Cortex-A7) via QEMU mcimx6ul-evk machine
+- **Host Integration**: Direct mounting of host QEMU tools (no container installation)
 - **Jenkins Integration**: 9P filesystem sharing and automated CI/CD
-- **Official Kernel**: NXP linux-imx repository
+- **Official Kernel**: NXP linux-imx repository (9.8MB zImage)
 - **Test Framework**: F-K1-TC-002 Device Tree overlay validation
+- **Automated Testing**: Python pytest integration with QEMU ARM emulation
+
+For original QEMU build instructions and advanced configuration, see:
+**[deployment/qemu/docs/IMX6_QEMU_BUILD.md](deployment/qemu/docs/IMX6_QEMU_BUILD.md)**
 
