@@ -11,6 +11,7 @@
 #include <linux/of_device.h>
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/version.h>
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Jorge Rodriguez Moreno");
@@ -66,13 +67,31 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
  *
  * This function is called when the device is removed or the driver
  * is unloaded.
+ * 
+ * Note: Return type varies by kernel version - void for older kernels,
+ * int for newer kernels. We use a wrapper approach for compatibility.
  */
-static void nxp_simtemp_remove(struct platform_device *pdev)
+static void nxp_simtemp_remove_impl(struct platform_device *pdev)
 {
 	dev_info(&pdev->dev, "NXP SimTemp driver remove called\n");
 
 	/* Private data is automatically freed by devm_kzalloc */
 }
+
+/* Kernel version compatibility wrapper - arm kernels expect int, x86 kernels expect void */
+#ifdef CONFIG_ARM
+static int nxp_simtemp_remove(struct platform_device *pdev)
+{
+	nxp_simtemp_remove_impl(pdev);
+	return 0;
+}
+#else
+static void nxp_simtemp_remove(struct platform_device *pdev)
+{
+	nxp_simtemp_remove_impl(pdev);
+    return;
+}
+#endif
 
 /**
  * Device Tree compatible strings
