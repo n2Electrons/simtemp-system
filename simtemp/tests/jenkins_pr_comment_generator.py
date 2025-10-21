@@ -64,6 +64,12 @@ def load_test_config():
 
 def load_detailed_test_report():
     """Load detailed test report JSON if available"""
+    import os
+    
+    # Print current working directory for debugging
+    current_dir = os.getcwd()
+    print(f"PR Generator current working directory: {current_dir}")
+    
     # Try common report locations
     report_paths = [
         "simtemp/tests/reports/test_report_detailed.json",
@@ -72,7 +78,9 @@ def load_detailed_test_report():
     ]
     
     for report_path in report_paths:
-        print(f"Checking for report at: {report_path}")
+        absolute_path = os.path.abspath(report_path)
+        print(f"Checking for report at: {report_path} (absolute: {absolute_path})")
+        print(f"File exists: {os.path.exists(report_path)}")
         if os.path.exists(report_path):
             try:
                 print(f"Found and loading report from: {report_path}")

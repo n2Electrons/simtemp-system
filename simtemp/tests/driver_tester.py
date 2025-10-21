@@ -1369,16 +1369,19 @@ class DriverTestOrchestrator:
         self.logger.info(f"Output directory: {self.output_dir}")
         self.logger.info(f"Test config file: {self.test_config_file}")
         
-        # NEW: Wait for QEMU sessions to complete before collecting results
-        self.logger.info("Step 0: Waiting for QEMU sessions to complete...")
-        qemu_completed = self.wait_for_qemu_sessions_completion(max_wait_time=120)
-        if qemu_completed:
-            self.logger.info("All QEMU sessions completed successfully")
-        else:
-            self.logger.warning("QEMU sessions did not complete within timeout")
-        
-        # NEW: Ensure cleanup before collecting results
-        self.ensure_qemu_cleanup()
+        # Check QEMU session status but do NOT force cleanup during report gen
+        self.logger.info("Step 0: Checking QEMU session status...")
+        if QEMU_SUPPORT_AVAILABLE:
+            try:
+                from test_utils import is_qemu_session_active
+                if is_qemu_session_active():
+                    self.logger.info("QEMU session is active - tests may still be running")
+                    self.logger.info("Allowing QEMU session to continue for subsequent tests")
+                else:
+                    self.logger.info("No active QEMU sessions detected - "
+                                     "proceeding with report generation")
+            except Exception as e:
+                self.logger.warning(f"Could not check QEMU session status: {e}")
         
         # Small delay to allow file system operations to complete
         time.sleep(2)
