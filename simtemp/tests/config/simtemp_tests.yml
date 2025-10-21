@@ -122,17 +122,24 @@ tests:
           validation_patterns: ["initramfs ready", "platform", "simtemp", "Device Tree"]
           module_operations: ["insmod", "rmmod", "modinfo"]
 
-      - name: "test_qemu_driver_load_unload"
-        description: "QEMU / test_qemu_driver_load_unload() - Load/unload kernel module in QEMU without WARN/OOPS"
-        enabled: false
+      - name: "test_dtb_driver_binding_and_functionality"
+        description: "DTB / test_dtb_driver_binding_and_functionality() - DTB driver binding and functionality verification"
+        enabled: true
         test_id: "F-K8-TC-003"
-        pytest_file: "test_f_k8_tc_003.py"  # Specific pytest file for this test case
-        debug_info: "This test verifies clean module load/unload operations in QEMU environment"
-        qemu_specific:
-          expects_boot: true
-          expects_module_load: true
-          validation_patterns: ["initramfs ready", "nxp_simtemp"]
-          module_operations: ["insmod", "rmmod", "lsmod"]
+        pytest_file: "test_f_k8_tc_003_dtb.py"  # Specific pytest file for DTB test
+        verbose_output: true  # Enable verbose output for DTB debugging
+        debug_info: "TDD test for DTB driver binding, Device Tree property parsing, and functionality verification"
+        dtb_specific:
+          expects_dtb_compilation: true
+          expects_dtb_loading: true
+          expects_driver_binding: true
+          expects_property_parsing: true
+          validation_patterns: ["nxp,simtemp", "sampling_ms", "threshold_mC", "mode"]
+          required_tools: ["dtc"]  # Device Tree Compiler required
+          overlay_properties:
+            sampling_ms: 100
+            threshold_mC: 75000
+            mode: "continuous"
 
       - name: "device_tree_loading"
         description: "QEMU / device_tree_loading() - Verifies Device Tree loading in QEMU"
