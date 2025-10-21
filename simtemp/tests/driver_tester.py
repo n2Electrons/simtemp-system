@@ -859,14 +859,34 @@ class DriverTestOrchestrator:
             if result.stderr:
                 self.logger.warning(f"Pytest stderr for {suite_name}:\n{result.stderr}")
             
-            # Parse pytest output
+            # Parse pytest output even if there were errors 
+            # Often tests pass but there are write issues
             self.parse_pytest_output(result.stdout, module_data)
             
             # Generate incremental test detail file for this suite
             self.generate_suite_detail_file(suite_name, module_data, result)
             
         except Exception as e:
-            self.logger.error(f"Error running pytest for {suite_name}: {e}")
+            try:
+                self.logger.error(f"Error running pytest for {suite_name}: {e}")
+            except:
+                # If even logging fails due to write blocking, continue silently
+                pass
+            # Try to extract any successful results from the error context
+            if 'result' in locals() and result.stdout:
+                try:
+                    self.logger.info("Attempting to parse partial results despite error")
+                except:
+                    pass  # Silent fallback if logging fails
+                try:
+                    self.parse_pytest_output(result.stdout, module_data)
+                except Exception as parse_error:
+                    try:
+                        self.logger.warning(
+                            f"Could not parse partial results: {parse_error}"
+                        )
+                    except:
+                        pass  # Silent fallback if logging fails
 
     def generate_suite_detail_file(self, suite_name, module_data, pytest_result):
         """Generate a test detail file for this specific suite"""
