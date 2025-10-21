@@ -1430,6 +1430,20 @@ class DriverTestOrchestrator:
         self.generate_html_report()
         
         self.logger.info("TEST REPORT GENERATION COMPLETED")
+        
+        # Check if there were any failed tests
+        failed_tests = self.test_results["summary"]["failed_tests"]
+        total_tests = self.test_results["summary"]["total_tests"]
+        
+        if failed_tests > 0:
+            self.logger.warning(
+                f"Test execution completed with {failed_tests} failed test(s) "
+                f"out of {total_tests} total tests"
+            )
+            return False  # Indicate failure for TDD compliance
+        else:
+            self.logger.info(f"All {total_tests} tests passed successfully")
+            return True  # Indicate success
 
 
 def main():
@@ -1466,9 +1480,16 @@ def main():
     
     print("DRIVER_TESTER: Starting test orchestration...")
     try:
-        orchestrator.generate_reports()
-        print("DRIVER_TESTER: Script completed successfully")
-        return 0
+        success = orchestrator.generate_reports()
+        if success:
+            print(
+                "DRIVER_TESTER: Script completed successfully - "
+                "all tests passed"
+            )
+            return 0
+        else:
+            print("DRIVER_TESTER: Script completed with test failures")
+            return 1
     except Exception as e:
         print(f"DRIVER_TESTER: Script failed with error: {e}")
         import traceback
@@ -1478,3 +1499,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
