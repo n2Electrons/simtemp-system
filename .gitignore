@@ -119,3 +119,4 @@ deployment/qemu/rootfs.cpio.gz # From now, this file will be generated automatic
 
 deployment/docker/jenkins-data/
 deployment/docker/jenkins-minimal-backup.tar.gz
+simtemp/scripts/sysroot-arm/

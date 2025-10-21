@@ -1178,8 +1178,38 @@ def sendConsolidatedPRComment() {
         return
     }
     
-    // Load pipeline configuration to get module repositories
+    // Load pipeline configuration first (needed for repository configuration)
     def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
+    
+    // Generate Python test files table comment using the dedicated script
+    echo "🧪 Generating PR comment with Python test files table..."
+    try {
+        def pythonScript = "simtemp/tests/jenkins_pr_comment_generator.py"
+        if (fileExists(pythonScript)) {
+            sh "cd ${WORKSPACE} && python3 ${pythonScript}"
+            
+            // Check if the generated comment files exist
+            if (fileExists('pr_comment_table.md')) {
+                echo "✅ Python test files comment generated successfully"
+                
+                // Read the generated comment
+                def pythonFilesComment = readFile('pr_comment_table.md')
+                
+                // Send the Python files comment and return early
+                def overallStatus = (globalBuildStatus == 'failure' || globalTestStatus == 'failure') ? 'failure' : 'success'
+                def githubRepo = getPRTargetRepository(pipelineConfig)
+                sendPRComment(overallStatus, pythonFilesComment, githubRepo)
+                return
+            } else {
+                echo "⚠️ Python files comment generation failed - pr_comment_table.md not found"
+            }
+        } else {
+            echo "⚠️ Python comment generator script not found at ${pythonScript}"
+        }
+    } catch (Exception e) {
+        echo "⚠️ Error generating Python files comment: ${e.message}"
+        echo "Falling back to standard PR comment format"
+    }
     
     // Load GitHub issue mappings dynamically from configuration files
     def githubIssueMapping = loadGitHubIssueMappings()
