@@ -250,9 +250,9 @@ def generate_python_files_table(test_config, detailed_report=None):
             # description removed as requested
             
             # Format as readable list item with line breaks and double indentation
-            lines.append(f"    **{status_icon} {test_id}** - {status_text}")
-            lines.append(f"        - **File:** `{pytest_file}`")
-            lines.append(f"        - **Test:** {test_name}")
+            # Simple format: icon - test_id / status: test_name
+            lines.append(f"    {status_icon} - {test_id} / {status_text}: {test_name}")
+            lines.append(f"        - **Test file:** `{pytest_file}`")
             lines.append("")  # Add space between test items
         
         lines.append("")  # Add space between suites

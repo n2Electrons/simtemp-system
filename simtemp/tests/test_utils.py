@@ -6,6 +6,8 @@ import os
 import subprocess
 import shutil
 import pytest
+import json
+import time
 from contextlib import contextmanager
 
 
@@ -541,8 +543,13 @@ def list_qemu_binaries(qemu_dir_path=None):
 
 def check_qemu_test():
     """
-    Check if this test should run in QEMU mode and start QEMU if needed.
-    Returns the QEMU process handle if QEMU is started, None otherwise.
+    Check if this test should run in QEMU mode and manage shared QEMU session.
+    Returns the QEMU process handle if QEMU is started/running, None otherwise.
+    
+    Uses shared QEMU session management:
+    - First test starts QEMU and creates session marker
+    - Subsequent tests reuse existing QEMU session
+    - Session marker prevents multiple QEMU boots
     """
     try:
         import yaml
@@ -567,19 +574,186 @@ def check_qemu_test():
             if (test_case.get('test_id') == 'F-K1-TC-003-QEMU' and
                 test_case.get('enabled', False) and
                 test_case.get('qemu_specific', {}).get('expects_boot', False)):
-                # QEMU mode detected - start QEMU and wait for boot
+                # QEMU mode detected - check for shared session
                 print("\n=== QEMU Mode Detected ===")
-                print("Starting QEMU environment for testing...")
-                qemu_process = start_qemu_and_wait_for_boot()
-                print("QEMU ready - proceeding with tests...")
-                return qemu_process
+                return get_or_start_shared_qemu_session()
                 
         return None
     except Exception:
         return None
 
 
-def start_qemu_and_wait_for_boot():
+def get_qemu_session_marker_path():
+    """Get the path for QEMU session marker file."""
+    return '/tmp/qemu_session_active.marker'
+
+
+def is_qemu_session_active():
+    """Check if a QEMU session is already running."""
+    marker_path = get_qemu_session_marker_path()
+    if not os.path.exists(marker_path):
+        return False
+    
+    try:
+        with open(marker_path, 'r') as f:
+            data = json.loads(f.read())
+            pid = data.get('pid')
+            
+        # Check if the process is still running
+        if pid:
+            try:
+                os.kill(pid, 0)  # Signal 0 just checks if process exists
+                print(f"Found active QEMU session with PID {pid}")
+                return True
+            except OSError:
+                # Process doesn't exist, remove stale marker
+                print(f"Removing stale QEMU session marker (PID {pid} not found)")
+                os.remove(marker_path)
+                return False
+    except (json.JSONDecodeError, IOError, OSError):
+        # Corrupted or unreadable marker, remove it
+        try:
+            os.remove(marker_path)
+        except OSError:
+            pass
+        return False
+    
+    return False
+
+
+def create_qemu_session_marker(qemu_process):
+    """Create a marker file indicating active QEMU session."""
+    marker_path = get_qemu_session_marker_path()
+    marker_data = {
+        'pid': qemu_process.pid,
+        'started_at': time.time(),
+        'started_by': os.path.basename(__file__),
+        'test_name': os.environ.get('PYTEST_CURRENT_TEST', 'unknown')
+    }
+    
+    try:
+        with open(marker_path, 'w') as f:
+            json.dump(marker_data, f, indent=2)
+        print(f"Created QEMU session marker: PID {qemu_process.pid}")
+    except IOError as e:
+        print(f"Warning: Could not create QEMU session marker: {e}")
+
+
+def get_or_start_shared_qemu_session():
+    """
+    Get existing QEMU session or start a new one with session management.
+    Returns QEMU process handle or None.
+    """
+    # Check if QEMU session is already active
+    if is_qemu_session_active():
+        print("Reusing existing QEMU session...")
+        
+        # Try to get the process handle from the marker
+        marker_path = get_qemu_session_marker_path()
+        try:
+            with open(marker_path, 'r') as f:
+                data = json.loads(f.read())
+                pid = data.get('pid')
+                
+            # Create a mock process object for compatibility
+            # (We can't get the actual process object, but tests just need to know QEMU is running)
+            class MockQemuProcess:
+                def __init__(self, pid):
+                    self.pid = pid
+                    self.returncode = None
+                
+                def poll(self):
+                    try:
+                        os.kill(self.pid, 0)
+                        return None  # Process is still running
+                    except OSError:
+                        return -1  # Process has terminated
+                
+                def terminate(self):
+                    try:
+                        os.kill(self.pid, 15)  # SIGTERM
+                    except OSError:
+                        pass
+                
+                def kill(self):
+                    try:
+                        os.kill(self.pid, 9)  # SIGKILL
+                    except OSError:
+                        pass
+                
+                def wait(self, timeout=None):
+                    # Simple wait implementation
+                    import time
+                    start_time = time.time()
+                    while self.poll() is None:
+                        if timeout and (time.time() - start_time) > timeout:
+                            raise subprocess.TimeoutExpired([], timeout)
+                        time.sleep(0.1)
+                    return self.returncode
+            
+            return MockQemuProcess(pid)
+            
+        except (json.JSONDecodeError, IOError, KeyError):
+            print("Warning: Could not read QEMU session marker, starting new session")
+    
+    # No active session, start new QEMU
+    print("Starting new shared QEMU session...")
+    qemu_process = start_qemu_and_wait_for_boot()
+    if qemu_process:
+        create_qemu_session_marker(qemu_process)
+        print("QEMU session ready - other tests will reuse this session")
+    
+    return qemu_process
+
+
+def cleanup_qemu_session():
+    """Clean up shared QEMU session and remove marker."""
+    marker_path = get_qemu_session_marker_path()
+    
+    # Get process info from marker if it exists
+    qemu_pid = None
+    if os.path.exists(marker_path):
+        try:
+            with open(marker_path, 'r') as f:
+                data = json.loads(f.read())
+                qemu_pid = data.get('pid')
+        except (json.JSONDecodeError, IOError):
+            pass
+    
+    # Terminate QEMU process
+    if qemu_pid:
+        try:
+            print(f"Terminating QEMU session (PID {qemu_pid})...")
+            os.kill(qemu_pid, 15)  # SIGTERM
+            
+            # Wait a bit for graceful shutdown
+            time.sleep(2)
+            
+            # Check if it's still running
+            try:
+                os.kill(qemu_pid, 0)
+                print(f"QEMU still running, forcing termination...")
+                os.kill(qemu_pid, 9)  # SIGKILL
+            except OSError:
+                pass  # Process already terminated
+                
+        except OSError:
+            print(f"QEMU process {qemu_pid} not found (may have already terminated)")
+    
+    # Clean up any remaining QEMU processes
+    cleanup_qemu_processes(force_kill=True)
+    
+    # Remove session marker
+    try:
+        if os.path.exists(marker_path):
+            os.remove(marker_path)
+            print("QEMU session marker removed")
+    except OSError as e:
+        print(f"Warning: Could not remove QEMU session marker: {e}")
+    
+    # Restore terminal state
+    restore_terminal()
+    print("QEMU session cleanup completed")
     """
     Start QEMU process and wait for boot completion.
     Returns the QEMU process handle.

@@ -11,8 +11,7 @@ import os
 import pytest
 import subprocess
 import time
-from test_utils import (SUDO, obj_path, SHELL_PARAMS, wait_for_qemu_message,
-                        cleanup_qemu_processes, restore_terminal, check_qemu_test)
+from test_utils import SUDO, obj_path, SHELL_PARAMS, check_qemu_test
 
 # Test configuration
 MODULE_NAME = "nxp_simtemp"
@@ -225,23 +224,11 @@ def test_f_k1_platform_driver_dt_registration():
         print("All platform driver requirements verified successfully!")
         
     finally:
-        # Cleanup QEMU process if running in QEMU mode
+        # Note: Do NOT cleanup QEMU process here in shared session mode
+        # The test runner will handle QEMU cleanup at the end of all tests
         if qemu_process:
-            try:
-                if qemu_process.poll() is None:
-                    qemu_process.terminate()
-                    qemu_process.wait(timeout=5)
-            except Exception:
-                try:
-                    if qemu_process:
-                        qemu_process.kill()
-                except Exception:
-                    pass
-            
-            # Restore terminal state
-            restore_terminal()
-            cleanup_qemu_processes(force_kill=True)
-            print("QEMU process cleaned up")
+            print("QEMU session will remain active for other tests")
+            print("Test runner will cleanup QEMU session when all tests complete")
 
 
 if __name__ == "__main__":
