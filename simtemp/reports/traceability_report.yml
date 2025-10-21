@@ -97,7 +97,7 @@ requirements:
     status: planned
 - id: F-K8
   summary: Clean load/unload sequence
-  status: completed
+  status: partial
   test_count: 3
   done_count: 2
   tests:

@@ -208,7 +208,7 @@ requirements:
   submodule: Lifecycle mgmt
   summary: Clean load/unload sequence
   priority: Medium
-  status: completed
+  status: in-progress
   github_link: https://github.com/n2Electrons/simtemp-system/issues/19
   branches:
   - f-k8-tc-001-loadunload
@@ -225,7 +225,7 @@ requirements:
     expected: Readers exit gracefully on unload
     status: planned
     automation: true
-    github_link: ''
+    github_link: https://github.com/n2Electrons/simtemp-system/issues/22
     branch: ''
   - id: F-K8-TC-003
     description: DTB driver binding and functionality verification
