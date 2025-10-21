@@ -12,7 +12,7 @@ import pytest
 import subprocess
 import time
 from test_utils import (SUDO, obj_path, SHELL_PARAMS, check_qemu_test,
-                        get_module_path_for_context)
+                        get_driver_path, get_module_path_for_context)
 
 # Test configuration
 MODULE_NAME = "nxp_simtemp"
@@ -35,8 +35,15 @@ def insmod_module(module_path=None):
         return  # Module already loaded
     
     if module_path is None:
-        # Use default path if not specified
-        module_path = os.path.join(obj_path, "nxp_simtemp.ko")
+        # Determine appropriate driver path based on test environment
+        qemu_process = check_qemu_test()
+        if qemu_process:
+            # For QEMU tests, use driver path that considers precompiled configuration
+            module_path = get_driver_path('qemu_integration')
+            print(f"Testing platform driver implementation for: {module_path}")
+        else:
+            # Use default compiled path for host tests
+            module_path = os.path.join(obj_path, "nxp_simtemp.ko")
     
     result = subprocess.run(f"{SUDO}insmod {module_path}", **SHELL_PARAMS)
     if result.returncode != 0:

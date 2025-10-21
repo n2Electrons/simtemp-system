@@ -118,6 +118,74 @@ def get_obj_path():
     return obj_dir
 
 
+def get_driver_path(test_suite_name=None):
+    """
+    Get the appropriate driver path based on test configuration.
+    
+    For QEMU tests with use_precompiled_driver=true, returns precompiled path.
+    Otherwise returns the compiled obj path.
+    
+    Args:
+        test_suite_name: Name of the test suite (e.g., 'qemu_integration')
+        
+    Returns:
+        str: Absolute path to the nxp_simtemp.ko module
+        
+    Raises:
+        FileNotFoundError: If the module file doesn't exist
+    """
+    import yaml
+    
+    # Try to load test configuration
+    try:
+        test_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(test_dir, 'config', 'simtemp_tests.yml')
+        
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            
+            # Check if this is a QEMU test suite with precompiled driver
+            if test_suite_name and test_suite_name in config.get('tests', {}):
+                suite_config = config['tests'][test_suite_name]
+                
+                if suite_config.get('use_precompiled_driver', False):
+                    precompiled_path = suite_config.get('precompiled_path')
+                    if precompiled_path:
+                        # Check if we're inside QEMU (test environment)
+                        if check_qemu_test():
+                            # Inside QEMU - use the path as configured
+                            return precompiled_path
+                        
+                        # On host - try different possible paths
+                        host_paths = [
+                            precompiled_path,  # Try as-is first
+                            "/workspace/deployment/qemu/rootfs" + precompiled_path,
+                        ]
+                        
+                        # Try Jenkins workspace path
+                        jenkins_workspace = os.environ.get('WORKSPACE', '')
+                        if jenkins_workspace:
+                            jenkins_path = os.path.join(
+                                jenkins_workspace, 
+                                "deployment/qemu/rootfs" + precompiled_path
+                            )
+                            host_paths.append(jenkins_path)
+                        
+                        for path in host_paths:
+                            if os.path.exists(path):
+                                return path
+                        
+                        print(f"⚠️  Precompiled driver not found at any of: "
+                              f"{host_paths}, falling back to compiled version")
+    except Exception as e:
+        print(f"⚠️  Could not load test configuration: {e}, "
+              f"using compiled driver")
+    
+    # Fall back to compiled driver path
+    return os.path.join(get_obj_path(), 'nxp_simtemp.ko')
+
+
 def restore_terminal():
     """
     Restore terminal to normal state after QEMU or other processes
