@@ -23,19 +23,44 @@ def test_dtb_overlay_exists():
     assert os.path.exists(overlay_dts), \
         f"DTB source file should exist at {overlay_dts}"
     
-    # Compile DTBO if it doesn't exist
-    if not os.path.exists(overlay_dtbo):
-        try:
-            print(f"Compiling DTB overlay: {overlay_dts} -> {overlay_dtbo}")
-            cmd = ["dtc", "-@", "-I", "dts", "-O", "dtb",
-                   "-o", overlay_dtbo, overlay_dts]
-            subprocess.run(cmd, capture_output=True, text=True,
-                           check=True, cwd=overlay_dir)
-            print("DTB overlay compiled successfully")
-        except subprocess.CalledProcessError as e:
-            pytest.skip(f"Device Tree Compiler failed: {e.stderr}")
-        except FileNotFoundError:
-            pytest.skip("Device Tree Compiler (dtc) not available")
+    # Check if DTBO already exists (compiled by build system)
+    if os.path.exists(overlay_dtbo):
+        print(f"Found pre-compiled DTB overlay: {overlay_dtbo}")
+        # Verify DTBO file is valid
+        with open(overlay_dtbo, 'rb') as f:
+            data = f.read()
+            assert data[:4] == b'\xd0\x0d\xfe\xed', "Invalid DTB magic number"
+            assert len(data) > 4, "DTB file too small"
+        return
+    
+    # Try to compile DTBO if it doesn't exist
+    dtc_available = True
+    try:
+        # Check if dtc is available
+        subprocess.run(["dtc", "--version"], capture_output=True, check=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        dtc_available = False
+    
+    if not dtc_available:
+        # In CI/Jenkins: fail test if neither DTBO exists nor dtc available
+        pytest.fail(
+            "DTB overlay test failed: "
+            f"DTBO file {overlay_dtbo} does not exist and "
+            "Device Tree Compiler (dtc) not available for compilation. "
+            "Ensure DTB overlay is built during ARM driver compilation or "
+            "install dtc package."
+        )
+    
+    # Compile DTBO using dtc
+    try:
+        print(f"Compiling DTB overlay: {overlay_dts} -> {overlay_dtbo}")
+        cmd = ["dtc", "-@", "-I", "dts", "-O", "dtb",
+               "-o", overlay_dtbo, overlay_dts]
+        subprocess.run(cmd, capture_output=True, text=True,
+                       check=True, cwd=overlay_dir)
+        print("DTB overlay compiled successfully")
+    except subprocess.CalledProcessError as e:
+        pytest.fail(f"DTB overlay compilation failed: {e.stderr}")
     
     # Verify DTBO file exists and is valid
     assert os.path.exists(overlay_dtbo), \

@@ -18,6 +18,8 @@ RUN apt-get update && apt-get install -y \
     libpixman-1-0 \
     libglib2.0-0 \
     libslirp0 \
+    # Device Tree Compiler for DTB overlay compilation
+    device-tree-compiler \
     # Linux kernel module utilities (Debian)
     kmod \
     # Essential utilities
@@ -48,6 +50,7 @@ RUN ln -sf /usr/bin/arm-linux-gnueabihf-gcc-12 /usr/bin/arm-linux-gnueabihf-gcc-
 RUN arm-linux-gnueabihf-gcc --version && \
     arm-linux-gnueabihf-gcc-13 --version && \
     qemu-system-arm --version && \
+    dtc --version && \
     make --version
 
 # Create workspace and module directories
