@@ -548,25 +548,19 @@ def get_module_path_for_context():
     Returns:
         tuple: (module_path: str, context_description: str)
                module_path is the absolute path to the kernel module
-               context_description is a human-readable description of the context
+               context_description is a human-readable description
     """
     # Check execution context
     qemu_process = check_qemu_test()
     
     if qemu_process:
-        if hasattr(qemu_process, 'pid') and qemu_process.pid == -1:
-            # Jenkins ARM mode: use prebuilt driver from workspace
-            base_path = "/workspace/deployment/qemu/rootfs/tmp/prebuild"
-            module_path = f"{base_path}/simtemp-driver/nxp_simtemp.ko"
-            context = "Jenkins ARM mode - using workspace prebuilt"
-        else:
-            # Real QEMU mode: use prebuilt driver from rootfs
-            module_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
-            context = "QEMU mode - using prebuilt driver"
+        # Real QEMU mode: use prebuilt ARM driver from rootfs
+        module_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
+        context = "QEMU mode - using ARM prebuilt driver"
     else:
-        # In host/Docker mode: use locally compiled driver
+        # In host/Docker/Jenkins mode: use locally compiled driver
         module_path = os.path.join(get_obj_path(), "nxp_simtemp.ko")
-        context = "host/Docker mode - using local driver"
+        context = "host/Docker/Jenkins mode - using local driver"
     
     return module_path, context
 
@@ -580,34 +574,9 @@ def check_qemu_test():
     - First test starts QEMU and creates session marker
     - Subsequent tests reuse existing QEMU session
     - Session marker prevents multiple QEMU boots
-    
-    Also detects Jenkins environment where ARM prebuilt driver should be used.
     """
     try:
         import yaml
-        
-        # Check if running in Jenkins environment (ARM prebuilt driver)
-        jenkins_indicators = [
-            os.environ.get('JENKINS_URL'),
-            os.environ.get('BUILD_NUMBER'),
-            os.environ.get('JOB_NAME'),
-            '/var/jenkins_home' in os.getcwd(),
-            os.path.exists('/var/jenkins_home')
-        ]
-        
-        if any(jenkins_indicators):
-            print("\n=== Jenkins Environment Detected ===")
-            print("Will use ARM prebuilt driver for testing")
-            # Return a mock QEMU process to indicate ARM driver should be used
-            
-            class JenkinsArmMode:
-                def __init__(self):
-                    self.pid = -1  # Special marker for Jenkins ARM mode
-                
-                def poll(self):
-                    return None
-            
-            return JenkinsArmMode()
         
         # Check for F-K1-TC-003-QEMU configuration
         config_path = os.environ.get('TEST_CONFIG_PATH',
