@@ -28,11 +28,15 @@ def is_module_loaded():
     return result.returncode == 0
 
 
-def insmod_module():
+def insmod_module(module_path=None):
     """Load the nxp_simtemp kernel module"""
     if is_module_loaded():
         return  # Module already loaded
-    module_path = os.path.join(obj_path, "nxp_simtemp.ko")
+    
+    if module_path is None:
+        # Use default path if not specified
+        module_path = os.path.join(obj_path, "nxp_simtemp.ko")
+    
     result = subprocess.run(f"{SUDO}insmod {module_path}", **SHELL_PARAMS)
     if result.returncode != 0:
         pytest.fail(f"insmod failed: {result.stderr}")
@@ -74,7 +78,15 @@ def test_f_k1_platform_driver_dt_registration():
     qemu_process = check_qemu_test()
     
     try:
-        module_path = os.path.join(obj_path, "nxp_simtemp.ko")
+        # Use different module path depending on execution context
+        if qemu_process:
+            # In QEMU mode: use prebuilt driver from rootfs
+            module_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
+            print("Running in QEMU mode - using prebuilt driver")
+        else:
+            # In host/Docker mode: use locally compiled driver
+            module_path = os.path.join(obj_path, "nxp_simtemp.ko")
+            print("Running in host/Docker mode - using local driver")
         
         # Pre-test cleanup (skip if in QEMU as module may not be available yet)
         if not qemu_process:
@@ -120,7 +132,7 @@ def test_f_k1_platform_driver_dt_registration():
         
         # Test 2: Load module and verify platform driver registration
         print("\n=== Test 2: Platform Driver Registration ===")
-        insmod_module()
+        insmod_module(module_path)
         
         # Wait for driver registration to complete
         time.sleep(1)
