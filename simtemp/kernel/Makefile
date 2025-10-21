@@ -31,10 +31,17 @@ HOST_KERNEL_SRC := $(shell \
 	fi)
 
 # Debian Docker build with Ubuntu headers (mounted from host)
-# Force use of Ubuntu 6.14.0-32-generic headers for Docker compilation
+# Auto-detect working kernel headers in Docker (prioritize known working versions)
 DEBIAN_KERNEL_SRC := $(shell \
 	if [ -f "/.dockerenv" ]; then \
-		echo "/usr/src/linux-headers-6.14.0-32-generic"; \
+		if [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
+			echo "/usr/src/linux-headers-6.14.0-32-generic"; \
+		elif [ -d "/usr/src/linux-headers-6.14.0-33-generic" ]; then \
+			echo "/usr/src/linux-headers-6.14.0-33-generic"; \
+		else \
+			KERNEL_VER=$$(uname -r); \
+			echo "/usr/src/linux-headers-$$KERNEL_VER"; \
+		fi; \
 	else \
 		echo "/usr/src/linux-headers-generic"; \
 	fi)
