@@ -11,7 +11,8 @@ import os
 import pytest
 import subprocess
 import time
-from test_utils import SUDO, obj_path, SHELL_PARAMS, check_qemu_test
+from test_utils import (SUDO, obj_path, SHELL_PARAMS, check_qemu_test,
+                        get_module_path_for_context)
 
 # Test configuration
 MODULE_NAME = "nxp_simtemp"
@@ -78,15 +79,9 @@ def test_f_k1_platform_driver_dt_registration():
     qemu_process = check_qemu_test()
     
     try:
-        # Use different module path depending on execution context
-        if qemu_process:
-            # In QEMU mode: use prebuilt driver from rootfs
-            module_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
-            print("Running in QEMU mode - using prebuilt driver")
-        else:
-            # In host/Docker mode: use locally compiled driver
-            module_path = os.path.join(obj_path, "nxp_simtemp.ko")
-            print("Running in host/Docker mode - using local driver")
+        # Get the correct module path for the current execution context
+        module_path, context_description = get_module_path_for_context()
+        print(f"Running in {context_description}")
         
         # Pre-test cleanup (skip if in QEMU as module may not be available yet)
         if not qemu_process:
