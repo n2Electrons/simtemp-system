@@ -1372,18 +1372,30 @@ class DriverTestOrchestrator:
         self.logger.info(f"Output directory: {self.output_dir}")
         self.logger.info(f"Test config file: {self.test_config_file}")
         
-        # NEW: Wait for QEMU sessions to complete before collecting results
-        self.logger.info("Step 0: Waiting for QEMU sessions to complete...")
-        qemu_completed = self.wait_for_qemu_sessions_completion(
-            max_wait_time=120)
-        if qemu_completed:
-            self.logger.info("All QEMU sessions completed successfully")
+        # Check if there are active QEMU tests running before cleanup
+        self.logger.info("Step 0: Checking for active QEMU sessions...")
+        if QEMU_SUPPORT_AVAILABLE:
+            try:
+                from test_utils import is_qemu_session_active
+                if is_qemu_session_active():
+                    self.logger.info(
+                        "Active QEMU session detected - skipping cleanup "
+                        "to avoid interference")
+                    self.logger.info(
+                        "QEMU cleanup will be handled by test completion")
+                else:
+                    self.logger.info(
+                        "No active QEMU sessions - proceeding with cleanup")
+                    self.ensure_qemu_cleanup()
+            except Exception as e:
+                self.logger.warning(
+                    f"Could not check QEMU session status: {e}")
+                # If we can't check, err on the side of caution and skip
+                self.logger.info(
+                    "Skipping QEMU cleanup due to status check failure")
         else:
-            self.logger.warning(
-                "QEMU sessions did not complete within timeout")
-        
-        # NEW: Ensure cleanup before collecting results
-        self.ensure_qemu_cleanup()
+            self.logger.info(
+                "QEMU support not available - skipping QEMU cleanup")
         
         # Small delay to allow file system operations to complete
         time.sleep(2)
