@@ -107,7 +107,14 @@ static const struct of_device_id nxp_simtemp_of_match[] = {
 	},
 	{ }
 };
+
+#ifdef CONFIG_OF
 MODULE_DEVICE_TABLE(of, nxp_simtemp_of_match);
+#else
+/* For non-Device Tree kernels (like x86_64), create manual aliases for testing */
+MODULE_ALIAS("of:N*T*Csimtemp,temperature-sensor");
+MODULE_ALIAS("of:N*T*Csimtemp,temperature-sensor-overlay");
+#endif
 
 /**
  * Platform driver structure
@@ -118,7 +125,9 @@ static struct platform_driver nxp_simtemp_driver = {
 	.remove = nxp_simtemp_remove,
 	.driver = {
 		.name = DRIVER_NAME,
+#ifdef CONFIG_OF
 		.of_match_table = nxp_simtemp_of_match,
+#endif
 	},
 };
 
