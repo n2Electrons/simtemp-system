@@ -107,7 +107,7 @@ def extract_python_files_from_config(test_config):
             continue
             
         test_cases = suite_config.get('test_cases', [])
-        for test_case in test_cases:
+        for test_case_index, test_case in enumerate(test_cases):
             # Only include enabled test cases
             if not test_case.get('enabled', True):
                 continue
@@ -125,7 +125,8 @@ def extract_python_files_from_config(test_config):
                     'test_name': test_case.get('name', ''),
                     'description': test_case.get('description', ''),
                     'suite': suite_name,
-                    'enabled': test_case.get('enabled', True)
+                    'enabled': test_case.get('enabled', True),
+                    'config_order': test_case_index  # Preserve configuration order
                 }
     
     return python_files
@@ -143,7 +144,7 @@ def extract_disabled_test_files(test_config):
             continue
             
         test_cases = suite_config.get('test_cases', [])
-        for test_case in test_cases:
+        for test_case_index, test_case in enumerate(test_cases):
             # Only include disabled test cases
             if test_case.get('enabled', True):
                 continue
@@ -156,7 +157,8 @@ def extract_disabled_test_files(test_config):
                 disabled_files[unique_key] = {
                     'pytest_file': pytest_file,
                     'test_id': test_id,
-                    'suite': suite_name
+                    'suite': suite_name,
+                    'config_order': test_case_index
                 }
     
     return disabled_files
@@ -242,8 +244,8 @@ def generate_python_files_table(test_config, detailed_report=None):
         lines.append(f"### 📋 {suite_name}")
         lines.append("")
         
-        # Sort files within suite by test ID
-        sorted_files = sorted(suite_files, key=lambda x: x[1]['test_id'])
+        # Sort files within suite by configuration order (execution order)
+        sorted_files = sorted(suite_files, key=lambda x: x[1]['config_order'])
         
         for unique_key, info in sorted_files:
             pytest_file = info['pytest_file']
