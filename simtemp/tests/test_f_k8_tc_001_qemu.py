@@ -11,21 +11,24 @@ from test_utils import (load_environment, get_or_start_shared_qemu_session,
                         cleanup_qemu_session)
 
 
+# @pytest.mark.order('last') # USE IN CASE OF CONCURRENCY ISSUES IN QEMU
 def test_qemu_driver_load_unload():
     """
     F-K8-TC-003: Test kernel module load/unload in QEMU environment.
     Expected Result: Module loads and unloads without kernel warnings/oops.
+    
+    NOTE: This test uses force_new=True to start a PRIVATE QEMU session
+    for interactive testing with full stdin/stdout access.
     """
-    test_passed = False
     
     with load_environment():
         try:
-            # Try to get or start shared QEMU session
-            print("Getting or starting shared QEMU session...")
-            qemu_process = get_or_start_shared_qemu_session()
+            # Start a PRIVATE QEMU session for interactive testing
+            print("Starting private QEMU session for interactive testing...")
+            qemu_process = get_or_start_shared_qemu_session(force_new=True)
             
             if qemu_process is None:
-                pytest.fail("Failed to get or start QEMU session")
+                pytest.fail("Failed to start private QEMU session")
             
             print("✓ QEMU session available")
             
@@ -85,7 +88,8 @@ def test_qemu_driver_load_unload():
                 output_collected = []
                 start_time = time.time()
                 # Increased timeout for final verification
-                timeout = 8 if "Final module verification" in description else 5
+                is_final_check = "Final module verification" in description
+                timeout = 8 if is_final_check else 5
                 while time.time() - start_time < timeout:
                     if qemu_process.poll() is not None:
                         print("QEMU process terminated unexpectedly")
@@ -145,7 +149,6 @@ def test_qemu_driver_load_unload():
                     print("✅ No critical warnings found in command output")
                 
             print("\n✓ QEMU kernel module load/unload test completed")
-            test_passed = True
 
         except subprocess.SubprocessError as e:
             pytest.fail(f"Failed to interact with QEMU: {e}")
@@ -154,12 +157,9 @@ def test_qemu_driver_load_unload():
             pytest.fail(f"Unexpected error during QEMU test: {e}")
 
         finally:
-            # Only cleanup if test failed - preserve session on success
-            if not test_passed:
-                print("\nTest failed - cleaning up QEMU session...")
-                cleanup_qemu_session()
-            else:
-                print("\n✓ Test passed - preserving QEMU session for reuse")
+            # ALWAYS cleanup private QEMU session (not shared)
+            print("\nCleaning up private QEMU session...")
+            cleanup_qemu_session()
             
             # Additional cleanup handled by load_environment context manager
             print("Additional cleanup will be handled by load_environment")

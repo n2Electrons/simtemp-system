@@ -769,12 +769,25 @@ def create_qemu_session_marker(qemu_process):
         print(f"Warning: Could not create QEMU session marker: {e}")
 
 
-def get_or_start_shared_qemu_session():
+def get_or_start_shared_qemu_session(force_new=False):
     """
     Get existing QEMU session or start a new one with session management.
-    Returns QEMU process handle or None.
+    
+    Args:
+        force_new (bool): If True, starts a new private QEMU session
+                         ignoring any existing shared sessions.
+                         If False (default), reuses existing sessions.
+    
+    Returns:
+        QEMU process handle or None.
     """
     print("🔧 [DEBUG] get_or_start_shared_qemu_session() called")
+    print(f"🔧 [DEBUG] force_new={force_new}")
+    
+    # If force_new is True, start a private session
+    if force_new:
+        print("🔧 [DEBUG] force_new=True, starting private QEMU session...")
+        return start_qemu_and_wait_for_boot()
     
     # Check if QEMU session is already active
     print("🔧 [DEBUG] Checking if QEMU session is already active...")
