@@ -336,6 +336,57 @@ class TestDriverValidation:
         print("✓ sysfs attributes working correctly after rebind")
 
 
+def test_driver_validation():
+    """
+    Master test function for driver validation - runs all validation tests
+    
+    This function is called by the test configuration system and orchestrates
+    all the comprehensive driver validation tests in the proper sequence.
+    """
+    print("\n🚀 Starting Comprehensive Driver Validation Suite")
+    print("=" * 60)
+    
+    # Create an instance of the test class
+    test_instance = TestDriverValidation()
+    
+    try:
+        # Run all validation tests in sequence
+        test_instance.setup_method()
+        print("\n1/5: Testing device and sysfs attributes...")
+        test_instance.test_device_sysfs_attributes()
+        test_instance.teardown_method()
+        
+        test_instance.setup_method()
+        print("\n2/5: Testing module dependencies and loading...")
+        test_instance.test_module_dependencies_and_loading()
+        test_instance.teardown_method()
+        
+        test_instance.setup_method()
+        print("\n3/5: Testing kernel logs verification...")
+        test_instance.test_kernel_logs_verification()
+        test_instance.teardown_method()
+        
+        test_instance.setup_method()
+        print("\n4/5: Testing complete driver functionality...")
+        test_instance.test_complete_driver_functionality()
+        test_instance.teardown_method()
+        
+        test_instance.setup_method()
+        print("\n5/5: Testing driver bind/unbind operations...")
+        test_instance.test_driver_bind_unbind_operations()
+        test_instance.teardown_method()
+        
+        print("\n" + "=" * 60)
+        print("🎉 ALL DRIVER VALIDATION TESTS PASSED SUCCESSFULLY!")
+        print("=" * 60)
+        
+    except Exception as e:
+        # Ensure cleanup on failure
+        test_instance.teardown_method()
+        print(f"\n❌ Driver validation failed: {str(e)}")
+        raise
+
+
 if __name__ == "__main__":
     # Allow running individual tests
     import sys

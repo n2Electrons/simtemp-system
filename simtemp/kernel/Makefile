@@ -31,31 +31,18 @@ HOST_KERNEL_SRC := $(shell \
 	fi)
 
 # Debian Docker build with Ubuntu headers (mounted from host)
-# Auto-detect working kernel headers in Docker (prioritize known working versions)
+# Always use /usr/src mounted headers for Docker-style builds, regardless of environment
 DEBIAN_KERNEL_SRC := $(shell \
-	if [ -f "/.dockerenv" ]; then \
-		if [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
-			echo "/usr/src/linux-headers-6.14.0-32-generic"; \
-		elif [ -d "/usr/src/linux-headers-6.14.0-33-generic" ]; then \
-			echo "/usr/src/linux-headers-6.14.0-33-generic"; \
-		else \
-			KERNEL_VER=$$(uname -r); \
-			echo "/usr/src/linux-headers-$$KERNEL_VER"; \
-		fi; \
+	if [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
+		echo "/usr/src/linux-headers-6.14.0-32-generic"; \
+	elif [ -d "/usr/src/linux-headers-6.14.0-33-generic" ]; then \
+		echo "/usr/src/linux-headers-6.14.0-33-generic"; \
 	else \
-		if [ -d "/lib/modules/6.14.0-32-generic/build" ]; then \
-			echo "/lib/modules/6.14.0-32-generic/build"; \
-		elif [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
-			echo "/usr/src/linux-headers-6.14.0-32-generic"; \
+		KERNEL_VER=$$(uname -r); \
+		if [ -d "/usr/src/linux-headers-$$KERNEL_VER" ]; then \
+			echo "/usr/src/linux-headers-$$KERNEL_VER"; \
 		else \
-			KERNEL_VER=$$(uname -r); \
-			if [ -d "/lib/modules/$$KERNEL_VER/build" ]; then \
-				echo "/lib/modules/$$KERNEL_VER/build"; \
-			elif [ -d "/usr/src/linux-headers-$$KERNEL_VER" ]; then \
-				echo "/usr/src/linux-headers-$$KERNEL_VER"; \
-			else \
-				echo "/usr/src/linux-headers-generic"; \
-			fi; \
+			echo "/usr/src/linux-headers-generic"; \
 		fi; \
 	fi)
 # Use Ubuntu headers mounted in Docker with Debian toolchain

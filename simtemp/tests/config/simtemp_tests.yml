@@ -70,6 +70,13 @@ tests:
         pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this test case
         verbose_output: false  # Disable verbose output for this test
         debug_info: "This test verifies clean module load/unload operations"
+      - name: "test_readers_exit_gracefully_on_unload"
+        description: "test_readers_exit_gracefully_on_unload() - Readers exit gracefully on unload"
+        enabled: true
+        test_id: "F-K8-TC-002"
+        pytest_file: "test_f_k8_tc_002.py"  # Specific pytest file for this test case
+        verbose_output: true  # Enable verbose output for debugging
+        debug_info: "This test verifies that user-space reader applications exit gracefully when the kernel module is unloaded"
       - name: "test_f_k1_platform_driver_dt_registration"
         description: "test_f_k1_platform_driver_dt_registration() - TDD test for platform driver with Device Tree support"
         enabled: true
