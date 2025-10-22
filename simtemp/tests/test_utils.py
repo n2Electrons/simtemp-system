@@ -941,10 +941,11 @@ def start_qemu_and_wait_for_boot():
     
     # Define QEMU file paths
     qemu_base = os.path.join(project_root, "deployment", "qemu")
-    kernel_path = os.path.join(qemu_base, "linux-imx-5.10", "arch", "arm",
-                               "boot", "zImage")
-    # dtb_path = os.path.join(qemu_base, "linux-imx-5.10", "arch", "arm",
-    #                         "boot", "dts", "imx6q-sabresd.dtb")
+    kernel_path = os.path.join(qemu_base, "linux-build-imx",
+                               "arch", "arm", "boot", "zImage")
+    # dtb_path = os.path.join(qemu_base, "linux-build-imx",
+    #                         "arch", "arm", "boot", "dts",
+    #                         "imx6q-sabresd.dtb")
     dtb_path = os.path.join(qemu_base, "imx6q-sabresd-with-simtemp.dtb")
     rootfs_path = os.path.join(qemu_base, "rootfs.cpio.gz")
     

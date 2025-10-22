@@ -15,7 +15,7 @@ echo "Building DTB with SimTemp overlay..."
 cd "$QEMU_DIR"
 
 # Paths
-BASE_DTB="linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
+BASE_DTB="linux-build-imx/arch/arm/boot/dts/imx6q-sabresd.dtb"
 OVERLAY_DTBO="overlay/nxp-simtemp-overlay.dtbo"
 COMBINED_DTB="imx6q-sabresd-with-simtemp.dtb"
 

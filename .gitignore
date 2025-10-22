@@ -115,7 +115,7 @@ simtemp/kernel/obj/
 deployment/qemu/linux-imx-*/
 deployment/qemu/busybox*/
 deployment/qemu/rootfs*/
-deployment/qemu/rootfs.cpio.gz # From now, this file will be generated automatically in the Jenkins pipeline
+# deployment/qemu/rootfs.cpio.gz # From now, this file will be generated automatically in the Jenkins pipeline
 
 deployment/docker/jenkins-data/
 deployment/docker/jenkins-minimal-backup.tar.gz

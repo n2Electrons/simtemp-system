@@ -71,8 +71,8 @@ cd "$PROJECT_ROOT"
 
 # Define QEMU file paths
 QEMU_DIR="$PROJECT_ROOT/deployment/qemu"
-KERNEL_PATH="$QEMU_DIR/linux-imx-5.10/arch/arm/boot/zImage"
-# DTB_PATH="$QEMU_DIR/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
+KERNEL_PATH="$QEMU_DIR/linux-build-imx/arch/arm/boot/zImage"
+# DTB_PATH="$QEMU_DIR/linux-build-imx/arch/arm/boot/dts/imx6q-sabresd.dtb"
 DTB_PATH="$QEMU_DIR/imx6q-sabresd-with-simtemp.dtb"
 ROOTFS_PATH="$QEMU_DIR/rootfs.cpio.gz"
 

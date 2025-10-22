@@ -3,11 +3,11 @@
 DOCKER_ENV="/.dockerenv"
 
 if [ -e "$DOCKER_ENV" ]; then
-  KERNEL_IMAGE="/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage"
+  KERNEL_IMAGE="/workspace/deployment/qemu/linux-build-imx/arch/arm/boot/zImage"
   DTB_FILE="/workspace/deployment/qemu/imx6q-sabresd-with-simtemp.dtb"
   ROOTFS_IMAGE="/workspace/deployment/qemu/rootfs.cpio.gz"
 else
-  KERNEL_IMAGE="linux-imx-5.10/arch/arm/boot/zImage"
+  KERNEL_IMAGE="linux-build-imx/arch/arm/boot/zImage"
   DTB_FILE="imx6q-sabresd-with-simtemp.dtb"
   ROOTFS_IMAGE="rootfs.cpio.gz"
 fi
