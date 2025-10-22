@@ -2,35 +2,36 @@
 
 ## Overview
 
-This document describes the distribution of SimTemp system tests across different hardware architectures. The system supports execution on x86_64 (host/Debian) and ARM (emulated via QEMU i.MX6).
+This document describes the distribution of SimTemp system tests across different hardware architectures. The system supports execution on x86_64 (host/Debian Jenkins) and ARM (emulated via QEMU i.MX6).
 
 ---
 
 ## Test Matrix by Architecture
 
-| Test ID | Test Name | Host (x86_64) | Debian (x86_64) | ARM (QEMU) | Notes |
-|---------|-------------------------------------------|:-------------:|:---------------:|:----------:|-------|
-| **F-K1-TC-001** | `test_insmod_registers_driver` | ✅ | ✅ | ✅ | Basic module loading test |
-| **F-K1-TC-002** | `test_basic_qemu_boot` | ❌ | ❌ | ✅ | QEMU validation only |
-| **F-K1-TC-003** | `test_f_k1_platform_driver_dt_registration` | ✅ | ✅ | ✅ | TDD - expected to fail until implementation |
-| **F-K8-TC-001** | `test_driver_load_unload` | ✅ | ✅ | ❌ | Host/Debian with modprobe -r |
-| **F-K8-TC-001-QEMU** | `test_qemu_driver_load_unload` | ❌ | ❌ | ✅ | ARM version in QEMU |
-| **F-K8-TC-002** | `test_readers_exit_gracefully_on_unload` | ✅ | ✅ | ✅ | Multi-platform support |
-| **F-K8-TC-003-A** | `test_dtb_overlay_exists` | ✅ | ✅ | ✅ | DTB overlay compilation |
-| **F-K8-TC-003-B** | `test_dtb_driver_binding` | ✅ | ✅ | ✅ | DTB driver binding |
-| **F-K8-TC-003** | `test_dtb_driver_binding_and_functionality` | ✅ | ✅ | ✅ | Complete DTB functionality |
-| **F-K8-TC-004** | `test_driver_validation` | ✅ | ✅ | ✅ | Comprehensive validation |
+| Test ID | Test Name | Host (x86_64) | Debian (x86_64) Jenkins | ARM (QEMU) | Notes |
+|---------|-------------------------------------------|:-------------:|:----------------------:|:----------:|-------|
+| **F-K1-TC-001** | `test_insmod_registers_driver` | ✅ | ✅ | ❌ | Validates driver registration in /proc/modules |
+| **F-K1-TC-002** | `test_basic_qemu_boot` | ❌ | ❌ | ✅ | ARM boot validation - QEMU only |
+| **F-K1-TC-003** | `test_f_k1_platform_driver_dt_registration` | ✅ | ✅ | ✅ | Platform driver stub - fails until DT implemented |
+| **F-K8-TC-001** | `test_driver_load_unload` | ✅ | ✅ | ❌ | x86 optimized - uses modprobe dependency mgmt |
+| **F-K8-TC-001-QEMU** | `test_qemu_driver_load_unload` | ❌ | ❌ | ✅ | ARM equivalent of F-K8-TC-001 |
+| **F-K8-TC-002** | `test_readers_exit_gracefully_on_unload` | ✅ | ✅ | ❌ | Multi-threaded reader simulation |
+| **F-K8-TC-003-A** | `test_dtb_overlay_exists` | ✅ | ✅ | ✅ | Verifies DTB overlay compilation |
+| **F-K8-TC-003-B** | `test_dtb_driver_binding` | ✅ | ✅ | ✅ | Checks compatible string binding |
+| **F-K8-TC-003** | `test_dtb_driver_binding_and_functionality` | ✅ | ✅ | ✅ | Complete DTB integration test |
+| **F-K8-TC-004** | `test_driver_validation` | ✅ | ✅ | ❌ | Sysfs attributes and dependencies |
 
 ---
 
 ## Platform Configuration Details
 
-### Host/Debian (x86_64)
+### Host/Debian Jenkins (x86_64)
 - **Platform detection**: `platform.machine() in ['x86_64', 'i386', 'i686']`
 - **Module tools**: `modprobe -r` (automatic dependency handling)
 - **Stub module**: Required for dependency resolution on x86
 - **Device Tree**: Simulated/emulated (no native support)
 - **Compilation**: Native with host kernel headers
+- **Environment**: Jenkins CI/CD pipeline on Debian containers
 
 ### ARM (QEMU i.MX6)
 - **Platform detection**: Specific tests with `_qemu.py` suffix or detected QEMU mode
@@ -45,21 +46,21 @@ This document describes the distribution of SimTemp system tests across differen
 
 ## Test Categories
 
-### Multi-platform Tests (7 tests)
+### Multi-platform Tests (4 tests)
 These tests run on all architectures with adaptive logic:
 
-- **F-K1-TC-001**: Basic driver registration
 - **F-K1-TC-003**: Platform driver with Device Tree
-- **F-K8-TC-002**: Graceful reader exit on unload
 - **F-K8-TC-003-A**: DTB overlay existence
 - **F-K8-TC-003-B**: DTB driver binding
 - **F-K8-TC-003**: Complete DTB functionality
-- **F-K8-TC-004**: Comprehensive driver validation
 
-### x86-Specific Tests (1 test)
+### x86-Specific Tests (4 tests)
 Optimized for x86 architectures with specific features:
 
+- **F-K1-TC-001**: Basic driver registration
 - **F-K8-TC-001**: Load/unload with `modprobe -r` for automatic dependency handling
+- **F-K8-TC-002**: Graceful reader exit on unload
+- **F-K8-TC-004**: Comprehensive driver validation
 
 ### ARM-Specific Tests (2 tests)
 Designed exclusively for QEMU ARM environment:
@@ -73,7 +74,7 @@ Designed exclusively for QEMU ARM environment:
 
 ### Kernel Module Handling
 
-#### x86_64 (Host/Debian)
+#### x86_64 (Host/Debian Jenkins)
 ```bash
 # Load with automatic dependency resolution
 modprobe nxp_simtemp
@@ -109,7 +110,7 @@ rmmod nxp_simtemp_stub     # Only if loaded
 
 ## Execution Commands
 
-### Development on x86_64
+### Development on x86_64 (Jenkins)
 ```bash
 # Basic development tests
 cd simtemp/tests
@@ -154,11 +155,11 @@ python3 test_monitor.py --run-all --architecture-aware
 | Metric | Value | Percentage |
 |--------|-------|------------|
 | **Total Tests** | 10 | 100% |
-| **Multi-platform** | 7 | 70% |
-| **x86-Specific** | 1 | 10% |
+| **Multi-platform** | 4 | 40% |
+| **x86-Specific** | 4 | 40% |
 | **ARM-Specific** | 2 | 20% |
 | **DTB Tests** | 4 | 40% |
-| **QEMU Tests** | 3 | 30% |
+| **QEMU Tests** | 6 | 60% |
 
 ---
 

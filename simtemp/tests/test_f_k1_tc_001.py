@@ -34,12 +34,23 @@ def insmod_module():
 
 
 def rmmod_module():
-    """Unload the nxp_simtemp kernel module"""
+    """Unload the nxp_simtemp kernel module using modprobe -r for
+    proper dependency handling"""
     if not is_module_loaded():
         return  # Module not loaded
-    result = subprocess.run(f"{SUDO}rmmod nxp_simtemp", **SHELL_PARAMS)
+    
+    # Use modprobe -r on x86 for better dependency handling
+    # This will automatically handle the nxp_simtemp_stub dependency
+    import platform
+    if platform.machine() in ['x86_64', 'i386', 'i686']:
+        result = subprocess.run(f"{SUDO}modprobe -r nxp_simtemp",
+                                **SHELL_PARAMS)
+    else:
+        # Use rmmod on non-x86 platforms (like ARM in QEMU)
+        result = subprocess.run(f"{SUDO}rmmod nxp_simtemp", **SHELL_PARAMS)
+    
     if result.returncode != 0:
-        pytest.fail(f"rmmod failed: {result.stderr}")
+        pytest.fail(f"Module removal failed: {result.stderr}")
     return result
 
 
@@ -56,8 +67,12 @@ def test_insmod_registers_driver(capsys: pytest.CaptureFixture[str]):
     
     print(f"Testing module: {module_path}")
     
-    # Simple rmmod. All test on T-K8 TC-001
-    subprocess.run(f"{SUDO}rmmod nxp_simtemp", **SHELL_PARAMS)
+    # Remove pre-existing module using same logic as rmmod_module()
+    import platform
+    if platform.machine() in ['x86_64', 'i386', 'i686']:
+        subprocess.run(f"{SUDO}modprobe -r nxp_simtemp", **SHELL_PARAMS)
+    else:
+        subprocess.run(f"{SUDO}rmmod nxp_simtemp", **SHELL_PARAMS)
     print("Pre-existing module removed")
     
     # Test 1: modinfo - verify module information
