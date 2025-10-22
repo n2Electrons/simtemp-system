@@ -185,11 +185,11 @@ def get_driver_path(test_suite_name=None):
                             if os.path.exists(path):
                                 return path
                         
-                        print(f"⚠️  Precompiled driver not found at any of: "
+                        print(f"Precompiled driver not found at any of: "
                               f"{host_paths}, falling back to compiled "
                               f"version")
     except Exception as e:
-        print(f"⚠️  Could not load test configuration: {e}, "
+        print(f"Could not load test configuration: {e}, "
               f"using compiled driver")
     
     # Fall back to compiled driver path
@@ -208,7 +208,7 @@ def restore_terminal():
         bool: True if terminal restoration was successful
     """
     try:
-        print("🔧 Restoring terminal state...")
+        print("Restoring terminal state...")
         
         # Method 1: stty sane (most reliable)
         result1 = subprocess.run(["stty", "sane"], check=False,
@@ -402,7 +402,7 @@ def wait_for_qemu_message(qemu_process, target_message, timeout=60):
                 output_lines.extend(stdout.splitlines())
             
             # Restore terminal state since QEMU terminated
-            print("🔧 QEMU terminated, restoring terminal state...")
+            print("QEMU terminated, restoring terminal state...")
             restore_terminal()
             
             error_msg = (f"QEMU process terminated unexpectedly. "
@@ -606,7 +606,7 @@ def list_qemu_binaries(qemu_dir_path=None):
                     print(f"  📦 {file_name} ({file_size} bytes)")
             
             if binary_files:
-                print(f"✅ Found {len(binary_files)} binary/build files")
+                print(f"Found {len(binary_files)} binary/build files")
             else:
                 print("ℹ️ No binary files found")
         else:
@@ -615,7 +615,7 @@ def list_qemu_binaries(qemu_dir_path=None):
         return binary_files
         
     except Exception as e:
-        print(f"❌ Error listing binaries: {e}")
+        print(f"Error listing binaries: {e}")
         return []
 
 
@@ -774,9 +774,13 @@ def get_or_start_shared_qemu_session():
     Get existing QEMU session or start a new one with session management.
     Returns QEMU process handle or None.
     """
+    print("🔧 [DEBUG] get_or_start_shared_qemu_session() called")
+    
     # Check if QEMU session is already active
+    print("🔧 [DEBUG] Checking if QEMU session is already active...")
     if is_qemu_session_active():
         print("Reusing existing QEMU session...")
+        print("🔧 [DEBUG] Found active session, will reuse it")
         
         # Try to get the process handle from the marker
         marker_path = get_qemu_session_marker_path()
@@ -821,18 +825,28 @@ def get_or_start_shared_qemu_session():
                         time.sleep(0.1)
                     return self.returncode
             
+            print(f"🔧 [DEBUG] Returning MockQemuProcess with PID {pid}")
             return MockQemuProcess(pid)
             
         except (json.JSONDecodeError, IOError, KeyError):
             print("Warning: Could not read QEMU session marker, starting new session")
+    else:
+        print("🔧 [DEBUG] No active QEMU session found")
     
     # No active session, start new QEMU
     print("Starting new shared QEMU session...")
+    print("🔧 [DEBUG] About to call start_qemu_and_wait_for_boot()")
     qemu_process = start_qemu_and_wait_for_boot()
+    print(f"🔧 [DEBUG] start_qemu_and_wait_for_boot() returned: {qemu_process}")
+    
     if qemu_process:
+        print("🔧 [DEBUG] QEMU process created successfully, creating marker...")
         create_qemu_session_marker(qemu_process)
         print("QEMU session ready - other tests will reuse this session")
-    
+        print(f"🔧 [DEBUG] Returning QEMU process with PID: {qemu_process.pid}")
+    else:
+        print("QEMU session NOT CREATED!")
+        print("🔧 [DEBUG] QEMU process is None - something went wrong")
     return qemu_process
 
 
@@ -893,12 +907,19 @@ def start_qemu_and_wait_for_boot():
     import subprocess
     import pytest
     
+    print("[DEBUG] start_qemu_and_wait_for_boot() called")
+    
     # Cleanup any existing QEMU processes first
+    print("[DEBUG] Cleaning up existing QEMU processes...")
     cleanup_qemu_processes(force_kill=True)
+    print("[DEBUG] Cleanup completed")
     
     # Get project root directory
     test_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(test_dir))
+    
+    print(f"[DEBUG] Test dir: {test_dir}")
+    print(f"[DEBUG] Project root: {project_root}")
     
     # Define QEMU file paths
     qemu_base = os.path.join(project_root, "deployment", "qemu")
@@ -909,12 +930,20 @@ def start_qemu_and_wait_for_boot():
     dtb_path = os.path.join(qemu_base, "imx6q-sabresd-with-simtemp.dtb")
     rootfs_path = os.path.join(qemu_base, "rootfs.cpio.gz")
     
+    print(f"[DEBUG] QEMU base: {qemu_base}")
+    print(f"[DEBUG] Kernel path: {kernel_path}")
+    print(f"[DEBUG] DTB path: {dtb_path}")
+    print(f"[DEBUG] Rootfs path: {rootfs_path}")
+    
     # Verify QEMU files exist
     required_files = [kernel_path, dtb_path, rootfs_path]
     
     for file_path in required_files:
         if not os.path.exists(file_path):
+            print(f"[ERROR] Required QEMU file not found: {file_path}")
             pytest.fail(f"Required QEMU file not found: {file_path}")
+        else:
+            print(f"[DEBUG] Found required file: {file_path}")
     
     # Start QEMU process
     qemu_cmd = [
@@ -933,28 +962,74 @@ def start_qemu_and_wait_for_boot():
     ]
     
     print("Starting QEMU for platform driver testing...")
-    qemu_process = subprocess.Popen(
-        qemu_cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.PIPE,
-        text=True,
-        bufsize=1,
-        universal_newlines=True
-    )
+    cmd_preview = f"{' '.join(qemu_cmd[:3])}... ({len(qemu_cmd)} args total)"
+    print(f"[DEBUG] QEMU command: {cmd_preview}")
+    
+    try:
+        qemu_process = subprocess.Popen(
+            qemu_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            universal_newlines=True
+        )
+        print(f"[DEBUG] QEMU process started with PID: {qemu_process.pid}")
+        
+        # Small delay to let QEMU initialize
+        import time
+        time.sleep(1)
+        
+        # Check if QEMU is still running after initialization
+        poll_result = qemu_process.poll()
+        if poll_result is not None:
+            error_msg = f"QEMU process terminated immediately " \
+                       f"with exit code: {poll_result}"
+            print(f"[ERROR] {error_msg}")
+            # Try to get any error output
+            try:
+                stdout, stderr = qemu_process.communicate(timeout=1)
+                if stdout:
+                    print(f"[ERROR] QEMU stdout: {stdout}")
+                if stderr:
+                    print(f"[ERROR] QEMU stderr: {stderr}")
+            except subprocess.TimeoutExpired:
+                print("[ERROR] Could not get QEMU error output (timeout)")
+            fail_msg = f"QEMU process terminated immediately " \
+                       f"with exit code: {poll_result}"
+            pytest.fail(fail_msg)
+        else:
+            print("[DEBUG] QEMU process is running normally")
+    
+    except Exception as e:
+        print(f"[ERROR] Failed to start QEMU process: {e}")
+        pytest.fail(f"Failed to start QEMU process: {e}")
     
     # Wait for ARM initramfs ready message
     print("Waiting for QEMU boot completion...")
+    print("[DEBUG] Starting wait_for_qemu_message...")
+    
     boot_success, boot_output = wait_for_qemu_message(
         qemu_process, "=== initramfs ready ===", timeout=120
     )
     
+    debug_msg = f"wait_for_qemu_message returned: success={boot_success}, " \
+                f"output_lines={len(boot_output)}"
+    print(f"[DEBUG] {debug_msg}")
+    
     if not boot_success:
-        print("✓ QEMU boot FAILED!")
+        print("QEMU boot FAILED!")
+        print(f"[DEBUG] Boot output captured ({len(boot_output)} lines):")
+        for i, line in enumerate(boot_output[-10:], 1):  # Show last 10 lines
+            print(f"[DEBUG] Line -{10-i+1}: {line}")
+        
+        print("[DEBUG] Terminating QEMU process...")
         qemu_process.terminate()
         pytest.fail("QEMU failed to boot - initramfs ready "
                     "message not found")
     
-    print("✓ QEMU boot completed - initramfs ready")
-    print("✓ Shell prompt available - QEMU ready for platform driver tests")
+    print("QEMU boot completed - initramfs ready")
+    print("Shell prompt available - QEMU ready for platform driver tests")
+    print(f"[DEBUG] Returning QEMU process with PID: {qemu_process.pid}")
     return qemu_process
