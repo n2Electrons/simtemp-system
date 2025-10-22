@@ -133,7 +133,7 @@ deb-driver: $(OBJ_DIR)
 		exit 1; \
 	fi
 	$(call sign_module_inline)
-	$(call install_modules_inline)
+#	$(call install_modules_inline)
 
 # Create obj directory
 $(OBJ_DIR):
@@ -159,8 +159,10 @@ define sign_module_inline
 					/usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) "$$module"; \
 				else \
 					if [ "$$(id -u)" = "0" ]; then \
+						echo "Running sign-file as root..." \
 						/usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) "$$module"; \
 					else \
+						echo "Running sign-file with sudo..."; \
 						sudo /usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) "$$module"; \
 					fi; \
 				fi; \
@@ -228,7 +230,7 @@ host-driver: $(OBJ_DIR)
 		exit 1; \
 	fi
 	$(call sign_module_inline)
-	$(call install_modules_inline)
+#	$(call install_modules_inline)
 
 # Remove all generated files
 clean:
