@@ -4,5 +4,24 @@ mount -t sysfs    sysfs /sys
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs -o mode=0755 none /dev
 [ -c /dev/console ] || mknod -m 600 /dev/console c 5 1
 [ -c /dev/null ]    || mknod -m 666 /dev/null    c 1 3
+
+# Auto-load simtemp driver with full initialization
+if [ -x /opt/simtemp-cli/simtemp-init.sh ]; then
+    /opt/simtemp-cli/simtemp-init.sh
+else
+    echo "⚠️  SimTemp initialization script not found, using fallback"
+    echo "Loading simtemp driver..."
+    if [ -f /tmp/prebuild/simtemp-driver/nxp_simtemp.ko ]; then
+        insmod /tmp/prebuild/simtemp-driver/nxp_simtemp.ko
+        if [ $? -eq 0 ]; then
+            echo "✅ SimTemp driver loaded successfully"
+        else
+            echo "❌ Failed to load SimTemp driver"
+        fi
+    else
+        echo "⚠️  SimTemp driver module not found"
+    fi
+fi
+
 echo "=== initramfs ready ==="
 exec setsid /bin/sh </dev/console >/dev/console 2>&1

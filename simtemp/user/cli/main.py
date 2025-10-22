@@ -34,9 +34,24 @@ class TemperatureSensorCLI:
     
     def __init__(self):
         self.device_path = "/dev/simtemp"
-        self.sysfs_base = "/sys/class/misc/simtemp"
+        self.sysfs_base = self._find_sysfs_path()
         self.reader = None
         self.config = None
+    
+    def _find_sysfs_path(self):
+        """Find the correct sysfs path for the simtemp device."""
+        # First try the standard misc device path
+        misc_path = "/sys/class/misc/simtemp"
+        if Path(misc_path).exists():
+            return misc_path
+        
+        # For x86 systems without device tree, try platform device path
+        platform_path = "/sys/devices/platform/nxp-simtemp.0"
+        if Path(platform_path).exists():
+            return platform_path
+        
+        # Fallback to default
+        return misc_path
         
     def setup(self):
         """Initialize the sensor interfaces."""
@@ -130,15 +145,35 @@ class TemperatureSensorCLI:
             config = self.config.get_current_config()
             
             print("\n=== Sensor Status ===")
-            print(f"Sampling Period: {config['sampling_ms']} ms")
-            print(f"Threshold: {config['threshold_mC']/1000:.3f} °C")
-            print(f"Mode: {config['mode']}")
+            
+            # Handle potentially missing configuration values
+            sampling_ms = config.get('sampling_ms', 'Unknown')
+            if sampling_ms != 'Unknown':
+                print(f"Sampling Period: {sampling_ms} ms")
+            else:
+                print("Sampling Period: Unable to read")
+            
+            threshold_mc = config.get('threshold_mC')
+            if threshold_mc is not None:
+                print(f"Threshold: {threshold_mc/1000:.3f} °C")
+            else:
+                print("Threshold: Unable to read")
+            
+            mode = config.get('mode', 'Unknown')
+            if mode != 'Unknown':
+                print(f"Mode: {mode}")
+            else:
+                print("Mode: Unable to read")
+            
             print(f"Device: {self.device_path}")
             print(f"Sysfs: {self.sysfs_base}")
             
             print("\n=== Statistics ===")
-            for key, value in stats.items():
-                print(f"{key}: {value}")
+            if stats:
+                for key, value in stats.items():
+                    print(f"{key}: {value}")
+            else:
+                print("No statistics available")
             print()
             
         except Exception as e:
