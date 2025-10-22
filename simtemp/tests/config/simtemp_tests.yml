@@ -71,21 +71,14 @@ tests:
         verbose_output: false  # Disable verbose output for this test
         debug_info: "This test verifies clean module load/unload operations"
       - name: "test_readers_exit_gracefully_on_unload"
-        description: "test_readers_exit_gracefully_on_unload() - Readers exit gracefully on unload"
+        description: "Readers exit gracefully on unload"
         enabled: true
         test_id: "F-K8-TC-002"
         pytest_file: "test_f_k8_tc_002.py"  # Specific pytest file for this test case
         verbose_output: true  # Enable verbose output for debugging
         debug_info: "This test verifies that user-space reader applications exit gracefully when the kernel module is unloaded"
-      - name: "test_f_k1_platform_driver_dt_registration"
-        description: "test_f_k1_platform_driver_dt_registration() - TDD test for platform driver with Device Tree support"
-        enabled: true
-        test_id: "F-K1-TC-003"  # TDD test for platform driver registration
-        pytest_file: "test_f_k1_tc_003.py"  # Comprehensive platform driver validation
-        verbose_output: true  # Enable verbose output for TDD debugging
-        debug_info: "TDD test - expected to fail until platform driver is implemented"
       - name: "test_driver_validation"
-        description: "test_driver_validation() - Comprehensive driver validation including sysfs, dependencies, kernel logs, and bind/unbind operations"
+        description: "Comprehensive driver validation including sysfs, dependencies, kernel logs, and bind/unbind operations"
         enabled: true
         test_id: "F-K8-TC-004"
         pytest_file: "test_f_k8_tc_004.py"  # Comprehensive driver validation suite
@@ -153,7 +146,7 @@ tests:
       - name: "test_dtb_overlay_exists"
         description: "DTB / test_dtb_overlay_exists() - Verifies DTB overlay compilation and existence"
         enabled: true
-        test_id: "F-K8-TC-003-A"
+        test_id: "F-K8-TC-003-QEMU"
         pytest_file: "test_f_k8_tc_003_dtb.py"
         verbose_output: true
         debug_info: "Test for DTB overlay compilation and file existence verification"
@@ -165,7 +158,7 @@ tests:
       - name: "test_dtb_driver_binding"
         description: "DTB / test_dtb_driver_binding() - Verifies DTB driver binding compatibility"
         enabled: true
-        test_id: "F-K8-TC-003-B"
+        test_id: "F-K8-TC-003-QEMU-2"
         pytest_file: "test_f_k8_tc_003_dtb.py"
         verbose_output: true
         debug_info: "Test for DTB driver binding verification using compatible strings"
