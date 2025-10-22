@@ -950,6 +950,7 @@ def start_qemu_and_wait_for_boot():
     )
     
     if not boot_success:
+        print("✓ QEMU boot FAILED!")
         qemu_process.terminate()
         pytest.fail("QEMU failed to boot - initramfs ready "
                     "message not found")
