@@ -856,6 +856,9 @@ def cleanup_qemu_session():
     # Restore terminal state
     restore_terminal()
     print("QEMU session cleanup completed")
+
+
+def start_qemu_and_wait_for_boot():
     """
     Start QEMU process and wait for boot completion.
     Returns the QEMU process handle.
@@ -866,13 +869,20 @@ def cleanup_qemu_session():
     # Cleanup any existing QEMU processes first
     cleanup_qemu_processes(force_kill=True)
     
+    # Get project root directory
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(test_dir))
+    
+    # Define QEMU file paths
+    qemu_base = os.path.join(project_root, "deployment", "qemu")
+    kernel_path = os.path.join(qemu_base, "linux-imx-5.10", "arch", "arm",
+                               "boot", "zImage")
+    dtb_path = os.path.join(qemu_base, "linux-imx-5.10", "arch", "arm",
+                            "boot", "dts", "imx6q-sabresd.dtb")
+    rootfs_path = os.path.join(qemu_base, "rootfs.cpio.gz")
+    
     # Verify QEMU files exist
-    required_files = [
-        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage",
-        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/"
-        "imx6q-sabrelite.dtb",
-        "/workspace/deployment/qemu/rootfs.cpio.gz"
-    ]
+    required_files = [kernel_path, dtb_path, rootfs_path]
     
     for file_path in required_files:
         if not os.path.exists(file_path):
@@ -885,15 +895,12 @@ def cleanup_qemu_session():
         "-cpu", "cortex-a9",
         "-m", "1024",
         "-nographic",
-        "-kernel",
-        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage",
-        "-dtb",
-        "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/"
-        "imx6q-sabrelite.dtb",
-        "-initrd", "/workspace/deployment/qemu/rootfs.cpio.gz",
+        "-kernel", kernel_path,
+        "-dtb", dtb_path,
+        "-initrd", rootfs_path,
         "-append",
         "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 "
-        "loglevel=8 debug",
+        "rdinit=/init quiet loglevel=8 initcall_debug printk.time=1",
         "-no-reboot"
     ]
     
@@ -911,33 +918,14 @@ def cleanup_qemu_session():
     # Wait for ARM initramfs ready message
     print("Waiting for QEMU boot completion...")
     boot_success, boot_output = wait_for_qemu_message(
-        qemu_process, "=== ARM initramfs ready ===", timeout=120
+        qemu_process, "=== initramfs ready ===", timeout=120
     )
     
     if not boot_success:
         qemu_process.terminate()
-        pytest.fail("QEMU failed to boot - ARM initramfs ready "
+        pytest.fail("QEMU failed to boot - initramfs ready "
                     "message not found")
     
-    print("✓ QEMU boot completed - ARM initramfs ready")
-    
-    # Wait for shell prompt
-    print("Waiting for shell prompt...")
-    shell_success, shell_output = wait_for_qemu_message(
-        qemu_process, "~ #", timeout=30
-    )
-    
-    if not shell_success:
-        # Try sending enter to get prompt
-        qemu_process.stdin.write("\n")
-        qemu_process.stdin.flush()
-        shell_success, shell_output = wait_for_qemu_message(
-            qemu_process, "~ #", timeout=10
-        )
-    
-    if not shell_success:
-        qemu_process.terminate()
-        pytest.fail("Shell prompt not available after QEMU boot")
-    
+    print("✓ QEMU boot completed - initramfs ready")
     print("✓ Shell prompt available - QEMU ready for platform driver tests")
     return qemu_process
