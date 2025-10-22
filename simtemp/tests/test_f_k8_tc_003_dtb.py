@@ -110,49 +110,6 @@ def test_dtb_driver_binding():
             pass  # Don't terminate shared QEMU session
 
 
-def test_dtb_property_parsing():
-    """Test DTB property parsing functionality"""
-    # Check sysfs for DTB-parsed properties
-    sysfs_paths = ["/sys/devices/platform/simtemp.0",      # x86_64 host
-                   "/sys/devices/platform/simtemp",        # ARM QEMU DTB
-                   "/sys/devices/platform/simtemp@0",      # Alternative DTB
-                   "/sys/devices/platform/nxp-simtemp.0"]  # Alternative naming
-    
-    properties_found = False
-    for path in sysfs_paths:
-        if os.path.exists(path):
-            for prop in ['sampling_ms', 'threshold_mC', 'mode']:
-                prop_file = os.path.join(path, prop)
-                if os.path.exists(prop_file):
-                    properties_found = True
-                    break
-    
-    if not properties_found:
-        pytest.fail(
-            "DTB property parsing failed. "
-            "DTB property parsing not implemented."
-        )
-
-
-def test_dtb_functionality():
-    """Test driver functionality with DTB configuration"""
-    device_file = "/dev/simtemp"
-    
-    if not os.path.exists(device_file):
-        pytest.fail(
-            "Device file not found. "
-            "DTB-based driver functionality not implemented."
-        )
-    
-    try:
-        with open(device_file, 'r') as f:
-            data = f.read(64)
-            if not data.strip():
-                pytest.fail("Device read empty - DTB config not working")
-    except Exception as e:
-        pytest.fail(f"Device operation failed: {e}")
-
-
 def test_dtb_driver_binding_and_functionality():
     """Combined DTB driver binding and functionality verification test"""
     # This test combines DTB driver binding, property parsing, and
