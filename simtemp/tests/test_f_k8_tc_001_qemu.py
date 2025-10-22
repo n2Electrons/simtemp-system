@@ -175,15 +175,22 @@ def test_qemu_driver_load_unload():
                 # Filter out informational msgs and focus on critical issues
                 critical_patterns = [
                     "WARNING:", "OOPS", "BUG:", "panic",
-                    "Call Trace", "kernel NULL pointer"
+                    "Call Trace:", "kernel NULL pointer"
                 ]
 
                 # Known informational messages to ignore
                 ignore_patterns = [
                     "loading out-of-tree module taints kernel",
-                    "module verification failed"
+                    "module verification failed",
+                    "calling",  # Normal kernel function call messages
+                    "grep -E",  # Ignore patterns in grep commands
+                    "dmesg | grep"  # Ignore patterns in dmesg commands
                 ]
 
+                print(f"\nCommand output: \n{output_text}\n")
+                
+                # Check for critical warning patterns in output
+                found_critical_warning = False
                 for pattern in critical_patterns:
                     if pattern.lower() in output_text.lower():
                         # Check if it's an ignorable informational message
@@ -193,7 +200,11 @@ def test_qemu_driver_load_unload():
                         )
                         if not is_ignorable:
                             print(f"⚠️ Found critical warning: {pattern}")
+                            found_critical_warning = True
                             # Note: Log for analysis but don't fail
+                
+                if not found_critical_warning:
+                    print("✅ No critical warnings found in command output")
                 
             print("\n✓ QEMU kernel module load/unload test completed")
 
