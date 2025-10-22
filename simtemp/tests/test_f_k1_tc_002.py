@@ -11,6 +11,7 @@ from test_utils import (wait_for_qemu_message, cleanup_qemu_processes,
 # Test timeout in seconds (1 minute)
 QEMU_TIMEOUT = 60
 
+
 @pytest.mark.order(1)
 def test_basic_qemu_boot():
     """
@@ -52,6 +53,7 @@ def test_basic_qemu_boot():
 
         # Launch QEMU process
         qemu_process = None
+        test_passed = False
         try:
             # Change to QEMU directory where files are located
             os.chdir(qemu_dir)
@@ -88,6 +90,7 @@ def test_basic_qemu_boot():
                 pytest.fail(str(e))
 
             print("✓ QEMU Device Tree overlay infrastructure test passed")
+            test_passed = True
 
         except subprocess.SubprocessError as e:
             pytest.fail(f"Failed to launch QEMU: {e}")
@@ -96,25 +99,32 @@ def test_basic_qemu_boot():
             pytest.fail(f"Unexpected error during QEMU test: {e}")
 
         finally:
-            # Clean up: terminate QEMU process if still running
+            # Only terminate QEMU if the test failed or if there was an error
             if qemu_process and qemu_process.poll() is None:
-                print("Terminating QEMU process...")
-                try:
-                    # Send SIGTERM first
-                    qemu_process.terminate()
-
-                    # Wait a bit for graceful shutdown
+                if test_passed:
+                    print("✓ Test passed successfully - "
+                          "QEMU session will continue running")
+                    print(f"QEMU PID: {qemu_process.pid}")
+                    print("Note: QEMU process will remain active "
+                          "for manual testing")
+                else:
+                    print("Test failed - terminating QEMU process...")
                     try:
-                        qemu_process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        # Force kill if it doesn't terminate gracefully
-                        print("Force killing QEMU process...")
-                        qemu_process.kill()
-                        qemu_process.wait()
+                        # Send SIGTERM first
+                        qemu_process.terminate()
 
-                except Exception as cleanup_error:
-                    print(f"Warning: Error during QEMU cleanup: "
-                          f"{cleanup_error}")
+                        # Wait a bit for graceful shutdown
+                        try:
+                            qemu_process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            # Force kill if it doesn't terminate gracefully
+                            print("Force killing QEMU process...")
+                            qemu_process.kill()
+                            qemu_process.wait()
+
+                    except Exception as cleanup_error:
+                        print(f"Warning: Error during QEMU cleanup: "
+                              f"{cleanup_error}")
             
             # Additional cleanup handled by load_environment
             print("Additional cleanup will be handled by load_environment")
