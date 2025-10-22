@@ -12,6 +12,8 @@ from test_utils import check_qemu_test
 
 
 def test_dtb_overlay_exists():
+    qemu_process = check_qemu_test()
+    
     """Test that DTB overlay exists in repository"""
     test_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(test_dir))
@@ -36,15 +38,18 @@ def test_dtb_overlay_exists():
             pytest.skip(f"Device Tree Compiler failed: {e.stderr}")
         except FileNotFoundError:
             pytest.skip("Device Tree Compiler (dtc) not available")
-    
-    # Verify DTBO file exists and is valid
-    assert os.path.exists(overlay_dtbo), \
-        f"DTB overlay should exist at {overlay_dtbo}"
-    
-    with open(overlay_dtbo, 'rb') as f:
-        data = f.read()
-        assert data[:4] == b'\xd0\x0d\xfe\xed', "Invalid DTB magic number"
-        assert len(data) > 4, "DTB file too small"
+    try:
+        # Verify DTBO file exists and is valid
+        assert os.path.exists(overlay_dtbo), \
+            f"DTB overlay should exist at {overlay_dtbo}"
+        
+        with open(overlay_dtbo, 'rb') as f:
+            data = f.read()
+            assert data[:4] == b'\xd0\x0d\xfe\xed', "Invalid DTB magic number"
+            assert len(data) > 4, "DTB file too small"
+    finally:
+        if qemu_process:
+            pass  # Don't terminate shared QEMU session
 
 
 def test_dtb_driver_binding():
