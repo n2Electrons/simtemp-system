@@ -49,10 +49,12 @@ TEST_CONFIG_PATH=config/simtemp_tests.yml python3 -m pytest \
 ### QEMU Integration Suite (Shared Session Optimized)
 ```bash
 # Execute all QEMU integration tests with shared session optimization
+# NOTE: Order matters - test_basic_qemu_boot should run first to initialize the shared session
 TEST_CONFIG_PATH=config/simtemp_tests.yml python3 -m pytest \
   test_f_k1_tc_002.py::test_basic_qemu_boot \
-  test_f_k8_tc_002.py::test_readers_exit_gracefully_on_unload \
   test_f_k1_tc_003.py::test_f_k1_platform_driver_dt_registration \
+  test_f_k8_tc_001_qemu.py::test_qemu_driver_load_unload \
+  test_f_k8_tc_002.py::test_readers_exit_gracefully_on_unload \
   test_f_k8_tc_003_dtb.py::test_dtb_overlay_exists \
   test_f_k8_tc_003_dtb.py::test_dtb_driver_binding \
   -v -s
@@ -201,11 +203,12 @@ export WORKSPACE=/var/jenkins_home/workspace/simtemp-tests
 # Execute full suite for CI
 python3 -m pytest --tb=short --maxfail=1
 
-# Execute QEMU integration for CI (optimized)
+# Execute QEMU integration for CI (optimized with correct order)
 python3 -m pytest \
   test_f_k1_tc_002.py::test_basic_qemu_boot \
-  test_f_k8_tc_002.py::test_readers_exit_gracefully_on_unload \
   test_f_k1_tc_003.py::test_f_k1_platform_driver_dt_registration \
+  test_f_k8_tc_001_qemu.py::test_qemu_driver_load_unload \
+  test_f_k8_tc_002.py::test_readers_exit_gracefully_on_unload \
   test_f_k8_tc_003_dtb.py::test_dtb_overlay_exists \
   test_f_k8_tc_003_dtb.py::test_dtb_driver_binding \
   --tb=short --maxfail=1
