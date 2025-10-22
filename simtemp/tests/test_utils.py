@@ -862,7 +862,7 @@ def cleanup_qemu_session():
             # Check if it's still running
             try:
                 os.kill(qemu_pid, 0)
-                print(f"QEMU still running, forcing termination...")
+                print("QEMU still running, forcing termination...")
                 os.kill(qemu_pid, 9)  # SIGKILL
             except OSError:
                 pass  # Process already terminated
@@ -900,17 +900,45 @@ def start_qemu_and_wait_for_boot():
     test_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(test_dir))
     
-    # Define QEMU file paths
+    # Define QEMU file paths with fallback detection
     qemu_base = os.path.join(project_root, "deployment", "qemu")
-    kernel_path = os.path.join(qemu_base, "linux-imx-5.10", "arch", "arm",
-                               "boot", "zImage")
+    
+    # Try different locations for zImage (for Jenkins compatibility)
+    kernel_candidates = [
+        os.path.join(qemu_base, "linux-imx-5.10", "arch", "arm",
+                     "boot", "zImage"),
+        os.path.join(qemu_base, "build_bk", "arch", "arm",
+                     "boot", "zImage"),
+        os.path.join(qemu_base, "build_bk", "install", "boot", "zImage")
+    ]
+    
+    kernel_path = None
+    for candidate in kernel_candidates:
+        if os.path.exists(candidate):
+            kernel_path = candidate
+            print(f"Found kernel at: {kernel_path}")
+            break
+    
+    if not kernel_path:
+        print(f"Environment debugging - Current working directory: "
+              f"{os.getcwd()}")
+        print(f"Project root: {project_root}")
+        print(f"QEMU base: {qemu_base}")
+        print("Searched for zImage in:")
+        for candidate in kernel_candidates:
+            exists_status = ('EXISTS' if os.path.exists(candidate)
+                             else 'NOT FOUND')
+            print(f"  {candidate} - {exists_status}")
+        pytest.fail(f"zImage not found in any expected location. "
+                    f"Searched: {kernel_candidates}")
+    
     # dtb_path = os.path.join(qemu_base, "linux-imx-5.10", "arch", "arm",
     #                         "boot", "dts", "imx6q-sabresd.dtb")
     dtb_path = os.path.join(qemu_base, "imx6q-sabresd-with-simtemp.dtb")
     rootfs_path = os.path.join(qemu_base, "rootfs.cpio.gz")
     
-    # Verify QEMU files exist
-    required_files = [kernel_path, dtb_path, rootfs_path]
+    # Verify remaining QEMU files exist
+    required_files = [dtb_path, rootfs_path]
     
     for file_path in required_files:
         if not os.path.exists(file_path):
