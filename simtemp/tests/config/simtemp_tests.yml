@@ -70,13 +70,6 @@ tests:
         pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this test case
         verbose_output: false  # Disable verbose output for this test
         debug_info: "This test verifies clean module load/unload operations"
-      - name: "test_readers_exit_gracefully_on_unload"
-        description: "Readers exit gracefully on unload"
-        enabled: true
-        test_id: "F-K8-TC-002"
-        pytest_file: "test_f_k8_tc_002.py"  # Specific pytest file for this test case
-        verbose_output: true  # Enable verbose output for debugging
-        debug_info: "This test verifies that user-space reader applications exit gracefully when the kernel module is unloaded"
       - name: "test_driver_validation"
         description: "Comprehensive driver validation including sysfs, dependencies, kernel logs, and bind/unbind operations"
         enabled: true
@@ -129,8 +122,22 @@ tests:
           validation_patterns: ["initramfs ready", "insmod", "rmmod", "module loaded", "module unloaded"]
           timeout_seconds: 90
 
+      - name: "test_readers_exit_gracefully_on_unload"
+        description: "QEMU / test_readers_exit_gracefully_on_unload() - Readers exit gracefully on unload in QEMU environment"
+        enabled: true
+        test_id: "F-K8-TC-002-QEMU"
+        pytest_file: "test_f_k8_tc_002.py"  # Specific pytest file for this test case
+        verbose_output: true  # Enable verbose output for QEMU debugging
+        debug_info: "QEMU-based version of F-K8-TC-002 that tests user-space reader applications exit gracefully when the kernel module is unloaded in ARM emulation environment"
+        qemu_specific:
+          expects_boot: true
+          expects_module_load: true
+          expects_graceful_reader_exit: true
+          validation_patterns: ["initramfs ready", "insmod", "rmmod", "reader", "graceful", "exit"]
+          timeout_seconds: 120
+
       - name: "test_f_k1_platform_driver_dt_registration"
-        description: "QEMU / test_f_k1_platform_driver_dt_registration() - Validate platform driver with Device Tree in QEMU environment"
+        description: "QEMU / Validate platform driver with Device Tree in QEMU environment"
         enabled: true
         test_id: "F-K1-TC-003-QEMU"  # QEMU variant of platform driver test
         pytest_file: "test_f_k1_tc_003.py"  # Same test but detects QEMU mode internally
