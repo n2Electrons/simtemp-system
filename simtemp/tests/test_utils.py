@@ -643,6 +643,34 @@ def get_module_path_for_context():
     return module_path, context
 
 
+# Global QEMU session management - shared across all tests
+_global_qemu_process = None
+
+
+def get_shared_qemu_session():
+    """
+    Get or initialize shared QEMU session for all tests.
+    
+    This function ensures that only ONE QEMU instance is started across
+    all test files and functions, preventing multiple QEMU boots that
+    cause resource conflicts and slow test execution.
+    
+    Returns:
+        Process handle if QEMU is running, None if not in QEMU mode
+    """
+    global _global_qemu_process
+    
+    if _global_qemu_process is None:
+        _global_qemu_process = check_qemu_test()
+        if _global_qemu_process:
+            print("=== Global Shared QEMU Session Initialized ===")
+            print(f"QEMU PID: {_global_qemu_process.pid}")
+        else:
+            print("=== Running in Host Mode (no QEMU) ===")
+    
+    return _global_qemu_process
+
+
 def check_qemu_test():
     """
     Check if this test should run in QEMU mode and manage shared QEMU session.

@@ -11,7 +11,7 @@ import os
 import pytest
 import subprocess
 import time
-from test_utils import (SUDO, obj_path, SHELL_PARAMS, check_qemu_test,
+from test_utils import (SUDO, obj_path, SHELL_PARAMS, get_shared_qemu_session,
                         get_driver_path, get_module_path_for_context)
 
 # Test configuration
@@ -36,7 +36,7 @@ def insmod_module(module_path=None):
     
     if module_path is None:
         # Determine appropriate driver path based on test environment
-        qemu_process = check_qemu_test()
+        qemu_process = get_shared_qemu_session()
         if qemu_process:
             # For QEMU tests, use driver path that considers precompiled configuration
             module_path = get_driver_path('qemu_integration')
@@ -83,7 +83,7 @@ def test_f_k1_platform_driver_dt_registration():
     """
     
     # Check if this should run in QEMU mode
-    qemu_process = check_qemu_test()
+    qemu_process = get_shared_qemu_session()
     
     try:
         # Get the correct module path for the current execution context
