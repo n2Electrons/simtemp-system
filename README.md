@@ -111,7 +111,7 @@ simtemp-system/
 │
 ├── user/                             # User space applications
 │   ├── cli/                          # CLI application (required by Challenge 2025)
-│   │   ├── main.py                   # CLI app for configuration and reading
+│   │   ├── simtemp-cli.py            # CLI app for configuration and reading
 │   │   ├── simtemp_reader.py         # /dev/simtemp reader with poll/epoll
 │   │   ├── sysfs_config.py           # sysfs configuration interface
 │   │   ├── test_mode.py              # Test mode implementation
