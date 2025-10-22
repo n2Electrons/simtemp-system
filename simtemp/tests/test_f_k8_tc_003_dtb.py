@@ -113,9 +113,10 @@ def test_dtb_driver_binding():
 def test_dtb_property_parsing():
     """Test DTB property parsing functionality"""
     # Check sysfs for DTB-parsed properties
-    sysfs_paths = ["/sys/devices/platform/simtemp.0",
-                   "/sys/devices/platform/simtemp@0",
-                   "/sys/devices/platform/nxp-simtemp.0"]
+    sysfs_paths = ["/sys/devices/platform/simtemp.0",      # x86_64 host
+                   "/sys/devices/platform/simtemp",        # ARM QEMU DTB
+                   "/sys/devices/platform/simtemp@0",      # Alternative DTB
+                   "/sys/devices/platform/nxp-simtemp.0"]  # Alternative naming
     
     properties_found = False
     for path in sysfs_paths:
@@ -196,8 +197,9 @@ def test_dtb_driver_binding_and_functionality():
         
         # Test 2: DTB property parsing
         properties_found = False
-        sysfs_paths = ["/sys/devices/platform/simtemp.0",
-                       "/sys/devices/platform/simtemp@0"]
+        sysfs_paths = ["/sys/devices/platform/simtemp.0",    # x86_64 host
+                       "/sys/devices/platform/simtemp",      # ARM QEMU DTB
+                       "/sys/devices/platform/simtemp@0"]    # Alternative DTB
         
         for path in sysfs_paths:
             if os.path.exists(path):
