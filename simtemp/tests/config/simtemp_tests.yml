@@ -172,13 +172,3 @@ tests:
         dtb_specific:
           expects_driver_binding: true
           validation_patterns: ["nxp,simtemp"]
-
-      - name: "device_tree_loading"
-        description: "QEMU / device_tree_loading() - Verifies Device Tree loading in QEMU"
-        enabled: false
-        test_id: "F-K1-TC-004"
-        pytest_file: "test_f_k1_tc_004.py"  # Specific pytest file for this test case
-        debug_info: "This test confirms DTB loading and kernel recognition"
-        qemu_specific:
-          expects_dtb_load: true
-          validation_patterns: ["Device tree", "imx6ul"]

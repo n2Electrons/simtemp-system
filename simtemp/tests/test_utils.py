@@ -684,7 +684,7 @@ def check_qemu_test():
     try:
         import yaml
         
-        # Check for F-K1-TC-003-QEMU configuration
+        # Check for QEMU integration test configuration
         config_path = os.environ.get('TEST_CONFIG_PATH',
                                      'simtemp/tests/config/simtemp_tests.yml')
         if not os.path.exists(config_path):
@@ -693,19 +693,19 @@ def check_qemu_test():
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
             
-        # Look for qemu_integration section with F-K1-TC-003-QEMU
+        # Look for qemu_integration section
         qemu_tests = config.get('tests', {}).get('qemu_integration', {})
         if not qemu_tests.get('enabled', False):
             return None
             
-        # Check if F-K1-TC-003-QEMU test is enabled and has qemu_specific config
+        # Check if ANY QEMU test is enabled with qemu_specific config
         test_cases = qemu_tests.get('test_cases', [])
         for test_case in test_cases:
-            if (test_case.get('test_id') == 'F-K1-TC-003-QEMU' and
-                test_case.get('enabled', False) and
-                test_case.get('qemu_specific', {}).get('expects_boot', False)):
+            test_id = test_case.get('test_id', '')
+            if (test_case.get('enabled', False) and
+                ('QEMU' in test_id or test_case.get('qemu_specific', {}).get('expects_boot', False))):
                 # QEMU mode detected - check for shared session
-                print("\n=== QEMU Mode Detected ===")
+                print(f"\n=== QEMU Mode Detected for {test_id} ===")
                 return get_or_start_shared_qemu_session()
                 
         return None

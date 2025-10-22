@@ -22,9 +22,7 @@ from pathlib import Path
 # Import test utilities
 sys.path.append(str(Path(__file__).parent))
 from test_utils import (SUDO, obj_path, SHELL_PARAMS,
-                        start_qemu_and_wait_for_boot, get_shared_qemu_session,
-                        cleanup_qemu_session, close_reader_apps,
-                        get_module_path_for_context)
+                        get_shared_qemu_session)
 from test_f_k1_tc_001 import insmod_module, rmmod_module
 
 # Import reader modules
