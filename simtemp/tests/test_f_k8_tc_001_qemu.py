@@ -101,7 +101,7 @@ def test_qemu_driver_load_unload():
                 ("dmesg -c > /dev/null", "Clear dmesg buffer"),
                 
                 # Load the module
-                ("cd /tmp/src/simtemp_driver && insmod nxp_simtemp.ko",
+                ("cd /tmp/prebuild/simtemp-driver && insmod nxp_simtemp.ko",
                  "Load simtemp module"),
                 
                 # Check dmesg for critical warnings after load
@@ -126,7 +126,7 @@ def test_qemu_driver_load_unload():
                  "Verify module is unloaded"),
                 
                 # Load module again for final verification
-                ("cd /tmp/src/simtemp_driver && insmod nxp_simtemp.ko",
+                ("cd /tmp/prebuild/simtemp-driver && insmod nxp_simtemp.ko",
                  "Reload module for verification"),
                 
                 ("lsmod | grep nxp_simtemp", "Final module verification")

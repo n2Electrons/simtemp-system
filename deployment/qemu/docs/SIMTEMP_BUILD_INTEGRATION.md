@@ -33,7 +33,7 @@ Successfully implemented and tested a complete cross-compilation workflow for th
 - **Build Flags**: `-march=armv7-a -marm`
 
 ### 4. Integration Points
-- **Source Location**: `simtemp/kernel/` → `deployment/qemu/rootfs/tmp/src/simtemp_driver/`
+- **Source Location (Future use)**: `simtemp/kernel/` → `deployment/qemu/rootfs/tmp/src/simtemp_driver/`
 - **Module Installation**: `deployment/qemu/rootfs/lib/modules/extra/nxp_simtemp.ko`
 - **Rootfs Integration**: Automatic rootfs.cpio.gz regeneration
 - **QEMU Compatibility**: Verified boot with compiled driver
@@ -61,7 +61,7 @@ deployment/qemu/
 │   ├── run_qemu.sh              # QEMU launcher
 │   └── update_rootfs.sh         # Rootfs regeneration
 ├── rootfs/
-│   ├── tmp/src/simtemp_driver/  # Driver compilation area
+│   ├── tmp/prebuild/simtemp-driver/  # Pre-compiled Driver
 │   └── lib/modules/extra/       # Module installation location
 ├── linux-imx-5.10/          # Kernel source tree
 └── rootfs.cpio.gz               # Generated rootfs with driver

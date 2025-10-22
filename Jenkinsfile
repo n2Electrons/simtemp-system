@@ -2096,32 +2096,6 @@ pipeline {
                             buildEnv.add('USE_PRECOMPILED_DRIVER=false')
                             echo "Build stage: Using compilation mode for QEMU integration"
                         }
-                        
-                        withEnv(buildEnv) {
-                            // Execute the simtemp driver build script and check result
-                            sh '''
-                                set -e
-                                echo "Building simtemp driver for QEMU environment..."
-                                cd deployment/qemu
-                                
-                                if [ ! -x scripts/build_simtemp_driver.sh ]; then
-                                    echo "Build script not found or not executable: scripts/build_simtemp_driver.sh"
-                                    ls -la scripts/
-                                    exit 1
-                                fi
-                                
-                                # Execute the build script
-                                ./scripts/build_simtemp_driver.sh
-                                BUILD_RESULT=$?
-                                if [ $BUILD_RESULT -eq 0 ]; then
-                                    echo "Simtemp driver build completed successfully"
-                                else
-                                    echo "Simtemp driver build failed with exit code $BUILD_RESULT"
-                                    exit $BUILD_RESULT
-                                fi
-                            '''
-                        }
-                        
                     } catch (Exception e) {
                         echo "Failed to build simtemp driver for QEMU: ${e.message}"
                         throw e
@@ -2146,7 +2120,7 @@ pipeline {
                             // Archive artifacts based on build mode
                             if (!usePrecompiled) {
                                 echo "Archiving compiled driver artifacts..."
-                                archiveArtifacts artifacts: 'deployment/qemu/rootfs/tmp/src/simtemp_driver/*.ko', allowEmptyArchive: true, fingerprint: true
+                                archiveArtifacts artifacts: 'deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/*.ko', allowEmptyArchive: true, fingerprint: true
                             } else {
                                 echo "Precompiled mode: Skipping .ko artifact archiving (driver is in rootfs)"
                             }

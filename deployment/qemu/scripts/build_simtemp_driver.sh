@@ -3,7 +3,7 @@
 # This script handles cross-compilation and rootfs integration
 
 ###############################################################################
-#	THIS SCRIPT WILL BE USED IN CASE THAT WE DECIDE TO                        #
+#	THIS SCRIPT WILL BE USED IN THE FUTURE, IN CASE THAT WE DECIDE TO         #
 #	UPLOAD A SUB-SET OF (COMPRESSED) LINUX KERNEL SOURCE FILES INTO THE REPO  #
 #	OR TO CLONE AN BUILD IN THE PIPELINE                                      #
 ###############################################################################
@@ -43,7 +43,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QEMU_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(dirname "$(dirname "$QEMU_DIR")")"
 SIMTEMP_SRC_DIR="$PROJECT_ROOT/simtemp/kernel"
-ROOTFS_DRIVER_DIR="$QEMU_DIR/rootfs/tmp/src/simtemp_driver"
+ROOTFS_DRIVER_DIR="$QEMU_DIR/rootfs/tmp/prebuild/simtemp-driver"
 # Allow kernel source directory to be overridden by env variable
 KERNEL_SRC_DIR="${KERNEL_SRC_DIR:-$QEMU_DIR/linux-imx-5.10}"
 
