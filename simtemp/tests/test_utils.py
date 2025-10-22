@@ -889,7 +889,7 @@ def cleanup_qemu_session():
             # Check if it's still running
             try:
                 os.kill(qemu_pid, 0)
-                print(f"QEMU still running, forcing termination...")
+                print("QEMU still running, forcing termination...")
                 os.kill(qemu_pid, 9)  # SIGKILL
             except OSError:
                 pass  # Process already terminated
@@ -927,11 +927,16 @@ def start_qemu_and_wait_for_boot():
     cleanup_qemu_processes(force_kill=True)
     print("[DEBUG] Cleanup completed")
     
-    # Get project root directory
+    # Get project root directory - handle different environments
     test_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(os.path.dirname(test_dir))
+    
+    # In Jenkins: /var/jenkins_home/workspace/_Github_.../simtemp/tests
+    # We need to go up from simtemp/tests -> simtemp -> project_root
+    simtemp_dir = os.path.dirname(test_dir)  # Remove /tests
+    project_root = os.path.dirname(simtemp_dir)  # Remove /simtemp
     
     print(f"[DEBUG] Test dir: {test_dir}")
+    print(f"[DEBUG] Simtemp dir: {simtemp_dir}")
     print(f"[DEBUG] Project root: {project_root}")
     
     # Define QEMU file paths
