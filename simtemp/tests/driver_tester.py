@@ -27,10 +27,13 @@ import re
 import requests
 from pathlib import Path
 
-# Import QEMU session management functions
+# Import QEMU session management functions directly from test_utils
 try:
-    from test_utils import is_qemu_session_active
-    from qemu_session_manager import manual_cleanup_qemu_sessions
+    from test_utils import (
+        is_qemu_session_active,
+        cleanup_qemu_session,
+        cleanup_qemu_processes
+    )
     QEMU_SUPPORT_AVAILABLE = True
 except ImportError:
     print("Warning: QEMU session management not available")
@@ -1386,15 +1389,35 @@ class DriverTestOrchestrator:
     def ensure_qemu_cleanup(self):
         """
         Ensure QEMU sessions are properly cleaned up before report generation.
-        This is a safety measure to prevent resource leaks.
+        This is the primary QEMU cleanup responsibility for driver_tester.
         """
         if not QEMU_SUPPORT_AVAILABLE:
             return
         
         try:
-            self.logger.info("Performing final QEMU session cleanup...")
-            manual_cleanup_qemu_sessions()
-            self.logger.info("QEMU session cleanup completed")
+            self.logger.info("Performing QEMU session cleanup...")
+            
+            # First try session-based cleanup if there's an active session
+            if is_qemu_session_active():
+                self.logger.info("Active QEMU session found, cleaning up...")
+                cleanup_qemu_session()
+                self.logger.info("QEMU session cleanup completed")
+            else:
+                self.logger.info("No active QEMU session found")
+            
+            # Then ensure all QEMU processes are cleaned up
+            cleanup_success = cleanup_qemu_processes(
+                force_kill=True,
+                restore_cwd=True
+            )
+            
+            if cleanup_success:
+                self.logger.info("QEMU process cleanup completed successfully")
+            else:
+                self.logger.warning(
+                    "QEMU process cleanup completed with warnings"
+                )
+                
         except Exception as e:
             self.logger.warning(f"Error during QEMU cleanup: {e}")
 

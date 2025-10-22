@@ -37,26 +37,22 @@ from pathlib import Path
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
 
-# Import QEMU session management
+# Note: QEMU session management is handled exclusively by driver_tester.py
+# test_monitor.py only orchestrates the execution of driver_tester.py
 try:
-    from qemu_session_manager import (
-        setup_qemu_session_cleanup, 
-        manual_cleanup_qemu_sessions
-    )
     from test_utils import is_qemu_session_active
     QEMU_SUPPORT = True
 except ImportError as e:
-    print(f"Warning: QEMU session management not available: {e}")
+    print(f"Warning: QEMU status checking not available: {e}")
     QEMU_SUPPORT = False
 
 
 class TestMonitor:
-    """Enhanced test orchestrator with QEMU session management."""
+    """Simple test orchestrator that delegates to driver_tester.py."""
     
     def __init__(self):
         self.qemu_enabled = QEMU_SUPPORT
         self.driver_tester_path = current_dir / "driver_tester.py"
-        self.cleanup_registered = False
         
         # Validate driver_tester.py exists
         if not self.driver_tester_path.exists():
@@ -64,42 +60,17 @@ class TestMonitor:
                 f"driver_tester.py not found at {self.driver_tester_path}"
             )
     
-    def setup_qemu_management(self):
-        """Setup QEMU session management if available."""
-        if not self.qemu_enabled:
-            print("⚠️  QEMU session management not available")
-            return False
-        
-        try:
-            setup_qemu_session_cleanup()
-            self.cleanup_registered = True
-            print("✅ QEMU session management initialized")
-            return True
-        except Exception as e:
-            print(f"⚠️  Failed to setup QEMU management: {e}")
-            return False
-    
-    def cleanup_qemu_sessions(self):
-        """Clean up QEMU sessions if management is available."""
-        if not self.qemu_enabled:
-            return
-        
-        try:
-            manual_cleanup_qemu_sessions()
-            print("✅ QEMU sessions cleaned up")
-        except Exception as e:
-            print(f"⚠️  Error cleaning up QEMU sessions: {e}")
-    
     def check_qemu_status(self):
-        """Check and report QEMU session status."""
+        """Check and report QEMU session status (read-only)."""
         if not self.qemu_enabled:
-            print("❌ QEMU session management not available")
+            print("❌ QEMU status checking not available")
             return False
-        
+
         try:
             is_active = is_qemu_session_active()
             if is_active:
                 print("🟢 QEMU session is ACTIVE")
+                print("ℹ️  QEMU cleanup will be handled by driver_tester.py")
             else:
                 print("🔴 No active QEMU sessions")
             return is_active
@@ -109,17 +80,13 @@ class TestMonitor:
     
     def run_driver_tester(self, args):
         """
-        Execute driver_tester.py with enhanced monitoring and QEMU management.
+        Execute driver_tester.py which handles all QEMU management.
         
         Args:
             args: Arguments to pass to driver_tester.py
         """
-        print("🚀 Starting Test Monitor with Enhanced QEMU Management")
-        
-        # Setup QEMU session management
-        qemu_setup = self.setup_qemu_management()
-        if qemu_setup:
-            print("🎯 QEMU sessions will be managed automatically")
+        print("🚀 Starting Test Monitor")
+        print("ℹ️  QEMU sessions are managed exclusively by driver_tester.py")
         
         # Prepare command for driver_tester.py
         cmd = ["python3", str(self.driver_tester_path)]
@@ -146,17 +113,12 @@ class TestMonitor:
             
         except KeyboardInterrupt:
             print("\n⚠️  Test execution interrupted by user")
+            print("ℹ️  QEMU cleanup will be handled by driver_tester.py")
             return 130  # Standard exit code for SIGINT
             
         except Exception as e:
             print(f"\n💥 Error during test execution: {e}")
             return 1
-            
-        finally:
-            # Ensure QEMU cleanup happens
-            if self.qemu_enabled:
-                print("\n🧹 Performing final QEMU session cleanup...")
-                self.cleanup_qemu_sessions()
 
 
 def create_argument_parser():
@@ -224,9 +186,11 @@ def main():
     
     # Handle test monitor specific commands
     if args.cleanup_qemu:
-        print("🧹 Cleaning up QEMU sessions...")
-        monitor.cleanup_qemu_sessions()
-        return 0
+        print("🧹 QEMU cleanup is handled exclusively by driver_tester.py")
+        print("ℹ️  Running driver_tester.py to perform cleanup...")
+        # Run driver_tester which will handle cleanup
+        exit_code = monitor.run_driver_tester(['--verbose'])
+        return exit_code
     
     if args.qemu_status:
         print("🔍 Checking QEMU session status...")

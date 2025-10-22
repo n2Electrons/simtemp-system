@@ -125,3 +125,5 @@ simtemp/scripts/sysroot-arm/
 
 # Temporary summary and documentation files
 simtemp/docs/images/
+docs_to_review/
+*nxp-simtemp-overlay.dtbo
