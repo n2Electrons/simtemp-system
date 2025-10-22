@@ -857,7 +857,6 @@ def cleanup_qemu_session():
     restore_terminal()
     print("QEMU session cleanup completed")
 
-
 def start_qemu_and_wait_for_boot():
     """
     Start QEMU process and wait for boot completion.
@@ -877,8 +876,9 @@ def start_qemu_and_wait_for_boot():
     qemu_base = os.path.join(project_root, "deployment", "qemu")
     kernel_path = os.path.join(qemu_base, "linux-imx-5.10", "arch", "arm",
                                "boot", "zImage")
-    dtb_path = os.path.join(qemu_base, "linux-imx-5.10", "arch", "arm",
-                            "boot", "dts", "imx6q-sabresd.dtb")
+    # dtb_path = os.path.join(qemu_base, "linux-imx-5.10", "arch", "arm",
+    #                         "boot", "dts", "imx6q-sabresd.dtb")
+    dtb_path = os.path.join(qemu_base, "imx6q-sabresd-with-simtemp.dtb")
     rootfs_path = os.path.join(qemu_base, "rootfs.cpio.gz")
     
     # Verify QEMU files exist

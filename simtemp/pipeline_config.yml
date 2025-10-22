@@ -151,7 +151,7 @@ stages:
     test_suites: ["qemu_imx6ul"]
     machine: "mcimx6ul-evk"
     kernel_image: "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage"
-    dtb_file: "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
+    dtb_file: "/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd-with-simtemp.dtb"
     
   cleanup:
     enabled: true

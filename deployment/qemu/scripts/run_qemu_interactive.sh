@@ -4,6 +4,7 @@
 # Can be executed from any directory - automatically detects project paths
 # Runs QEMU, waits for boot, and allows manual interaction
 
+# For develpopment/debugging in x86_64
 set -e
 
 # Function to find project root from any location
@@ -59,18 +60,20 @@ if [[ -z "$PROJECT_ROOT" ]]; then
     exit 1
 fi
 
-echo "🚀 Starting interactive QEMU ARM for NXP SimTemp module testing..."
-echo "📁 Project root: $PROJECT_ROOT"
-echo "🔧 Current directory: $(pwd)"
-echo "🎯 ARM module at: /tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
+echo "Starting interactive QEMU ARM for NXP SimTemp module testing..."
+echo "Project root: $PROJECT_ROOT"
+echo "Current directory: $(pwd)"
+echo "ARM module at: /tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
 echo ""
 
 # Change to project root for consistent paths
 cd "$PROJECT_ROOT"
 
 # Define QEMU file paths
+QEMU_DIR="$PROJECT_ROOT/deployment/qemu"
 KERNEL_PATH="$QEMU_DIR/linux-imx-5.10/arch/arm/boot/zImage"
-DTB_PATH="$QEMU_DIR/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd-with-simtemp.dtb"
+# DTB_PATH="$QEMU_DIR/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb"
+DTB_PATH="$QEMU_DIR/imx6q-sabresd-with-simtemp.dtb"
 ROOTFS_PATH="$QEMU_DIR/rootfs.cpio.gz"
 
 # Verify required files
@@ -83,11 +86,11 @@ required_files=(
 
 for file in "${required_files[@]}"; do
     if [[ ! -f "$file" ]]; then
-        echo "❌ ERROR: Required file not found: $file"
+        echo "ERROR: Required file not found: $file"
         echo "   Make sure QEMU environment is properly built"
         exit 1
     else
-        echo "✅ OK: $(basename "$file")"
+        echo "OK: $(basename "$file")"
     fi
 done
 
@@ -97,10 +100,10 @@ pkill -f qemu-system-arm 2>/dev/null || true
 sleep 2
 
 echo ""
-echo "🎯 Starting QEMU ARM with i.MX6 Sabresd..."
-echo "⏳ Waiting for complete boot (look for '=== initramfs ready ===')"
+echo "  Starting QEMU ARM with i.MX6 Sabresd..."
+echo "  Waiting for complete boot (look for '=== initramfs ready ===')"
 echo ""
-echo "📋 Testing commands to execute once started:"
+echo "  Testing commands to execute once started:"
 echo "   lsmod"
 echo "   insmod /tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
 echo "   lsmod | grep nxp"
@@ -114,7 +117,7 @@ echo ""
 
 # Check if QEMU is available
 if ! command -v qemu-system-arm &> /dev/null; then
-    echo "❌ ERROR: qemu-system-arm not found"
+    echo "ERROR: qemu-system-arm not found"
     echo "   Install QEMU: sudo apt-get install qemu-system-arm"
     exit 1
 fi

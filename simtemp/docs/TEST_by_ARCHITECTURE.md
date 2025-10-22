@@ -10,14 +10,14 @@ This document describes the distribution of SimTemp system tests across differen
 
 | Test ID | Test Name | Host (x86_64) | Debian (x86_64) Jenkins | ARM (QEMU) | Notes |
 |---------|-------------------------------------------|:-------------:|:----------------------:|:----------:|-------|
-| **F-K1-TC-001** | `test_insmod_registers_driver` | ✅ | ✅ | ❌ | Validates driver registration in /proc/modules |
+| **F-K1-TC-001** | `test_insmod_registers_driver` | ✅ | ✅ | ❌ | Validates driver registration. User for infrastructure testing. |
 | **F-K1-TC-002** | `test_basic_qemu_boot` | ❌ | ❌ | ✅ | ARM boot validation - QEMU only |
 | **F-K1-TC-003** | `test_f_k1_platform_driver_dt_registration` | ✅ | ✅ | ✅ | Platform driver stub - fails until DT implemented |
 | **F-K8-TC-001** | `test_driver_load_unload` | ✅ | ✅ | ❌ | x86 optimized - uses modprobe dependency mgmt |
 | **F-K8-TC-001-QEMU** | `test_qemu_driver_load_unload` | ❌ | ❌ | ✅ | ARM equivalent of F-K8-TC-001 |
 | **F-K8-TC-002** | `test_readers_exit_gracefully_on_unload` | ✅ | ✅ | ❌ | Multi-threaded reader simulation |
 | **F-K8-TC-003-A** | `test_dtb_overlay_exists` | ✅ | ✅ | ✅ | Verifies DTB overlay compilation |
-| **F-K8-TC-003-B** | `test_dtb_driver_binding` | ✅ | ✅ | ✅ | Checks compatible string binding |
+| **F-K8-TC-003-B** | `test_dtb_driver_binding` | ✅ | ✅ | ✅ | Checks compatible string binding for DTB |
 | **F-K8-TC-003** | `test_dtb_driver_binding_and_functionality` | ✅ | ✅ | ✅ | Complete DTB integration test |
 | **F-K8-TC-004** | `test_driver_validation` | ✅ | ✅ | ❌ | Sysfs attributes and dependencies |
 

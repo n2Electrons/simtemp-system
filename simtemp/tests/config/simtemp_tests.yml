@@ -106,7 +106,7 @@ tests:
       QEMU_DIR: 'deployment/qemu'
       HELLO_SRC_DIR: 'src/hello'
       KERNEL_IMAGE: '/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/zImage'
-      DTB_FILE: '/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd.dtb'
+      DTB_FILE: '/workspace/deployment/qemu/linux-imx-5.10/arch/arm/boot/dts/imx6q-sabresd-with-simtemp.dtb'
       ROOTFS_IMAGE: '/workspace/deployment/qemu/rootfs.cpio.gz'
       # BUILD_SCRIPT removed - binaries are pre-compiled on host
 
