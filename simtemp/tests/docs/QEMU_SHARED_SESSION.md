@@ -18,7 +18,7 @@ Resolver la ineficiencia de iniciar/terminar QEMU para cada test individual, imp
 #### 1. **`test_utils.py` - Funciones Core**
 ```python
 # Función principal para tests
-qemu_process = check_qemu_test()
+qemu_process = get_qemu_session_if_needed()
 
 # Funciones de sesión compartida
 get_or_start_shared_qemu_session()  # Inicia o reutiliza sesión
@@ -55,12 +55,12 @@ python3 run_tests_enhanced.py --cleanup-only
 ```
 Test Suite Execution:
 ├── test_f_k1_tc_003.py (QEMU)
-│   ├── check_qemu_test()
+│   ├── get_qemu_session_if_needed()
 │   ├── 🚀 START QEMU + Crear marca /tmp/qemu_session_active.marker
 │   ├── ✅ Test execution
 │   └── 💾 QEMU permanece activo
 ├── test_f_k8_tc_001.py (QEMU) 
-│   ├── check_qemu_test()
+│   ├── get_qemu_session_if_needed()
 │   ├── 🔄 REUSE existing QEMU session
 │   ├── ✅ Test execution  
 │   └── 💾 QEMU permanece activo
@@ -86,7 +86,7 @@ def test_something():
 ### Después (Sesión Compartida)
 ```python
 def test_something():
-    qemu_process = check_qemu_test()  # Una línea!
+    qemu_process = get_qemu_session_if_needed()  # Una línea!
     # ... test logic ...
     # No cleanup - el test runner maneja QEMU
 ```
@@ -200,12 +200,12 @@ cat /tmp/qemu_session_active.marker
 ## 🔄 Migración
 
 ### Para Tests Existentes
-1. Cambiar `is_qemu_test() + start_qemu_and_wait_for_boot()` por `check_qemu_test()`
+1. Cambiar `is_qemu_test() + start_qemu_and_wait_for_boot()` por `get_qemu_session_if_needed()`
 2. Remover cleanup manual de QEMU en `finally` blocks
 3. Usar el nuevo test runner mejorado
 
 ### Para Nuevos Tests
-- Usar directamente `qemu_process = check_qemu_test()`
+- Usar directamente `qemu_process = get_qemu_session_if_needed()`
 - No implementar cleanup manual - el runner se encarga
 
 ## 📚 Referencias

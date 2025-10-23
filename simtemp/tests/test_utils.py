@@ -167,7 +167,7 @@ def get_driver_path(test_suite_name=None):
                     precompiled_path = suite_config.get('precompiled_path')
                     if precompiled_path:
                         # Check if we're inside QEMU (test environment)
-                        if check_qemu_test():
+                        if get_qemu_session_if_needed():
                             # Inside QEMU - use the path as configured
                             return precompiled_path
                         
@@ -643,7 +643,7 @@ def get_module_path_for_context():
                context_description is a human-readable description
     """
     # Check execution context
-    qemu_process = check_qemu_test()
+    qemu_process = get_qemu_session_if_needed()
     
     if qemu_process:
         # Real QEMU mode: use prebuilt ARM driver from rootfs
@@ -675,7 +675,7 @@ def get_shared_qemu_session():
     global _global_qemu_process
     
     if _global_qemu_process is None:
-        _global_qemu_process = check_qemu_test()
+        _global_qemu_process = get_qemu_session_if_needed()
         if _global_qemu_process:
             print("=== Global Shared QEMU Session Initialized ===")
             print(f"QEMU PID: {_global_qemu_process.pid}")
@@ -685,9 +685,100 @@ def get_shared_qemu_session():
     return _global_qemu_process
 
 
-def check_qemu_test():
+def ensure_clean_qemu_environment():
     """
-    Check if this test should run in QEMU mode and manage shared QEMU session.
+    Ensure a clean environment before QEMU testing.
+    
+    This function can be called explicitly by tests that need to ensure
+    a completely clean state before QEMU operations.
+    
+    Performs:
+    1. Remove any host nxp_simtemp modules
+    2. Clean up any existing QEMU processes
+    3. Clear any QEMU session markers
+    
+    Returns:
+        bool: True if cleanup was successful
+    """
+    print("🧽 [QEMU Environment] Ensuring clean QEMU test environment...")
+    
+    success = True
+    
+    # Step 1: Clean up host module
+    if not cleanup_host_module_before_qemu():
+        success = False
+    
+    # Step 2: Clean up existing QEMU processes
+    if not cleanup_qemu_processes(force_kill=True):
+        success = False
+    
+    # Step 3: Clear any existing session markers
+    marker_path = get_qemu_session_marker_path()
+    if os.path.exists(marker_path):
+        try:
+            os.remove(marker_path)
+            print("🗑️  [QEMU Environment] Cleared existing session marker")
+        except Exception as e:
+            print(f"⚠️  [QEMU Environment] Could not clear session "
+                  f"marker: {e}")
+            success = False
+    
+    if success:
+        print("✅ [QEMU Environment] Clean environment ready for QEMU testing")
+    else:
+        print("⚠️  [QEMU Environment] Some cleanup operations had issues")
+    
+    return success
+
+
+def cleanup_host_module_before_qemu():
+    """
+    Clean up any loaded nxp_simtemp module from host/Debian before QEMU.
+    
+    This prevents conflicts between host-loaded modules and QEMU ARM modules.
+    QEMU tests should use their own ARM-compiled modules, not host modules.
+    
+    Returns:
+        bool: True if cleanup was successful or no module was loaded
+    """
+    print("🧹 [QEMU Setup] Checking for host nxp_simtemp module...")
+    
+    # Check if module is loaded on the host using unified command executor
+    try:
+        # Force host execution to check host module status
+        success, output = execute_command("lsmod | grep nxp_simtemp",
+                                          timeout=5, force_host=True)
+        
+        if success and output:
+            print("⚠️  [QEMU Setup] Found nxp_simtemp loaded on host - "
+                  "removing...")
+            print(f"    Host module info: {' '.join(output)}")
+            
+            # Remove module from host using unified command executor
+            unload_success, unload_output = execute_command(
+                f"{SUDO}rmmod nxp_simtemp", timeout=10, force_host=True)
+            
+            if unload_success:
+                print("✅ [QEMU Setup] Host nxp_simtemp module removed "
+                      "successfully")
+                return True
+            else:
+                print(f"❌ [QEMU Setup] Failed to remove host module: "
+                      f"{' '.join(unload_output)}")
+                print("    This might cause conflicts with QEMU ARM testing")
+                return False
+        else:
+            print("✅ [QEMU Setup] No nxp_simtemp module loaded on host")
+            return True
+            
+    except Exception as e:
+        print(f"⚠️  [QEMU Setup] Error checking host module: {e}")
+        return True  # Continue anyway, but warn
+
+
+def ensure_qemu_session():
+    """
+    Ensure QEMU session is available if current test needs it.
     Returns the QEMU process handle if QEMU is started/running, None otherwise.
     
     Uses introspection to detect the current test being executed and match it
@@ -744,18 +835,24 @@ def check_qemu_test():
             test_id = test_case.get('test_id', '')
             
             # Match by pytest file name
-            if (pytest_file == current_test_file and 
+            if (pytest_file == current_test_file and
                 test_case.get('enabled', False) and
-                ('QEMU' in test_id or test_case.get('qemu_specific', {}).get('expects_boot', False))):
+                ('QEMU' in test_id or
+                 test_case.get('qemu_specific', {}).get('expects_boot',
+                                                        False))):
                 # QEMU mode detected for specific test
                 print(f"\n=== QEMU Mode Detected for {test_id} ===")
                 print(f"    Test file: {current_test_file}")
                 print(f"    Test function: {current_test_function}")
+                
+                # Clean up host module before starting QEMU
+                cleanup_host_module_before_qemu()
+                
                 return get_or_start_shared_qemu_session()
                 
         return None
     except Exception as e:
-        print(f"🔍 [DEBUG] Error in check_qemu_test(): {e}")
+        print(f"🔍 [DEBUG] Error in get_qemu_session_if_needed(): {e}")
         return None
 
 
@@ -975,6 +1072,10 @@ def start_qemu_and_wait_for_boot():
     import pytest
     
     print("[DEBUG] start_qemu_and_wait_for_boot() called")
+    
+    # Clean up host module first to prevent conflicts
+    print("[DEBUG] Ensuring host module cleanup before QEMU start...")
+    cleanup_host_module_before_qemu()
     
     # Cleanup any existing QEMU processes first
     print("[DEBUG] Cleaning up existing QEMU processes...")
