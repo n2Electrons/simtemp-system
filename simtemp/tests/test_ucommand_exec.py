@@ -263,8 +263,8 @@ class UnifiedCommandExecutor:
         """Detect if we're in a QEMU test environment."""
         # Import here to avoid circular imports
         try:
-            from test_utils import get_qemu_session_if_needed
-            return get_qemu_session_if_needed()
+            from test_utils import get_or_start_shared_qemu_session
+            return get_or_start_shared_qemu_session()
         except ImportError:
             return None
     

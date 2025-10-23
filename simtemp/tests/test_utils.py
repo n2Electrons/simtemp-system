@@ -79,6 +79,29 @@ def is_running_in_privileged_container():
     return False
 
 
+def load_test_config():
+    """
+    Load test configuration from simtemp_tests.yml.
+    
+    Returns:
+        dict: Parsed configuration or empty dict if loading fails
+    """
+    import yaml
+    import os
+    
+    try:
+        test_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(test_dir, 'config', 'simtemp_tests.yml')
+        
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                return yaml.safe_load(f)
+    except Exception as e:
+        print(f"Warning: Could not load test configuration: {e}")
+    
+    return {}
+
+
 def get_sudo_prefix():
     """
     Get the appropriate sudo prefix based on the environment.
@@ -136,8 +159,9 @@ def get_driver_path(test_suite_name=None):
     """
     Get the appropriate driver path based on test configuration.
     
-    For QEMU tests with use_precompiled_driver=true, returns precompiled path.
-    Otherwise returns the compiled obj path.
+    Uses binary_paths_profile from test configuration:
+    - x86 profile: compiled driver from kernel/obj/
+    - arm_qemu profile: precompiled driver in QEMU environment
     
     Args:
         test_suite_name: Name of the test suite (e.g., 'qemu_integration')
@@ -148,63 +172,20 @@ def get_driver_path(test_suite_name=None):
     Raises:
         FileNotFoundError: If the module file doesn't exist
     """
-    import yaml
-    
     # Try to load test configuration
-    try:
-        test_dir = os.path.dirname(os.path.abspath(__file__))
-        config_path = os.path.join(test_dir, 'config', 'simtemp_tests.yml')
+    config = load_test_config()
+    
+    # Check if this is a specific test suite with profile configuration
+    if test_suite_name and test_suite_name in config.get('tests', {}):
+        suite_config = config['tests'][test_suite_name]
         
-        if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
-                config = yaml.safe_load(f)
-            
-            # Check if this is a QEMU test suite with precompiled driver
-            if test_suite_name and test_suite_name in config.get('tests', {}):
-                suite_config = config['tests'][test_suite_name]
-                
-                if suite_config.get('use_precompiled_driver', False):
-                    precompiled_path = suite_config.get('precompiled_path')
-                    if precompiled_path:
-                        # Check if we're inside QEMU (test environment)
-                        if get_qemu_session_if_needed():
-                            # Inside QEMU - use the path as configured
-                            return precompiled_path
-                        
-                        # On host - try different possible paths
-                        # Remove leading /tmp from precompiled_path for host access
-                        if precompiled_path.startswith('/tmp/'):
-                            # Remove '/tmp/'
-                            relative_path = precompiled_path[5:]
-                        else:
-                            relative_path = precompiled_path.lstrip('/')
-                            
-                        host_paths = [
-                            # Try as-is first (host with /tmp/prebuild)
-                            precompiled_path,
-                            f"/workspace/deployment/qemu/rootfs/tmp/"
-                            f"{relative_path}",
-                        ]
-                        
-                        # Try Jenkins workspace path
-                        jenkins_workspace = os.environ.get('WORKSPACE', '')
-                        if jenkins_workspace:
-                            jenkins_path = os.path.join(
-                                jenkins_workspace,
-                                f"deployment/qemu/rootfs/tmp/{relative_path}"
-                            )
-                            host_paths.append(jenkins_path)
-                        
-                        for path in host_paths:
-                            if os.path.exists(path):
-                                return path
-                        
-                        print(f"Precompiled driver not found at any of: "
-                              f"{host_paths}, falling back to compiled "
-                              f"version")
-    except Exception as e:
-        print(f"Could not load test configuration: {e}, "
-              f"using compiled driver")
+        profile = suite_config.get('binary_paths_profile')
+        if profile == 'x86':
+            # x86 profile - Driver compiled in host or Jenkins
+            return os.path.join(get_obj_path(), 'nxp_simtemp.ko')
+        elif profile == 'arm_qemu':
+            # Use ARM QEMU profile - always use precompiled driver
+            return "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
     
     # Fall back to compiled driver path
     return os.path.join(get_obj_path(), 'nxp_simtemp.ko')
@@ -635,24 +616,49 @@ def list_qemu_binaries(qemu_dir_path=None):
 
 def get_module_path_for_context():
     """
-    Determine the correct module path based on execution context.
-    
+    Determine the correct module path based on test suite configuration first,
+    then execution context if no explicit configuration.
+
     Returns:
         tuple: (module_path: str, context_description: str)
                module_path is the absolute path to the kernel module
                context_description is a human-readable description
     """
-    # Check execution context
-    qemu_process = get_qemu_session_if_needed()
+    # First priority: Check test suite configuration
+    config = load_test_config()
+    
+    # Look for enabled suites and use their configured profile
+    for suite_name, suite_config in config.get('tests', {}).items():
+        if not suite_config.get('enabled', False):
+            continue
+            
+        profile = suite_config.get('binary_paths_profile')
+        if profile == 'x86':
+            # Use x86 profile - always compiled driver
+            test_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(test_dir)
+            driver_path = os.path.join(project_root,
+                                       'kernel/obj/nxp_simtemp.ko')
+            context = "Using x86 profile (compiled driver)"
+            return driver_path, context
+        elif profile == 'arm_qemu':
+            # Use ARM QEMU profile - start QEMU and use precompiled
+            qemu_process = get_or_start_shared_qemu_session()
+            driver_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
+            context = "Using arm_qemu profile (precompiled driver)"
+            return driver_path, context
+    
+    # Fallback: Use legacy auto-detection based on QEMU presence
+    qemu_process = get_or_start_shared_qemu_session()
     
     if qemu_process:
         # Real QEMU mode: use prebuilt ARM driver from rootfs
         module_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
-        context = "QEMU mode - using ARM prebuilt driver"
+        context = "QEMU mode - ARM prebuilt driver (auto-detected)"
     else:
         # In host/Docker/Jenkins mode: use locally compiled driver
         module_path = os.path.join(get_obj_path(), "nxp_simtemp.ko")
-        context = "host/Docker/Jenkins mode - using local driver"
+        context = "Host mode - local compiled driver (auto-detected)"
     
     return module_path, context
 
@@ -675,7 +681,7 @@ def get_shared_qemu_session():
     global _global_qemu_process
     
     if _global_qemu_process is None:
-        _global_qemu_process = get_qemu_session_if_needed()
+        _global_qemu_process = get_or_start_shared_qemu_session()
         if _global_qemu_process:
             print("=== Global Shared QEMU Session Initialized ===")
             print(f"QEMU PID: {_global_qemu_process.pid}")
