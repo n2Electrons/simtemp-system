@@ -1,174 +1,113 @@
-# Test Configuration File for  Temperature Simulator Driver
+# Test Configuration File for SimTemp Temperature Simulator Driver
 # This file controls which tests are executed and their configurations
 #
 # Copyright (c) Jorge Rodriguez Moreno
 #
-# Test Case Configuration Options:
-#   verbose_output: true/false - Controls pytest -s flag to show/hide print statements
-#                               Set to true for debugging specific test cases
+# STRUCTURE DOCUMENTATION:
+# =======================
+# 
+# Test Suite Required Fields:
+#   - enabled: bool           # Whether the suite is active
+#   - repository: str         # GitHub repository name
+#   - description: str        # Human-readable suite description
+#   - test_cases: list        # List of test case configurations
+#
+# Test Suite Optional Fields:
+#   - use_precompiled_driver: bool     # Use pre-built driver binary
+#   - precompiled_path: str            # Path to pre-built driver
+#
+# Test Case Required Fields:
+#   - name: str              # Test function name
+#   - description: str       # Human-readable test description
+#   - enabled: bool          # Whether the test is active
+#   - test_id: str          # Traceability ID (F-KX-TC-XXX format)
+#   - pytest_file: str      # Python test file name
+#   - verbose_output: bool  # Enable pytest -s flag for debugging
 
 version: "1.0"
 
 # Global test settings
 global:
   verbose: true
-  debug: true          # Enable detailed debug output
-  timeout_seconds: 60  # Longer timeout for kernel module operations
-  fail_fast: true     # Stop on first failure for kernel module safety
+  debug: true
+  timeout_seconds: 60
+  fail_fast: true
 
-# GitHub issue mappings for test IDs (optional - can also be in separate JSON file)
-github_issue_mappings:
-
-
-# Test requirements
-requirements:
-  parent_requirement:
-    source: "github_pr"
-    id: "${GITHUB_PR_NUMBER}"  # Will be expanded by Jenkins
-    enabled: true
+# GitHub issue mappings (populated by automation)
+github_issue_mappings: {}
 
 # Test case configurations
 tests:
   kernel_driver_base:
     enabled: true
-    repository: "n2Electrons-Infra"  # GitHub repository for this test module  
-    debug_verbose: true  # Enable detailed debug output for this module
+    repository: "n2Electrons-Infra"
     description: "Tests for the Temperature Simulator Driver (Infrastructure)"
-    depends_on: ["nxp_simtemp"]  # Module dependency
-    env:
-      SOURCE_FILE: 'kernel/nxp_simtemp.c'
-      MODULE_DIR: 'kernel'
-      MODULE_NAME: 'nxp_simtemp.ko'
-      BUILD_DIR: 'obj'
-    module_path: "${MODULE_DIR}/${BUILD_DIR}/${MODULE_NAME}"
     test_cases:
       - name: "test_insmod_registers_driver"
-        description: "test_insmod_registers_driver() - Verifies driver registration via insmod"
+        description: "Verifies driver registration via insmod"
         enabled: true
-        test_id: "F-K1-TC-001"  # Maps to test plan ID
-        pytest_file: "test_f_k1_tc_001.py"  # Specific pytest file for this test case
-        verbose_output: false  # Enable pytest -s flag to show print statements
-        debug_info: "This test loads the kernel module using insmod"
+        test_id: "F-K1-TC-001"
+        pytest_file: "test_x86_f_k1_tc_001_insmod.py"
+        verbose_output: false
 
   kernel_driver_suite:
     enabled: true
-    repository: "simtemp-system"  # GitHub repository for this test module  
-    debug_verbose: true  # Enable detailed debug output for this module
+    repository: "simtemp-system"
     description: "Extended Tests for the Temperature Simulator Driver"
-    depends_on: ["nxp_simtemp"]  # Module dependency
-    env:
-      SOURCE_FILE: 'kernel/nxp_simtemp.c'
-      MODULE_DIR: 'kernel'
-      MODULE_NAME: 'nxp_simtemp.ko'
-      BUILD_DIR: 'obj'
-    module_path: "${MODULE_DIR}/${BUILD_DIR}/${MODULE_NAME}"
     test_cases:
       - name: "test_driver_load_unload"
-        description: "test_driver_load_unload() - Load/unload kernel module without WARN/OOPS"
+        description: "Load/unload kernel module without WARN/OOPS"
         enabled: true
         test_id: "F-K8-TC-001"
-        pytest_file: "test_f_k8_tc_001.py"  # Specific pytest file for this test case
-        verbose_output: false  # Disable verbose output for this test
-        debug_info: "This test verifies clean module load/unload operations"
+        pytest_file: "test_x86_f_k8_tc_001_loadunload.py"
+        verbose_output: false
+      - name: "test_readers_exit_gracefully_on_unload"
+        description: "Readers exit gracefully on unload in host environment"
+        enabled: true
+        test_id: "F-K8-TC-002"
+        pytest_file: "test_x86_f_k8_tc_002_graceful.py"
+        verbose_output: true
       - name: "test_driver_validation"
         description: "Comprehensive driver validation including sysfs, dependencies, kernel logs, and bind/unbind operations"
         enabled: true
         test_id: "F-K8-TC-004"
-        pytest_file: "test_f_k8_tc_004.py"  # Comprehensive driver validation suite
-        verbose_output: true  # Enable verbose output for validation debugging
-        debug_info: "Comprehensive validation test suite for driver functionality including device creation, sysfs attributes, module dependencies, kernel logs, and driver bind/unbind operations"
+        pytest_file: "test_x86_f_k8_tc_004_validation.py"
+        verbose_output: true
 
   qemu_integration:
     enabled: true
-    repository: "simtemp-system"  # GitHub repository for this test module
-    debug_verbose: true  # Enable detailed debug output for this module
+    repository: "simtemp-system"
     description: "QEMU i.MX6 Integration Tests for Jenkins CI/CD"
-    
-    # Driver compilation settings for QEMU tests
-    use_precompiled_driver: true  # Set to true to use prebuilt nxp_simtemp.ko instead of compiling from source
-    precompiled_path: "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"  # Path to precompiled driver in repository
-    
-    env:
-      QEMU_DIR: 'deployment/qemu'
-      HELLO_SRC_DIR: 'src/hello'
-      KERNEL_IMAGE: '/workspace/deployment/qemu/linux-build-imx/arch/arm/boot/zImage'
-      DTB_FILE: '/workspace/deployment/qemu/imx6q-sabresd-with-simtemp.dtb'
-      ROOTFS_IMAGE: '/workspace/deployment/qemu/rootfs.cpio.gz'
-      # BUILD_SCRIPT removed - binaries are pre-compiled on host
-
+    use_precompiled_driver: true
+    precompiled_path: "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
     test_cases:
       - name: "test_basic_qemu_boot"
-        description: "QEMU / test_basic_qemu_boot() - Verifies basic QEMU boot and kernel messages"
+        description: "Verifies basic QEMU boot and kernel messages"
         enabled: true
         test_id: "F-K1-TC-002-QEMU"
-        pytest_file: "test_f_k1_tc_002.py"  # Specific pytest file for this test case
-        verbose_output: true  # Enable verbose output for debugging QEMU boot
-        debug_info: "This test checks for successful QEMU boot and kernel log patterns"
-        qemu_specific:
-          expects_boot: true
-          validation_patterns: ["Booting Linux", "initramfs ready"]
-
+        pytest_file: "test_arm_f_k1_tc_002_dtoverlay.py"
+        verbose_output: true
       - name: "test_qemu_driver_load_unload"
-        description: "QEMU / test_qemu_driver_load_unload() - Load/unload kernel module in QEMU environment without WARN/OOPS"
+        description: "Load/unload kernel module in QEMU environment without WARN/OOPS"
         enabled: true
         test_id: "F-K8-TC-001-QEMU"
-        pytest_file: "test_f_k8_tc_001_qemu.py"  # QEMU-specific version of load/unload test
-        verbose_output: true  # Enable verbose output for QEMU debugging
-        debug_info: "QEMU-based version of F-K8-TC-001 that tests module load/unload operations in ARM emulation environment"
-        qemu_specific:
-          expects_boot: true
-          expects_module_load: true
-          expects_clean_unload: true
-          validation_patterns: ["initramfs ready", "insmod", "rmmod", "module loaded", "module unloaded"]
-          timeout_seconds: 90
-
-      - name: "test_readers_exit_gracefully_on_unload"
-        description: "QEMU / test_readers_exit_gracefully_on_unload() - Readers exit gracefully on unload in QEMU environment"
-        enabled: true
-        test_id: "F-K8-TC-002-QEMU"
-        pytest_file: "test_f_k8_tc_002.py"  # Specific pytest file for this test case
-        verbose_output: true  # Enable verbose output for QEMU debugging
-        debug_info: "QEMU-based version of F-K8-TC-002 that tests user-space reader applications exit gracefully when the kernel module is unloaded in ARM emulation environment"
-        qemu_specific:
-          expects_boot: true
-          expects_module_load: true
-          expects_graceful_reader_exit: true
-          validation_patterns: ["initramfs ready", "insmod", "rmmod", "reader", "graceful", "exit"]
-          timeout_seconds: 120
-
+        pytest_file: "test_arm_f_k8_tc_001_loadunload.py"
+        verbose_output: true
       - name: "test_f_k1_platform_driver_dt_registration"
-        description: "QEMU / Validate platform driver with Device Tree in QEMU environment"
+        description: "Validate platform driver with Device Tree in QEMU environment"
         enabled: true
-        test_id: "F-K1-TC-003-QEMU"  # QEMU variant of platform driver test
-        pytest_file: "test_f_k1_tc_003.py"  # Same test but detects QEMU mode internally
-        verbose_output: true  # Enable verbose output for QEMU debugging
-        debug_info: "TDD test for platform driver DT support in ARM QEMU environment"
-        qemu_specific:
-          expects_boot: true
-          expects_module_load: true
-          expects_dt_binding: true
-          validation_patterns: ["initramfs ready", "platform", "simtemp", "Device Tree"]
-          module_operations: ["insmod", "rmmod", "modinfo"]
-
+        test_id: "F-K1-TC-003-QEMU"
+        pytest_file: "test_arm_f_k1_tc_003_platform.py"
+        verbose_output: true
       - name: "test_dtb_overlay_exists"
-        description: "DTB / test_dtb_overlay_exists() - Verifies DTB overlay compilation and existence"
+        description: "Verifies DTB overlay compilation and existence"
         enabled: true
         test_id: "F-K8-TC-003-QEMU"
-        pytest_file: "test_f_k8_tc_003_dtb.py"
+        pytest_file: "test_arm_f_k8_tc_003_dtbbind.py"
         verbose_output: true
-        debug_info: "Test for DTB overlay compilation and file existence verification"
-        dtb_specific:
-          expects_dtb_compilation: true
-          validation_patterns: ["nxp-simtemp-overlay.dtbo"]
-          required_tools: ["dtc"]
-
       - name: "test_dtb_driver_binding_and_functionality"
-        description: "DTB / test_dtb_driver_binding() - Verifies DTB driver binding compatibility"
+        description: "Verifies DTB driver binding compatibility"
         enabled: true
         test_id: "F-K8-TC-003-QEMU-2"
-        pytest_file: "test_f_k8_tc_003_dtb.py"
+        pytest_file: "test_arm_f_k8_tc_003_dtbbind.py"
         verbose_output: true
-        debug_info: "Test for DTB driver binding verification using compatible strings"
-        dtb_specific:
-          expects_driver_binding: true
-          validation_patterns: ["nxp,simtemp"]
