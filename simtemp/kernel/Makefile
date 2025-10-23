@@ -31,19 +31,19 @@ HOST_KERNEL_SRC := $(shell \
 	fi)
 
 # Debian Docker build with Ubuntu headers (mounted from host)
-# Auto-detect working kernel headers in Docker (prioritize known working versions)
+# Always use /usr/src mounted headers for Docker-style builds, regardless of environment
 DEBIAN_KERNEL_SRC := $(shell \
-	if [ -f "/.dockerenv" ]; then \
-		if [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
-			echo "/usr/src/linux-headers-6.14.0-32-generic"; \
-		elif [ -d "/usr/src/linux-headers-6.14.0-33-generic" ]; then \
-			echo "/usr/src/linux-headers-6.14.0-33-generic"; \
-		else \
-			KERNEL_VER=$$(uname -r); \
-			echo "/usr/src/linux-headers-$$KERNEL_VER"; \
-		fi; \
+	if [ -d "/usr/src/linux-headers-6.14.0-32-generic" ]; then \
+		echo "/usr/src/linux-headers-6.14.0-32-generic"; \
+	elif [ -d "/usr/src/linux-headers-6.14.0-33-generic" ]; then \
+		echo "/usr/src/linux-headers-6.14.0-33-generic"; \
 	else \
-		echo "/usr/src/linux-headers-generic"; \
+		KERNEL_VER=$$(uname -r); \
+		if [ -d "/usr/src/linux-headers-$$KERNEL_VER" ]; then \
+			echo "/usr/src/linux-headers-$$KERNEL_VER"; \
+		else \
+			echo "/usr/src/linux-headers-generic"; \
+		fi; \
 	fi)
 # Use Ubuntu headers mounted in Docker with Debian toolchain
 
@@ -56,7 +56,7 @@ SRC_FILE := nxp_simtemp.c
 SIGNING_PRIV := /var/jenkins_home/kernel_enroll/MOK.priv
 SIGNING_DER := /var/jenkins_home/kernel_enroll/MOK.der
 
-obj-m := nxp_simtemp.o
+obj-m := nxp_simtemp.o nxp_simtemp_stub.o
 
 # Default target - Auto-detect environment (Docker vs Host)
 all: $(shell if [ -f "/.dockerenv" ]; then echo "deb-driver"; else echo "host-driver"; fi)
@@ -75,11 +75,12 @@ nxp-driver-arm: prepare-nxp-driver-arm $(OBJ_DIR)
 	bash -c 'cd ../scripts && source ./imx-env.sh && cd ../kernel && \
 	$(MAKE) -C $$KDIR ARCH=$$ARCH CROSS_COMPILE=$$CROSS_COMPILE M=$(PWD) modules'
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
-	@if [ -f nxp_simtemp.ko ]; then \
+	@if [ -f nxp_simtemp.ko ] && [ -f nxp_simtemp_stub.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
-		echo "✅ NXP ARM module built successfully in $(OBJ_DIR)/"; \
+		echo "✅ NXP ARM modules built successfully in $(OBJ_DIR)/"; \
 	else \
-		echo "ERROR: nxp_simtemp.ko was not created"; \
+		echo "ERROR: One or both modules were not created"; \
+		ls -la *.ko 2>/dev/null || echo "No .ko files found"; \
 		exit 1; \
 	fi
 	$(call sign_module_inline)
@@ -97,11 +98,12 @@ nxp-driver-arm64: prepare-nxp-driver-arm64 $(OBJ_DIR)
 	bash -c 'cd ../scripts && source ./imx-env.sh && cd ../kernel && \
 	$(MAKE) -C $$KDIR ARCH=$$ARCH CROSS_COMPILE=$$CROSS_COMPILE M=$(PWD) modules'
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
-	@if [ -f nxp_simtemp.ko ]; then \
+	@if [ -f nxp_simtemp.ko ] && [ -f nxp_simtemp_stub.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
-		echo "✅ NXP ARM64 module built successfully in $(OBJ_DIR)/"; \
+		echo "✅ NXP ARM64 modules built successfully in $(OBJ_DIR)/"; \
 	else \
-		echo "ERROR: nxp_simtemp.ko was not created"; \
+		echo "ERROR: One or both modules were not created"; \
+		ls -la *.ko 2>/dev/null || echo "No .ko files found"; \
 		exit 1; \
 	fi
 	$(call sign_module_inline)
@@ -122,42 +124,86 @@ deb-driver: $(OBJ_DIR)
 	@echo "Compiling with Debian toolchain..."
 	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(DEBIAN_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
-	@if [ -f nxp_simtemp.ko ]; then \
+	@if [ -f nxp_simtemp.ko ] && [ -f nxp_simtemp_stub.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
-		echo "✅ Debian x86_64 module built successfully for testing in $(OBJ_DIR)/"; \
+		echo "✅ Debian x86_64 modules built successfully for testing in $(OBJ_DIR)/"; \
 	else \
-		echo "ERROR: nxp_simtemp.ko was not created"; \
+		echo "ERROR: One or both modules were not created"; \
+		ls -la *.ko 2>/dev/null || echo "No .ko files found"; \
 		exit 1; \
 	fi
 	$(call sign_module_inline)
+#	$(call install_modules_inline)
 
 # Create obj directory
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
+	chmod 755 $(OBJ_DIR)
+	chown $(USER):$(USER) $(OBJ_DIR) 2>/dev/null || true
 
 # Sign module inline (without recursive make call) - used by deb-driver and host-driver
 define sign_module_inline
-	@echo "Signing kernel module..."
+	@echo "Signing kernel modules..."
 	@if [ -f "$(SIGNING_PRIV)" ] && [ -f "$(SIGNING_DER)" ]; then \
 		echo "Found signing keys: $(SIGNING_PRIV) and $(SIGNING_DER)"; \
 		if [ -f "/.dockerenv" ]; then \
-			echo "Signing kernel module in Docker container..."; \
+			echo "Signing kernel modules in Docker container..."; \
 		else \
-			echo "Signing kernel module on host..."; \
+			echo "Signing kernel modules on host..."; \
 		fi; \
 		echo "Running sign-file as root..."; \
+		for module in $(OBJ_DIR)/*.ko; do \
+			if [ -f "$$module" ]; then \
+				echo "Signing $$module..."; \
+				if [ -f "/.dockerenv" ]; then \
+					/usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) "$$module"; \
+				else \
+					if [ "$$(id -u)" = "0" ]; then \
+						echo "Running sign-file as root..." \
+						/usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) "$$module"; \
+					else \
+						echo "Running sign-file with sudo..."; \
+						sudo /usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) "$$module"; \
+					fi; \
+				fi; \
+			fi; \
+		done; \
+		echo "All kernel modules built and signed successfully in $(OBJ_DIR)/"; \
+	else \
+		echo "Signing keys not found - modules built WITHOUT signing in $(OBJ_DIR)/"; \
+	fi
+endef
+
+# Install modules inline - used by deb-driver and host-driver for testing
+define install_modules_inline
+	@echo "Installing kernel modules for testing..."
+	@if [ -f "$(OBJ_DIR)/nxp_simtemp.ko" ]; then \
+		echo "Installing nxp_simtemp.ko..."; \
 		if [ -f "/.dockerenv" ]; then \
-			/usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
+			echo "Docker environment detected - installing modules..."; \
+			insmod $(OBJ_DIR)/nxp_simtemp.ko || echo "Module installation failed (may be normal in container)"; \
 		else \
 			if [ "$$(id -u)" = "0" ]; then \
-				/usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
+				insmod $(OBJ_DIR)/nxp_simtemp.ko || echo "Module installation failed"; \
 			else \
-				sudo /usr/src/linux-headers-$$(uname -r)/scripts/sign-file sha256 $(SIGNING_PRIV) $(SIGNING_DER) $(OBJ_DIR)/nxp_simtemp.ko; \
+				sudo insmod $(OBJ_DIR)/nxp_simtemp.ko || echo "Module installation failed"; \
 			fi; \
 		fi; \
-		echo "Kernel module built and signed successfully in $(OBJ_DIR)/"; \
+		if [ -f "$(OBJ_DIR)/nxp_simtemp_stub.ko" ]; then \
+			echo "Installing nxp_simtemp_stub.ko..."; \
+			if [ -f "/.dockerenv" ]; then \
+				insmod $(OBJ_DIR)/nxp_simtemp_stub.ko || echo "Stub module installation failed (may be normal in container)"; \
+			else \
+				if [ "$$(id -u)" = "0" ]; then \
+					insmod $(OBJ_DIR)/nxp_simtemp_stub.ko || echo "Stub module installation failed"; \
+				else \
+					sudo insmod $(OBJ_DIR)/nxp_simtemp_stub.ko || echo "Stub module installation failed"; \
+				fi; \
+			fi; \
+		fi; \
+		echo "✅ Module installation completed"; \
 	else \
-		echo "Signing keys not found - module built WITHOUT signing in $(OBJ_DIR)/"; \
+		echo "⚠️  No modules found to install"; \
 	fi
 endef
 
@@ -175,14 +221,16 @@ host-driver: $(OBJ_DIR)
 	fi
 	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(HOST_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
-	@if [ -f nxp_simtemp.ko ]; then \
+	@if [ -f nxp_simtemp.ko ] && [ -f nxp_simtemp_stub.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
-		echo "✅ Host x86_64 module built successfully in $(OBJ_DIR)/"; \
+		echo "✅ Host x86_64 modules built successfully in $(OBJ_DIR)/"; \
 	else \
-		echo "ERROR: nxp_simtemp.ko was not created"; \
+		echo "ERROR: One or both modules were not created"; \
+		ls -la *.ko 2>/dev/null || echo "No .ko files found"; \
 		exit 1; \
 	fi
 	$(call sign_module_inline)
+#	$(call install_modules_inline)
 
 # Remove all generated files
 clean:

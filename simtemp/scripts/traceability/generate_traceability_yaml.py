@@ -46,9 +46,6 @@ import re
 import sys
 import os
 import json
-import urllib.request
-import urllib.parse
-import urllib.error
 import subprocess
 from pathlib import Path
 from datetime import datetime
@@ -308,52 +305,86 @@ def guess_automation(req_id: str) -> bool:
 
 
 class GitHubSearcher:
-    """Search GitHub issues for requirement and test case IDs."""
+    """Search GitHub issues for requirement and test case IDs using gh CLI."""
     
     def __init__(self, repo_owner: str, repo_name: str, token: Optional[str] = None):
         self.repo_owner = repo_owner
         self.repo_name = repo_name
+        self.repo_full_name = f"{repo_owner}/{repo_name}"
         self.token = token
-        self.base_url = "https://api.github.com"
-        self.cache = {}  # Cache search results to avoid duplicate API calls
+        self.cache = {}  # Cache search results to avoid duplicate CLI calls
+        
+        # Check if gh CLI is available
+        if not self._check_gh_cli():
+            print("WARNING: gh CLI not found. GitHub integration disabled.",
+                  file=sys.stderr)
+            self.available = False
+        else:
+            self.available = True
+    
+    def _check_gh_cli(self) -> bool:
+        """Check if gh CLI is available and properly configured."""
+        try:
+            subprocess.run(['gh', '--version'],
+                           capture_output=True, text=True, check=True)
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return False
+    
+    def _run_gh_command(self, cmd: List[str]) -> Optional[Dict[str, Any]]:
+        """Run a gh CLI command and return the JSON result."""
+        try:
+            # Set token if provided
+            env = os.environ.copy()
+            if self.token:
+                env['GITHUB_TOKEN'] = self.token
+            
+            result = subprocess.run(cmd,
+                                    capture_output=True, text=True,
+                                    check=True, env=env)
+            if result.stdout.strip():
+                return json.loads(result.stdout)
+            return None
+        except subprocess.CalledProcessError as e:
+            # Don't spam errors for common issues like repo access
+            if e.returncode == 1:
+                return None  # Likely no results found
+            print(f"WARNING: gh command failed: {' '.join(cmd)}",
+                  file=sys.stderr)
+            return None
+        except json.JSONDecodeError:
+            print(f"WARNING: Invalid JSON from gh command: {' '.join(cmd)}",
+                  file=sys.stderr)
+            return None
     
     def search_issues(self, query: str) -> List[Dict[str, Any]]:
-        """Search GitHub issues for a specific query."""
+        """Search GitHub issues for a specific query using gh CLI."""
+        if not self.available:
+            return []
+            
         if query in self.cache:
             return self.cache[query]
         
-        # Construct search query: search in this repo for the specific ID
-        search_query = f"{query} repo:{self.repo_owner}/{self.repo_name}"
-        encoded_query = urllib.parse.quote(search_query)
-        url = f"{self.base_url}/search/issues?q={encoded_query}"
+        # Use gh CLI to search for issues
+        search_query = f"{query} repo:{self.repo_full_name}"
+        cmd = ['gh', 'search', 'issues', search_query, 
+               '--json', 'title,url,state,body,number']
         
-        try:
-            req = urllib.request.Request(url)
-            if self.token:
-                req.add_header("Authorization", f"token {self.token}")
-            req.add_header("Accept", "application/vnd.github.v3+json")
-            req.add_header("User-Agent", "generate_traceability_yaml.py")
-            
-            with urllib.request.urlopen(req) as response:
-                data = json.loads(response.read().decode())
-                issues = data.get('items', [])
-                self.cache[query] = issues
-                return issues
-                
-        except urllib.error.HTTPError as e:
-            if e.code == 403:
-                # Don't spam warnings, just cache empty result
-                self.cache[query] = []
-                return []
-            else:
-                print(f"WARNING: GitHub API error {e.code} for query '{query}'", file=sys.stderr)
+        result = self._run_gh_command(cmd)
+        if result is None:
+            self.cache[query] = []
             return []
-        except Exception as e:
-            print(f"WARNING: Error searching GitHub for '{query}': {e}", file=sys.stderr)
-            return []
+        
+        # Convert to list if it's a single issue
+        issues = result if isinstance(result, list) else [result]
+        self.cache[query] = issues
+        return issues
     
     def find_issue_for_id(self, identifier: str) -> Optional[str]:
         """Find the GitHub issue URL for a requirement or test case ID."""
+        if not self.available:
+            return None
+            
         # Use the identifier as-is to search GitHub issues
         issues = self.search_issues(identifier)
         
@@ -363,17 +394,20 @@ class GitHubSearcher:
             body = issue.get('body', '') or ''
             
             # Look for exact identifier matches with word boundaries
-            import re
             pattern = r'\b' + re.escape(identifier) + r'\b'
             
             if (identifier.upper() in title or 
                 re.search(pattern, body, re.IGNORECASE)):
-                return issue.get('html_url')
+                return issue.get('url')
         
         return None
     
     def get_issue_status(self, identifier: str) -> Optional[str]:
-        """Get the GitHub issue status (open/closed) for a requirement or test case ID."""
+        """Get the GitHub issue status (open/closed) for a requirement 
+        or test case ID."""
+        if not self.available:
+            return None
+            
         issues = self.search_issues(identifier)
         
         for issue in issues:
@@ -386,11 +420,54 @@ class GitHubSearcher:
             
             if (identifier.upper() in title or 
                 re.search(pattern, body, re.IGNORECASE)):
-                return issue.get('state')  # Returns 'open' or 'closed'
+                return issue.get('state')  # Returns 'OPEN' or 'CLOSED'
         
         return None
-
-
+    
+    def get_issue_by_number(self, issue_number: int) -> Optional[Dict[str, Any]]:
+        """Get a specific GitHub issue by number using gh CLI."""
+        if not self.available:
+            return None
+            
+        cache_key = f"issue_{issue_number}"
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+        
+        cmd = ['gh', 'issue', 'view', str(issue_number),
+               '--repo', self.repo_full_name,
+               '--json', 'title,url,state,body,number']
+        
+        result = self._run_gh_command(cmd)
+        if result:
+            self.cache[cache_key] = result
+        
+        return result
+    
+    def extract_issue_number_from_url(self, github_url: str) -> Optional[int]:
+        """Extract issue number from GitHub URL."""
+        if not github_url:
+            return None
+        
+        # Match patterns like: https://github.com/owner/repo/issues/123
+        pattern = r'/issues/(\d+)(?:/|$)'
+        match = re.search(pattern, github_url)
+        if match:
+            return int(match.group(1))
+        return None
+    
+    def get_issue_status_from_url(self, github_url: str) -> Optional[str]:
+        """Get GitHub issue status directly from URL (more efficient)."""
+        if not self.available or not github_url:
+            return None
+            
+        issue_number = self.extract_issue_number_from_url(github_url)
+        if not issue_number:
+            return None
+        
+        issue = self.get_issue_by_number(issue_number)
+        if issue:
+            return issue.get('state')
+        return None
 class BranchMapper:
     """Map git branches to requirement and test case IDs."""
     
@@ -535,6 +612,54 @@ def update_status_based_on_branches(data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
+def update_status_from_github_all(data: Dict[str, Any], github_searcher: Optional[GitHubSearcher]) -> Dict[str, Any]:
+    """Update statuses based on GitHub issue states for existing links."""
+    if not github_searcher or not github_searcher.available:
+        return data
+    
+    print("Checking GitHub issue status for linked issues...")
+    
+    # Process each requirement
+    for req in data.get('requirements', []):
+        req_id = req.get('id')
+        github_link = req.get('github_link', '')
+        
+        if req_id and github_link:
+            # First try direct URL lookup (efficient)
+            github_status = github_searcher.get_issue_status_from_url(github_link)
+            
+            # Fallback to search if URL method failed
+            if not github_status:
+                print(f"  URL lookup failed for {req_id}, trying search...")
+                github_status = github_searcher.get_issue_status(req_id)
+            
+            if github_status and github_status.lower() == 'closed':
+                old_status = req.get('status', 'planned')
+                req['status'] = 'completed'
+                print(f"  Updated {req_id}: {old_status} -> completed (GitHub issue closed)")
+        
+        # Process each test case
+        for test in req.get('tests', []):
+            test_id = test.get('id')
+            github_link = test.get('github_link', '')
+            
+            if test_id and github_link:
+                # First try direct URL lookup (efficient)
+                github_status = github_searcher.get_issue_status_from_url(github_link)
+                
+                # Fallback to search if URL method failed
+                if not github_status:
+                    print(f"  URL lookup failed for {test_id}, trying search...")
+                    github_status = github_searcher.get_issue_status(test_id)
+                
+                if github_status and github_status.lower() == 'closed':
+                    old_status = test.get('status', 'planned')
+                    test['status'] = 'completed'
+                    print(f"  Updated {test_id}: {old_status} -> completed (GitHub issue closed)")
+    
+    return data
+
+
 def populate_branch_info(data: Dict[str, Any], branch_mapper: Optional[BranchMapper], github_searcher: Optional[GitHubSearcher] = None) -> Dict[str, Any]:
     """Populate branch information for requirements and test cases if branch mapper is provided."""
     if not branch_mapper:
@@ -555,12 +680,19 @@ def populate_branch_info(data: Dict[str, Any], branch_mapper: Optional[BranchMap
             
             # Only check GitHub status for requirements that have branches
             github_status = None
-            if github_searcher:
-                github_status = github_searcher.get_issue_status(req_id)
+            if github_searcher and github_searcher.available:
+                # Try to get status from existing github_link first
+                github_link = req.get('github_link', '')
+                if github_link:
+                    github_status = github_searcher.get_issue_status_from_url(github_link)
+                
+                # Fallback to search if no link or URL method failed
+                if not github_status:
+                    github_status = github_searcher.get_issue_status(req_id)
             
-            if github_status == 'closed':
-                req['status'] = 'implemented'
-                print(f"  Found branch for {req_id}: {req_branch} (GitHub issue closed - status: implemented)")
+            if github_status and github_status.lower() == 'closed':
+                req['status'] = 'completed'
+                print(f"  Found branch for {req_id}: {req_branch} (GitHub issue closed - status: completed)")
             else:
                 req['status'] = 'in-progress'
                 print(f"  Found branch for {req_id}: {req_branch} (setting status to in-progress)")
@@ -573,14 +705,21 @@ def populate_branch_info(data: Dict[str, Any], branch_mapper: Optional[BranchMap
                 if test_branch:
                     test['branch'] = test_branch
                     
-                    # Only check GitHub status for test cases that have branches
+                    # Only check GitHub status for test cases with branches
                     github_status = None
-                    if github_searcher:
-                        github_status = github_searcher.get_issue_status(test_id)
+                    if github_searcher and github_searcher.available:
+                        # Try to get status from existing github_link first
+                        github_link = test.get('github_link', '')
+                        if github_link:
+                            github_status = github_searcher.get_issue_status_from_url(github_link)
+                        
+                        # Fallback to search if no link or URL method failed
+                        if not github_status:
+                            github_status = github_searcher.get_issue_status(test_id)
                     
-                    if github_status == 'closed':
-                        test['status'] = 'implemented'
-                        print(f"  Found branch for {test_id}: {test_branch} (GitHub issue closed - status: implemented)")
+                    if github_status and github_status.lower() == 'closed':
+                        test['status'] = 'completed'
+                        print(f"  Found branch for {test_id}: {test_branch} (GitHub issue closed - status: completed)")
                     else:
                         test['status'] = 'in-progress'
                         print(f"  Found branch for {test_id}: {test_branch} (setting status to in-progress)")
@@ -642,12 +781,14 @@ def main():
         # Populate GitHub links if searcher is configured
         if github_searcher:
             trace = populate_github_links(trace, github_searcher)
+            # Update all statuses based on GitHub issue status (closed issues = completed)
+            trace = update_status_from_github_all(trace, github_searcher)
         
         # Populate branch information if mapper is configured
         if branch_mapper:
             trace = populate_branch_info(trace, branch_mapper, github_searcher)
-            # Update statuses based on branch associations
-            trace = update_status_based_on_branches(trace)
+            # Note: update_status_based_on_branches() removed as it was
+            # overriding GitHub status checks
         
         # Validate output structure before writing
         if not validate_output_structure(trace):

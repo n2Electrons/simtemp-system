@@ -93,5 +93,6 @@ make -j"$(nproc)" zImage dtbs modules
 echo
 echo "Kernel build complete:"
 echo "  arch/arm/boot/zImage"
-echo "  arch/arm/boot/dts/imx6q-sabrelite.dtb (preferred)"
-echo "  arch/arm/boot/dts/imx6q-sabresd.dtb   (alt DTB that also boots on sabrelite)"
+echo "  arch/arm/boot/dts/imx6q-sabrelite.dtb (sabrelite works with sabrelite config)"
+echo "  arch/arm/boot/dts/imx6q-sabresd-with-simtemp.dtb   (alt DTB that also boots on sabrelite)"
+echo "  arch/arm/boot/dts/imx6q-nitrogen6x.dtb (sabrelite works with nitrogen6x config)"

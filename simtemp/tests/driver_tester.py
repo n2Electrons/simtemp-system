@@ -27,10 +27,13 @@ import re
 import requests
 from pathlib import Path
 
-# Import QEMU session management functions
+# Import QEMU session management functions directly from test_utils
 try:
-    from test_utils import is_qemu_session_active
-    from qemu_session_manager import manual_cleanup_qemu_sessions
+    from test_utils import (
+        is_qemu_session_active,
+        cleanup_qemu_session,
+        cleanup_qemu_processes
+    )
     QEMU_SUPPORT_AVAILABLE = True
 except ImportError:
     print("Warning: QEMU session management not available")
@@ -41,18 +44,31 @@ class TestLogger:
     def __init__(self, verbose=False):
         self.verbose = verbose
     
+    def _safe_print(self, text):
+        try:
+            print(text)
+        except BlockingIOError:
+            # Handle case when stdout/stderr blocks
+            try:
+                # Try writing to a file instead
+                with open("/tmp/driver_tester_log.txt", "a") as f:
+                    f.write(text + "\n")
+            except Exception:
+                # If all logging fails, silently continue
+                pass
+    
     def info(self, message):
-        print(f"[INFO] {message}")
+        self._safe_print(f"[INFO] {message}")
     
     def debug(self, message):
         if self.verbose:
-            print(f"[DEBUG] {message}")
+            self._safe_print(f"[DEBUG] {message}")
     
     def warning(self, message):
-        print(f"[WARNING] {message}")
+        self._safe_print(f"[WARNING] {message}")
     
     def error(self, message):
-        print(f"[ERROR] {message}")
+        self._safe_print(f"[ERROR] {message}")
 
 
 class DriverTestOrchestrator:
@@ -1373,15 +1389,35 @@ class DriverTestOrchestrator:
     def ensure_qemu_cleanup(self):
         """
         Ensure QEMU sessions are properly cleaned up before report generation.
-        This is a safety measure to prevent resource leaks.
+        This is the primary QEMU cleanup responsibility for driver_tester.
         """
         if not QEMU_SUPPORT_AVAILABLE:
             return
         
         try:
-            self.logger.info("Performing final QEMU session cleanup...")
-            manual_cleanup_qemu_sessions()
-            self.logger.info("QEMU session cleanup completed")
+            self.logger.info("Performing QEMU session cleanup...")
+            
+            # First try session-based cleanup if there's an active session
+            if is_qemu_session_active():
+                self.logger.info("Active QEMU session found, cleaning up...")
+                cleanup_qemu_session()
+                self.logger.info("QEMU session cleanup completed")
+            else:
+                self.logger.info("No active QEMU session found")
+            
+            # Then ensure all QEMU processes are cleaned up
+            cleanup_success = cleanup_qemu_processes(
+                force_kill=True,
+                restore_cwd=True
+            )
+            
+            if cleanup_success:
+                self.logger.info("QEMU process cleanup completed successfully")
+            else:
+                self.logger.warning(
+                    "QEMU process cleanup completed with warnings"
+                )
+                
         except Exception as e:
             self.logger.warning(f"Error during QEMU cleanup: {e}")
 
@@ -1430,11 +1466,38 @@ class DriverTestOrchestrator:
         self.generate_html_report()
         
         self.logger.info("TEST REPORT GENERATION COMPLETED")
+        
+        # Check if there were any failed tests
+        failed_tests = self.test_results["summary"]["failed_tests"]
+        total_tests = self.test_results["summary"]["total_tests"]
+        
+        if failed_tests > 0:
+            self.logger.warning(
+                f"Test execution completed with {failed_tests} failed test(s) "
+                f"out of {total_tests} total tests"
+            )
+            return False  # Indicate failure for TDD compliance
+        else:
+            self.logger.info(f"All {total_tests} tests passed successfully")
+            return True  # Indicate success
 
 
 def main():
     print("DRIVER_TESTER: Script starting...")
-    
+
+    # Launch qemu_monitor.py in the background if it exists
+    import subprocess
+    from pathlib import Path
+    monitor_path = Path(__file__).parent / "qemu_monitor.py"
+    if monitor_path.exists():
+        try:
+            print("QEMU-HANDLER: Launching qemu_monitor.py in background...")
+            subprocess.Popen(["python3", str(monitor_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print("DRIVER_TESTER: qemu_monitor.py launched in the background.")
+        except Exception as e:
+            print(f"DRIVER_TESTER: Error launching qemu_monitor.py: {e}")
+    else:
+        print("DRIVER_TESTER: qemu_monitor.py not found, skipping launch.")
     parser = argparse.ArgumentParser(
         description="Orchestrate comprehensive driver testing for simtemp"
     )
@@ -1449,32 +1512,73 @@ def main():
         "--output-dir",
         help="Output directory for reports (default: reports)"
     )
-    
+
     args = parser.parse_args()
-    
-    print("DRIVER_TESTER: Arguments parsed:")
-    print(f"   - verbose: {args.verbose}")
-    print(f"   - input_dir: {args.input_dir}")
-    print(f"   - output_dir: {args.output_dir}")
-    
-    print("DRIVER_TESTER: Creating orchestrator instance...")
+
+    # Define safe_print here for early messages
+    def safe_print(text):
+        try:
+            print(text)
+        except BlockingIOError:
+            # If stdout blocks, try writing to a file
+            try:
+                with open("/tmp/driver_tester_log.txt", "a") as f:
+                    f.write(text + "\n")
+            except Exception:
+                pass
+
+    safe_print("DRIVER_TESTER: Arguments parsed:")
+    safe_print(f"   - verbose: {args.verbose}")
+    safe_print(f"   - input_dir: {args.input_dir}")
+    safe_print(f"   - output_dir: {args.output_dir}")
+
+    safe_print("DRIVER_TESTER: Creating orchestrator instance...")
     orchestrator = DriverTestOrchestrator(
         input_dir=args.input_dir,
         output_dir=args.output_dir,
         verbose=args.verbose
     )
-    
-    print("DRIVER_TESTER: Starting test orchestration...")
+
+    safe_print("DRIVER_TESTER: Starting test orchestration...")
     try:
-        orchestrator.generate_reports()
-        print("DRIVER_TESTER: Script completed successfully")
-        return 0
+        success = orchestrator.generate_reports()
+        if success:
+            safe_print(
+                "DRIVER_TESTER: Script completed successfully - "
+                "all tests passed"
+            )
+            return 0
+        else:
+            safe_print("DRIVER_TESTER: Script completed with test failures")
+            return 1
     except Exception as e:
-        print(f"DRIVER_TESTER: Script failed with error: {e}")
+        safe_print(f"DRIVER_TESTER: Script failed with error: {e}")
         import traceback
-        traceback.print_exc()
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        traceback_file = f"/tmp/driver_tester_traceback_{timestamp}.txt"
+
+        try:
+            # Try printing to stdout first
+            traceback.print_exc()
+        except BlockingIOError:
+            # If stdout blocks, log to file
+            try:
+                with open(traceback_file, "a") as f:
+                    f.write(f"Exception occurred at {timestamp}:\n")
+                    traceback.print_exc(file=f)
+                safe_print(f"Traceback written to {traceback_file}")
+            except Exception as trace_err:
+                # Last resort - try to log the error
+                try:
+                    error_path = "/tmp/driver_tester_critical_error.txt"
+                    with open(error_path, "a") as f:
+                        f.write(f"Critical error at {timestamp}: {str(e)}\n")
+                        f.write(f"Failed to log traceback: {str(trace_err)}\n")
+                except Exception:
+                    pass
         return 1
 
 
 if __name__ == "__main__":
     sys.exit(main())
+

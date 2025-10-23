@@ -165,6 +165,13 @@ This section documents the AI-assisted setup of QEMU emulation environment for D
 | **3** | "Create an entry in simtemp_tests.yml for test_f_k1_tc_003.py" | Integrate new test into test configuration system | Added test entry to kernel_driver_base section with proper TDD configuration and debug settings |
 | **4** | "put it as part of kernel_driver_suite and also another entry to test the same in the qemu_integration suite" | Move test to appropriate suite and add QEMU variant | Moved test to kernel_driver_suite and added QEMU integration variant for cross-platform validation |
 
+### F-K8-TC-003 (Original DTB Driver Implementation)
+
+| **#** | **Prompt (User Input)** | **Purpose / Outcome** | **Validation Performed** |
+|------|---------------------------|------------------------|---------------------------|
+| **1** | "Now, using gh, create an issue/feature in https://github.com/orgs/n2Electrons/projects/2/views/2 for the F-K8 requirement found in simtemp/docs/TESTPLAN.md" | Create GitHub issue for F-K8 requirement with project board integration | Created comprehensive F-K8 parent issue #19 with TDD methodology and project board assignment |
+| **2** | "Create F-K8-TC-003 this issue/feature in the GH project. In which the DTB driver implementation is used and tested to work well. In TDD, this test should fail at this moment." | Create GitHub issue for F-K8-TC-003 DTB driver binding test case | Created detailed issue #20 for DTB driver binding and functionality verification with comprehensive TDD specifications, acceptance criteria, and expected failure points |
+
 ---
 
 ## 3.11 QEMU Shared Session Management Implementation
@@ -175,11 +182,35 @@ This section documents the AI-assisted implementation of shared QEMU session man
 |------|-----------------|------------------------|---------------------|
 | **1** | "The F-K1-TC-003-QEMU test must be implemented with the same code as F-K1-TC-003, with the difference that it has to wait for QEMU to finish booting" | Created separate QEMU test file with boot waiting logic | test_f_k1_tc_003_qemu.py created |
 | **2** | "I asked you to use a test utils function in the test_f_k1_tc_003 test in case it's QEMU" | Modified existing test to detect QEMU mode and use test_utils functions | test_f_k1_tc_003.py updated with QEMU detection |
-| **3** | "Can it be renamed: is_qemu_test() --> check_qemu_test() and call start_qemu_and_wait_for_boot() inside it and return qemu_process?" | Refactored to combine functions into single check_qemu_test() API | Simplified API with automatic QEMU startup |
+| **3** | "Can it be renamed: is_qemu_test() --> check_qemu_test() and call start_qemu_and_wait_for_boot() inside it and return qemu_process?" | Refactored to combine functions into single get_qemu_session_if_needed() API | Simplified API with automatic QEMU startup and descriptive naming |
 | **4** | "When the first QEMU test case runs, it should leave QEMU running and create a marker so other QEMU tests don't restart the boot process. At the end, the test runner terminates QEMU and removes the marker" | Implemented shared QEMU session system with marker files and session reuse | Complete session management system |
 | **5** | "Who executes: run_tests_enhanced?" | Analyzed current pipeline using driver_tester.py, explained integration options | Understanding of current architecture |
 | **6** | "Hybrid integration. With a name like test_monitor.py or something similar" | Created hybrid integration wrapper preserving all existing functionality | test_monitor.py + pipeline_config.yml update |
 | **7** | "Run tests" | Comprehensive testing of all components, verified Jenkins compatibility | Complete system validation and documentation |
 | **8** | "Add changes to stage area" | Staged all files for commit preparation | All QEMU session management files staged |
+
+---
+
+## 3.12 Test Command Executor Abstraction / Polymorphism
+
+This section documents the AI-assisted creation and refactoring of the unified command execution module `test_ucommand_exec.py` implementing polymorphic command execution patterns.
+
+| **#** | **User Prompt** | **Purpose / Outcome** | **Validation Performed** |
+|------|-----------------|------------------------|---------------------------|
+| **1** | "Create a new Python module: test_ucommand_exec" which implement polymorfism in order to have a single interface for Hosts/x86_64 and QEMU/ARM targets | Create unified command execution abstraction module with polymorphic design | Verified module structure with CommandExecutor ABC, concrete implementations (HostCommandExecutor, QemuCommandExecutor), and UnifiedCommandExecutor with automatic environment detection functionality |
+| **2** | "Refactor send_qemu_command() and test_utils functions to utilize the unified executor architecture" | Integrate unified executor with existing test_utils functions to replace scattered subprocess calls | Confirmed all test_utils functions (send_qemu_command, load_module, rm_module, is_module_loaded) successfully migrated to use UnifiedCommandExecutor; Validated convenience wrapper functions operational |
+| **3** | "We do not need defensive imports with try/except ImportError patterns: we are owners of the executor" | Eliminate defensive import patterns and centralize imports for cleaner architecture | Tested removal of all try/except ImportError blocks; Verified direct imports from test_ucommand_exec work correctly; Confirmed centralized import management eliminates circular dependency issues |
+| **4** | "Make the cleanup function use the same command executor as other functions" | Ensure consistent executor usage throughout all subprocess operations | Validated cleanup_host_module_before_qemu() uses execute_command() with force_host=True; Confirmed guaranteed host execution prevents QEMU environment interference during cleanup operations |
+
+---
+
+## 3.13 Test Analysis and Module Creation Prompts
+
+This section documents AI prompts for analyzing testing history and creating new test modules based on important test patterns.
+
+| **#** | **User Prompt** | **Purpose / Outcome** | **Expected AI Response** |
+|------|-----------------|------------------------|--------------------------|
+| **1** | "Show me the last 100 commands we have executed for testing the nxp_simtemp driver. Include terminal commands, pytest executions, QEMU operations, and any driver-related validation." | Comprehensive analysis of testing history to identify patterns and key validation steps for the nxp_simtemp driver | AI should extract and categorize all driver testing commands from conversation history, terminal outputs, and tool executions, presenting them in chronological order with pattern analysis |
+| **2** | "Filter the most important tests. Focus on: critical driver functionality tests,  and key integration tests. Create a new test module for complete driver validation." | Creation of a consolidated test module based on the most critical testing patterns identified from historical analysis | AI should analyze the filtered important tests and create a new Python test module that encapsulates the essential driver validation patterns, following TDD principles and project testing conventions |
 
 **End of AI_NOTES.md**

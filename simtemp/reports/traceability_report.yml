@@ -1,16 +1,16 @@
 requirements:
 - id: F-K1
   summary: Register as platform driver via DT or local device
-  status: in-progress
+  status: completed
   test_count: 2
-  done_count: 0
+  done_count: 2
   tests:
   - id: F-K1-TC-001
     description: '`insmod` registers driver; sysfs entries created'
-    status: planned
+    status: completed
   - id: F-K1-TC-002
     description: DT overlay binds driver; properties parsed with no errors
-    status: in-progress
+    status: completed
 - id: F-K2
   summary: Generate periodic samples every N ms
   status: planned
@@ -97,16 +97,19 @@ requirements:
     status: planned
 - id: F-K8
   summary: Clean load/unload sequence
-  status: in-progress
-  test_count: 2
-  done_count: 0
+  status: partial
+  test_count: 3
+  done_count: 2
   tests:
   - id: F-K8-TC-001
     description: Load/unload no WARN/OOPS
-    status: in-progress
+    status: completed
   - id: F-K8-TC-002
     description: Readers exit gracefully on unload
     status: planned
+  - id: F-K8-TC-003
+    description: DTB driver binding and functionality verification
+    status: completed
 - id: F-K9
   summary: Parse DT properties and apply defaults
   status: planned
@@ -268,13 +271,13 @@ requirements:
     status: planned
 - id: F-D4
   summary: Prompts and validation notes
-  status: planned
+  status: partial
   test_count: 2
-  done_count: 0
+  done_count: 1
   tests:
   - id: F-D4-TC-001
     description: Prompts recorded
-    status: planned
+    status: completed
   - id: F-D4-TC-002
     description: Mitigations listed
     status: planned
@@ -415,6 +418,6 @@ requirements:
     status: planned
 aggregate:
   requirements_total: 32
-  tests_total: 74
-  tests_completed: 0
-  tests_completed_pct: 0.0
+  tests_total: 75
+  tests_completed: 5
+  tests_completed_pct: 6.666666666666667

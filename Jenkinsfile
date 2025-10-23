@@ -287,12 +287,8 @@ def getTestConfigs(pipelineConfig) {
         echo "Test configurations loaded successfully from ${testConfigFile}"
         echo "Available test suites: ${testConfigs.tests.keySet().join(', ')}"
         
-        // Only check precompiled driver settings if qemu_integration is enabled
-        if (testConfigs.tests?.qemu_integration?.enabled && testConfigs.tests?.qemu_integration?.use_precompiled_driver) {
-            echo "Driver mode: Using precompiled driver from ${testConfigs.tests.qemu_integration.precompiled_path ?: 'default path'} (for QEMU tests only)"
-        } else {
-            echo "Driver mode: Compiled from source"
-        }
+        // Configuration validation completed - using simplified binary paths system
+        echo "Driver mode: Using simplified binary paths profile system"
         
         // Validate that we have at least one test configuration
         if (testConfigs.tests.isEmpty()) {
@@ -2071,7 +2067,6 @@ pipeline {
                         
                         // Check if QEMU integration tests are enabled
                         def qemuEnabled = testConfigs.tests?.qemu_integration?.enabled ?: false
-                        def usePrecompiled = testConfigs.tests?.qemu_integration?.use_precompiled_driver ?: false
                         
                         echo "QEMU integration tests enabled: ${qemuEnabled}"
                         
@@ -2084,44 +2079,8 @@ pipeline {
                         // No special build environment needed for native x86_64 build
                         def buildEnv = []
                         
-                        // Add precompiled driver settings if configured
-                        if (usePrecompiled) {
-                            buildEnv.add('USE_PRECOMPILED_DRIVER=true')
-                            def precompiledPath = testConfigs.tests.qemu_integration.precompiled_path
-                            if (precompiledPath) {
-                                buildEnv.add("PRECOMPILED_DRIVER_PATH=${precompiledPath}")
-                            }
-                            echo "Build stage: Using precompiled driver mode for QEMU integration"
-                        } else {
-                            buildEnv.add('USE_PRECOMPILED_DRIVER=false')
-                            echo "Build stage: Using compilation mode for QEMU integration"
-                        }
-                        
-                        withEnv(buildEnv) {
-                            // Execute the simtemp driver build script and check result
-                            sh '''
-                                set -e
-                                echo "Building simtemp driver for QEMU environment..."
-                                cd deployment/qemu
-                                
-                                if [ ! -x scripts/build_simtemp_driver.sh ]; then
-                                    echo "Build script not found or not executable: scripts/build_simtemp_driver.sh"
-                                    ls -la scripts/
-                                    exit 1
-                                fi
-                                
-                                # Execute the build script
-                                ./scripts/build_simtemp_driver.sh
-                                BUILD_RESULT=$?
-                                if [ $BUILD_RESULT -eq 0 ]; then
-                                    echo "Simtemp driver build completed successfully"
-                                else
-                                    echo "Simtemp driver build failed with exit code $BUILD_RESULT"
-                                    exit $BUILD_RESULT
-                                fi
-                            '''
-                        }
-                        
+                        // Using simplified binary paths profile system
+                        echo "Build stage: Using simplified binary paths profile system"
                     } catch (Exception e) {
                         echo "Failed to build simtemp driver for QEMU: ${e.message}"
                         throw e
@@ -2136,20 +2095,15 @@ pipeline {
                             def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
                             def testConfigs = getTestConfigs(pipelineConfig)
                             def qemuEnabled = testConfigs.tests?.qemu_integration?.enabled ?: false
-                            def usePrecompiled = testConfigs.tests?.qemu_integration?.use_precompiled_driver ?: false
                             
                             if (!qemuEnabled) {
                                 echo "⚠️ QEMU tests disabled - skipping build artifacts archiving"
                                 return
                             }
                             
-                            // Archive artifacts based on build mode
-                            if (!usePrecompiled) {
-                                echo "Archiving compiled driver artifacts..."
-                                archiveArtifacts artifacts: 'deployment/qemu/rootfs/tmp/src/simtemp_driver/*.ko', allowEmptyArchive: true, fingerprint: true
-                            } else {
-                                echo "Precompiled mode: Skipping .ko artifact archiving (driver is in rootfs)"
-                            }
+                            // Archive artifacts based on simplified binary paths system
+                            echo "Archiving compiled driver artifacts..."
+                            archiveArtifacts artifacts: 'deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/*.ko', allowEmptyArchive: true, fingerprint: true
                             
                             // Always archive the rootfs (contains precompiled driver or newly compiled one)
                             archiveArtifacts artifacts: 'deployment/qemu/rootfs.cpio.gz', allowEmptyArchive: false, fingerprint: true

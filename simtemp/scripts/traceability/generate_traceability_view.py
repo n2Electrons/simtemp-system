@@ -64,6 +64,7 @@ STATUS_COLORS = {
     'planned': '#f8f9fa',      # Very light gray
     'in-progress': '#fff3cd',  # Light yellow
     'implemented': '#d1e7dd',  # Light green
+    'completed': '#d1e7dd',    # Light green (same as implemented)
     'verified': '#d4edda',     # Slightly darker green
     'blocked': '#f8d7da',      # Light red
     'partial': "#d1d8e7",      # Light blue (brighter)

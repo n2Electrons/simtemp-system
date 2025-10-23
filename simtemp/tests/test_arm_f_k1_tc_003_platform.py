@@ -11,8 +11,9 @@ import os
 import pytest
 import subprocess
 import time
-from test_utils import (SUDO, obj_path, SHELL_PARAMS, check_qemu_test,
-                        get_driver_path, get_module_path_for_context)
+from test_utils import (SHELL_PARAMS, get_or_start_shared_qemu_session,
+                        get_module_path_for_context, execute_command,
+                        load_module, rm_module, show_qemu_recovery_info)
 
 # Test configuration
 MODULE_NAME = "nxp_simtemp"
@@ -21,44 +22,6 @@ EXPECTED_COMPATIBLE_STRINGS = [
     "simtemp,temperature-sensor-overlay"
 ]
 EXPECTED_DRIVER_NAME = "nxp-simtemp"
-
-
-def is_module_loaded():
-    """Check if nxp_simtemp module is currently loaded"""
-    result = subprocess.run("lsmod | grep nxp_simtemp", **SHELL_PARAMS)
-    return result.returncode == 0
-
-
-def insmod_module(module_path=None):
-    """Load the nxp_simtemp kernel module"""
-    if is_module_loaded():
-        return  # Module already loaded
-    
-    if module_path is None:
-        # Determine appropriate driver path based on test environment
-        qemu_process = check_qemu_test()
-        if qemu_process:
-            # For QEMU tests, use driver path that considers precompiled configuration
-            module_path = get_driver_path('qemu_integration')
-            print(f"Testing platform driver implementation for: {module_path}")
-        else:
-            # Use default compiled path for host tests
-            module_path = os.path.join(obj_path, "nxp_simtemp.ko")
-    
-    result = subprocess.run(f"{SUDO}insmod {module_path}", **SHELL_PARAMS)
-    if result.returncode != 0:
-        pytest.fail(f"insmod failed: {result.stderr}")
-    return result
-
-
-def rmmod_module():
-    """Unload the nxp_simtemp kernel module"""
-    if not is_module_loaded():
-        return  # Module not loaded
-    result = subprocess.run(f"{SUDO}rmmod nxp_simtemp", **SHELL_PARAMS)
-    if result.returncode != 0:
-        pytest.fail(f"rmmod failed: {result.stderr}")
-    return result
 
 
 def test_f_k1_platform_driver_dt_registration():
@@ -83,7 +46,12 @@ def test_f_k1_platform_driver_dt_registration():
     """
     
     # Check if this should run in QEMU mode
-    qemu_process = check_qemu_test()
+    qemu_process = get_or_start_shared_qemu_session()
+    
+    # Show standardized QEMU recovery banner if using QEMU
+    if qemu_process:
+        show_qemu_recovery_info(qemu_process,
+                                 "PLATFORM DRIVER DT REGISTRATION TEST")
     
     try:
         # Get the correct module path for the current execution context
@@ -92,25 +60,26 @@ def test_f_k1_platform_driver_dt_registration():
         
         # Pre-test cleanup (skip if in QEMU as module may not be available yet)
         if not qemu_process:
-            rmmod_module()
+            rm_module()
         
-        # Verify module file exists
-        if not os.path.exists(module_path):
+        # Verify module file exists (skip for QEMU - driver inside QEMU)
+        if not qemu_process and not os.path.exists(module_path):
             pytest.fail(f"Module file not found: {module_path}")
         
         print(f"Testing platform driver implementation for: {module_path}")
+        if qemu_process:
+            print("Running in QEMU mode - driver expected in rootfs")
         
         # Test 1: Verify modinfo shows Device Tree information
         print("\n=== Test 1: Module Device Tree Information ===")
         try:
-            modinfo = subprocess.run(
-                ['modinfo', module_path], capture_output=True,
-                text=True, timeout=10
-            )
-            if modinfo.returncode != 0:
-                pytest.fail(f"modinfo failed: {modinfo.stderr}")
+            # Run modinfo command (works for both ARM/QEMU and x86/HOST)
+            cmd = f'modinfo "{module_path}"'
+            success, output = execute_command(cmd, timeout=10)
+            if not success:
+                pytest.fail(f"modinfo failed: {output}")
+            modinfo_output = '\n'.join(output) if output else ""
             
-            modinfo_output = modinfo.stdout
             print(f"Module info output:\n{modinfo_output}")
             
             # Check for Device Tree alias information
@@ -143,7 +112,7 @@ def test_f_k1_platform_driver_dt_registration():
         
         # Test 2: Load module and verify platform driver registration
         print("\n=== Test 2: Platform Driver Registration ===")
-        insmod_module(module_path)
+        load_module(module_path=module_path)
         
         # Wait for driver registration to complete
         time.sleep(1)
@@ -240,7 +209,7 @@ def test_f_k1_platform_driver_dt_registration():
               f"{platform_integration.stdout.strip()}")
         
         # Clean up
-        rmmod_module()
+        rm_module()
         print("\n✓ Module unloaded successfully")
         
         print("\n=== F-K1 Platform Driver Test PASSED ===")

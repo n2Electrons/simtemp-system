@@ -1,1 +1,1 @@
-obj-m := nxp_simtemp.o
+obj-m := nxp_simtemp.o nxp_simtemp_stub.o

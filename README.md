@@ -40,6 +40,19 @@ This repository includes **automated Git hooks** that maintain the GitHub issue 
 gh auth login
 ```
 
+> Note on infrastructure traceability
+>
+> The initial traceability work in this repository includes items that pertain
+> specifically to the infrastructure layer (prefix F-J — e.g. F-J1 Configure
+> Jenkins and other F-J entries). These represent requirements and tests that
+> apply to the CI/CD and runtime infrastructure rather than the kernel driver
+> itself, including Docker infrastructure and Jenkins container configuration.
+> You may need to consult or include these F-J traceability links when
+> working on CI pipelines, Jenkins configuration, Docker containers, or 
+> environment provisioning. The `simtemp/reports/traceability.yml` and the 
+> generated HTML report include these entries so they can be referenced or 
+> updated as part of infrastructure changes.
+
 ### How It Works
 
 1. **Before each commit**: Pre-commit hook runs automatically
@@ -90,8 +103,8 @@ simtemp-system/
 │       │   ├── imx6ul-simtemp.dts    # Base Device Tree source
 │       │   └── imx6ul-simtemp.dtb    # Compiled Device Tree binary
 │       ├── overlay/                  # Device Tree overlays
-│       │   ├── simtemp-test-overlay.dts   # Test overlay source
-│       │   └── simtemp-test-overlay.dtbo  # Compiled overlay binary
+│       │   ├── nxp-simtemp-overlay.dts    # SimTemp overlay source (F-K8-TC-003)
+│       │   └── nxp-simtemp-overlay.dtbo   # Compiled overlay binary
 │       ├── images/                   # QEMU system images
 │       ├── kernel/                   # Kernel files for emulation
 │       └── simtemp-dt-overlay.sh     # DT overlay testing script
@@ -317,6 +330,18 @@ timeout 10 /host-workspace/deployment/qemu/scripts/run_qemu.sh"
 
 For detailed implementation process and troubleshooting, see:
 **[deployment/docker/QEMU_HOST_INTEGRATION_SETUP.md](deployment/docker/QEMU_HOST_INTEGRATION_SETUP.md)**
+
+### DTB Overlay Integration
+
+The project includes **automated DTB overlay integration** for SimTemp driver testing:
+
+- **Modular Design**: Device Tree overlays applied to base i.MX6 DTB
+- **Automated Build**: DTB with overlay built automatically during `make nxp-driver-arm`
+- **QEMU Ready**: Combined DTB includes SimTemp device node for testing
+- **TDD Compatible**: Supports test-driven development methodology
+
+For complete DTB overlay documentation, see:
+**[deployment/qemu/DTB_OVERLAY_README.md](deployment/qemu/DTB_OVERLAY_README.md)**
 
 ### Key Features
 
