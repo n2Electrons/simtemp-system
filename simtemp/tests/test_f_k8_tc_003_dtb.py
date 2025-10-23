@@ -159,8 +159,8 @@ def test_dtb_driver_binding_and_functionality():
         
         # Test 2: DTB property parsing
         properties_found = False
-        sysfs_paths = ["/sys/devices/platform/simtemp.0",    # x86_64 host
-                       "/sys/devices/platform/simtemp",      # ARM QEMU DTB
+        sysfs_paths = ["/sys/devices/platform/simtemp",      # ARM QEMU DTB
+                       "/sys/devices/platform/simtemp.0",    # x86_64 host
                        "/sys/devices/platform/simtemp@0"]    # Alternative DTB
         
         for path in sysfs_paths:
