@@ -928,7 +928,7 @@ def get_running_qemu_pids():
         # Prefer pgrep for efficiency
         pgrep = shutil.which('pgrep')
         if pgrep:
-            result = subprocess.run(["pgrep", "-f", "qemu-system-arm"], 
+            result = subprocess.run(["pgrep", "-f", "qemu-system-arm"], # DO 
                                   capture_output=True, text=True, timeout=5)
             if result.returncode == 0 and result.stdout:
                 for line in result.stdout.strip().split('\n'):
@@ -1013,9 +1013,13 @@ def get_all_qemu_markers():
     return markers
 
 
-def create_private_qemu_marker(qemu_process):
+def create_private_qemu_marker(qemu_process, monitor_port=None):
     """
     Create a marker file for a private QEMU session.
+    
+    Args:
+        qemu_process: The QEMU process object
+        monitor_port (int, optional): Monitor telnet port for connecting to QEMU
     
     Private sessions should clean up their own markers when they terminate.
     """
@@ -1027,6 +1031,11 @@ def create_private_qemu_marker(qemu_process):
         'session_type': 'private',
         'test_name': os.environ.get('PYTEST_CURRENT_TEST', 'unknown')
     }
+    
+    # Add monitor port if provided
+    if monitor_port is not None:
+        marker_data['monitor_port'] = monitor_port
+        marker_data['monitor_address'] = f"127.0.0.1:{monitor_port}"
     
     try:
         with open(marker_path, 'w') as f:
@@ -1084,9 +1093,13 @@ def is_qemu_session_active():
     return False
 
 
-def create_qemu_session_marker(qemu_process):
+def create_qemu_session_marker(qemu_process, monitor_port=None):
     """
     Create a marker file indicating active QEMU session.
+    
+    Args:
+        qemu_process: The QEMU process object
+        monitor_port (int, optional): Monitor telnet port for connecting to QEMU
     
     Note: This should only be called for SHARED QEMU sessions.
     Private sessions (force_new=True) should NOT create markers
@@ -1100,10 +1113,18 @@ def create_qemu_session_marker(qemu_process):
         'test_name': os.environ.get('PYTEST_CURRENT_TEST', 'unknown')
     }
     
+    # Add monitor port if provided
+    if monitor_port is not None:
+        marker_data['monitor_port'] = monitor_port
+        marker_data['monitor_address'] = f"127.0.0.1:{monitor_port}"
+    
     try:
         with open(marker_path, 'w') as f:
             json.dump(marker_data, f, indent=2)
-        print(f"Created QEMU session marker: PID {qemu_process.pid}")
+        if monitor_port:
+            print(f"Created QEMU session marker: PID {qemu_process.pid}, Monitor port: {monitor_port}")
+        else:
+            print(f"Created QEMU session marker: PID {qemu_process.pid}")
         
         # Set global QEMU PID in command executor
         set_global_qemu_pid(qemu_process.pid)
@@ -1427,15 +1448,22 @@ def get_or_start_shared_qemu_session(force_new=False):
     # No active shared session, start new QEMU
     print("Starting new shared QEMU session...")
     print("🔧 [DEBUG] About to call start_qemu_and_wait_for_boot()")
-    qemu_process = start_qemu_and_wait_for_boot()
-    print(f"🔧 [DEBUG] start_qemu_and_wait_for_boot() returned: {qemu_process}")
+    qemu_result = start_qemu_and_wait_for_boot()
+    print(f"🔧 [DEBUG] start_qemu_and_wait_for_boot() returned: {qemu_result}")
+    
+    # Unpack the result (process, monitor_port)
+    if qemu_result and len(qemu_result) == 2:
+        qemu_process, monitor_port = qemu_result
+    else:
+        qemu_process = qemu_result
+        monitor_port = None
     
     if qemu_process:
         ts = qemu_timestamp()
         print(f"QEMU-HANDLER: [{ts}] CREATED PROCESS: PID {qemu_process.pid}")
         # Create marker IMMEDIATELY to prevent race conditions
         print("🔧 [DEBUG] Creating marker immediately to prevent race...")
-        create_qemu_session_marker(qemu_process)
+        create_qemu_session_marker(qemu_process, monitor_port)
         ts = qemu_timestamp()
         print(f"QEMU-HANDLER: [{ts}] CREATED MARKER for: {qemu_process.pid}")
         print("QEMU session ready - other tests will reuse this session")
@@ -1751,7 +1779,10 @@ def start_qemu_and_wait_for_boot():
     print("QEMU boot completed - initramfs ready")
     print("Shell prompt available - QEMU ready for platform driver tests")
     print(f"[START_QEMU {call_id}] Returning QEMU process with PID: {qemu_process.pid}")
-    return qemu_process
+    print(f"[START_QEMU {call_id}] Monitor port: {monitor_port}")
+    
+    # Return both process and monitor port
+    return qemu_process, monitor_port
 
 
 # =============================================================================
