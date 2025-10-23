@@ -79,6 +79,17 @@ def is_running_in_privileged_container():
     return False
 
 
+def get_qemu_communication_info():
+    """Get QEMU communication method information."""
+    try:
+        from test_ucommand_exec import command_executor
+        if command_executor.qemu_executor and hasattr(command_executor.qemu_executor, 'get_communication_info'):
+            return command_executor.qemu_executor.get_communication_info()
+    except Exception:
+        pass
+    return "unknown"
+
+
 def load_test_config():
     """
     Load test configuration from simtemp_tests.yml.
@@ -992,6 +1003,8 @@ def get_or_start_shared_qemu_session(force_new=False):
                     return self.returncode
             
             print(f"🔧 [DEBUG] Returning MockQemuProcess with PID {pid}")
+            # Set global QEMU PID in command executor for reused sessions
+            set_global_qemu_pid(pid)
             return MockQemuProcess(pid)
             
         except (json.JSONDecodeError, IOError, KeyError):
