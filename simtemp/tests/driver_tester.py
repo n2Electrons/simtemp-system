@@ -1484,7 +1484,20 @@ class DriverTestOrchestrator:
 
 def main():
     print("DRIVER_TESTER: Script starting...")
-    
+
+    # Launch qemu_monitor.py in the background if it exists
+    import subprocess
+    from pathlib import Path
+    monitor_path = Path(__file__).parent / "qemu_monitor.py"
+    if monitor_path.exists():
+        try:
+            print("QEMU-HANDLER: Launching qemu_monitor.py in background...")
+            subprocess.Popen(["python3", str(monitor_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print("DRIVER_TESTER: qemu_monitor.py launched in the background.")
+        except Exception as e:
+            print(f"DRIVER_TESTER: Error launching qemu_monitor.py: {e}")
+    else:
+        print("DRIVER_TESTER: qemu_monitor.py not found, skipping launch.")
     parser = argparse.ArgumentParser(
         description="Orchestrate comprehensive driver testing for simtemp"
     )
@@ -1499,9 +1512,9 @@ def main():
         "--output-dir",
         help="Output directory for reports (default: reports)"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define safe_print here for early messages
     def safe_print(text):
         try:
@@ -1513,19 +1526,19 @@ def main():
                     f.write(text + "\n")
             except Exception:
                 pass
-    
+
     safe_print("DRIVER_TESTER: Arguments parsed:")
     safe_print(f"   - verbose: {args.verbose}")
     safe_print(f"   - input_dir: {args.input_dir}")
     safe_print(f"   - output_dir: {args.output_dir}")
-    
+
     safe_print("DRIVER_TESTER: Creating orchestrator instance...")
     orchestrator = DriverTestOrchestrator(
         input_dir=args.input_dir,
         output_dir=args.output_dir,
         verbose=args.verbose
     )
-    
+
     safe_print("DRIVER_TESTER: Starting test orchestration...")
     try:
         success = orchestrator.generate_reports()
@@ -1543,7 +1556,7 @@ def main():
         import traceback
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         traceback_file = f"/tmp/driver_tester_traceback_{timestamp}.txt"
-        
+
         try:
             # Try printing to stdout first
             traceback.print_exc()

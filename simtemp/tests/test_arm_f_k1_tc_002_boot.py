@@ -4,7 +4,7 @@ Boot on QEMU with no errors. Able to reuse QEMU session for further testing.
 """
 
 import pytest
-from test_utils import get_shared_qemu_session
+from test_utils import get_or_start_shared_qemu_session
 
 # Test timeout in seconds (1 minute)
 QEMU_TIMEOUT = 60
@@ -19,7 +19,7 @@ def test_basic_qemu_boot():
     try:
         # Try to get or start shared QEMU session
         print("Getting or starting shared QEMU session...")
-        qemu_process = get_shared_qemu_session()
+        qemu_process = get_or_start_shared_qemu_session()
         
         if qemu_process is None:
             pytest.fail("Failed to get or start QEMU session")

@@ -8,12 +8,12 @@ Device Tree Blob driver binding tests for the simtemp driver.
 import subprocess
 import os
 import pytest
-from test_utils import get_shared_qemu_session, show_qemu_recovery_info
+from test_utils import get_or_start_shared_qemu_session, show_qemu_recovery_info
 
 
 def test_dtb_overlay_exists():
     """Test that DTB overlay exists in repository - QEMU only"""
-    qemu_process = get_shared_qemu_session()
+    qemu_process = get_or_start_shared_qemu_session()
     
     # This test is designed for QEMU ARM environment only
     if not qemu_process:
@@ -69,7 +69,7 @@ def test_dtb_driver_binding_and_functionality():
     from test_utils import get_driver_path, execute_command
 
     # Test 1: DTB driver binding
-    qemu_process = get_shared_qemu_session()
+    qemu_process = get_or_start_shared_qemu_session()
 
     # This test is designed for QEMU ARM environment only
     if not qemu_process:

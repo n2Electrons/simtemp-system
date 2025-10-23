@@ -23,8 +23,8 @@ def test_qemu_driver_load_unload():
     
     with load_environment():
         try:
-            # Start a PRIVATE QEMU session for interactive testing
-            print("Starting private QEMU session for interactive testing...")
+            # Start a PRIVATE QEMU session to avoid race conditions
+            print("Starting private QEMU session for load/unload testing...")
             qemu_process = get_or_start_shared_qemu_session(force_new=True)
             
             if qemu_process is None:

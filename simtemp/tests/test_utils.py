@@ -8,6 +8,7 @@ import shutil
 import pytest
 import json
 import time
+from datetime import datetime
 from contextlib import contextmanager
 
 # Import unified command executor components
@@ -19,6 +20,11 @@ from test_ucommand_exec import (
     set_global_qemu_pid,
     clear_global_qemu_pid
 )
+
+
+def qemu_timestamp():
+    """Get current timestamp for QEMU-HANDLER messages."""
+    return datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
 
 def setup_test_environment():
@@ -703,7 +709,7 @@ def get_module_path_for_context():
     Returns:
         tuple: (module_path: str, context_description: str)
     """
-    qemu_process = get_shared_qemu_session()
+    qemu_process = get_or_start_shared_qemu_session()
     
     if qemu_process:
         # Real QEMU mode: use prebuilt ARM driver from rootfs
@@ -719,30 +725,6 @@ def get_module_path_for_context():
 
 # Global QEMU session management - shared across all tests
 _global_qemu_process = None
-
-
-def get_shared_qemu_session():
-    """
-    Get or initialize shared QEMU session for all tests.
-    
-    This function ensures that only ONE QEMU instance is started across
-    all test files and functions, preventing multiple QEMU boots that
-    cause resource conflicts and slow test execution.
-    
-    Returns:
-        Process handle if QEMU is running, None if not in QEMU mode
-    """
-    global _global_qemu_process
-    
-    if _global_qemu_process is None:
-        _global_qemu_process = get_or_start_shared_qemu_session()
-        if _global_qemu_process:
-            print("=== Global Shared QEMU Session Initialized ===")
-            print(f"QEMU PID: {_global_qemu_process.pid}")
-        else:
-            print("=== Running in Host Mode (no QEMU) ===")
-    
-    return _global_qemu_process
 
 
 def ensure_clean_qemu_environment():
@@ -793,52 +775,57 @@ def ensure_clean_qemu_environment():
 
 def cleanup_host_module_before_qemu():
     """
-    Clean up any loaded nxp_simtemp module from host/Debian before QEMU.
-    
-    This prevents conflicts between host-loaded modules and QEMU ARM modules.
-    QEMU tests should use their own ARM-compiled modules, not host modules.
-    
+    Check for any running QEMU processes before starting QEMU.
+
+    NOTE: This function no longer inspects or removes host kernel
+    modules. Tests that need to ensure host modules are unloaded should
+    perform that check themselves. 
+
+    The responsibility here is to check if any `qemu-system-arm` processes 
+    are currently running and provide information about them. With the 
+    new marker system, we can distinguish between shared and private
+    sessions and make informed decisions.
+
     Returns:
-        bool: True if cleanup was successful or no module was loaded
+        bool: True if safe to proceed (no conflicts detected),
+              False if there are potential conflicts.
     """
-    print("🧹 [QEMU Setup] Checking for host nxp_simtemp module...")
+    print("🧹 [QEMU Setup] Checking for running QEMU processes...")
+
+    # Get all running QEMU processes
+    running_pids = get_running_qemu_pids()
+    if not running_pids:
+        print("✅ [QEMU Setup] No running qemu-system-arm processes found")
+        return True
+
+    # Get all QEMU markers (shared and private)
+    all_markers = get_all_qemu_markers()
     
-    # Use executor with force_host to avoid circular dependency
-    try:
-        # Check if module is loaded on the host using force_host mode
-        success, output = execute_command("lsmod | grep nxp_simtemp",
-                                         timeout=5, force_host=True)
-        
-        if success and output and any(line.strip() for line in output):
-            print("⚠️  [QEMU Setup] Found nxp_simtemp loaded on host - "
-                  "removing...")
-            module_info = ' '.join(line.strip() for line in output
-                                   if line.strip())
-            print(f"    Host module info: {module_info}")
-            
-            # Remove module from host using executor with force_host
-            success, unload_output = execute_command(
-                f"{SUDO}rmmod -f nxp_simtemp",
-                timeout=10, force_host=True)
-            
-            if success:
-                print("✅ [QEMU Setup] Host nxp_simtemp module removed "
-                      "successfully")
-                return True
-            else:
-                error_info = (' '.join(unload_output) if unload_output
-                              else "Unknown error")
-                print(f"❌ [QEMU Setup] Failed to remove host module: "
-                      f"{error_info}")
-                print("    This might cause conflicts with QEMU ARM testing")
-                return False
+    print(f"🔧 [QEMU Setup] Found {len(running_pids)} running QEMU process(es)")
+    
+    # Analyze each running process
+    unmarked_pids = []
+    for pid in running_pids:
+        if pid in all_markers:
+            session_type = all_markers[pid].get('session_type', 'unknown')
+            test_name = all_markers[pid].get('test_name', 'unknown')
+            print(f"🔧 [QEMU Setup] PID {pid}: {session_type} session "
+                  f"({test_name})")
         else:
-            print("✅ [QEMU Setup] No nxp_simtemp module loaded on host")
-            return True
-            
-    except Exception as e:
-        print(f"⚠️  [QEMU Setup] Error checking host module: {e}")
-        return True  # Continue anyway, but warn
+            unmarked_pids.append(pid)
+            print(f"⚠️  [QEMU Setup] PID {pid}: unmarked process "
+                  f"(no session marker)")
+
+    if unmarked_pids:
+        pids_str = ', '.join(str(pid) for pid in unmarked_pids)
+        print(f"⚠️  [QEMU Setup] Found unmarked QEMU PIDs: {pids_str}")
+        print("⚠️  [QEMU Setup] These processes have no session markers")
+        print("🔧 [QEMU Setup] Proceeding anyway - new QEMU will use "
+              "different ports")
+        return True
+    else:
+        print("✅ [QEMU Setup] All QEMU processes are properly marked")
+        return True
 
 
 def ensure_qemu_session():
@@ -926,6 +913,144 @@ def get_qemu_session_marker_path():
     return '/tmp/qemu_session_active.marker'
 
 
+def get_running_qemu_pids():
+    """
+    Get list of all running qemu-system-arm process PIDs.
+    
+    Returns:
+        list: List of integer PIDs of running qemu-system-arm processes
+    """
+    pids = []
+    try:
+        # Use subprocess directly to avoid recursion through execute_command
+        import subprocess
+        
+        # Prefer pgrep for efficiency
+        pgrep = shutil.which('pgrep')
+        if pgrep:
+            result = subprocess.run(["pgrep", "-f", "qemu-system-arm"], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout:
+                for line in result.stdout.strip().split('\n'):
+                    line = line.strip()
+                    if line and line.isdigit():
+                        pids.append(int(line))
+        else:
+            # Fallback to ps parsing
+            result = subprocess.run(["ps", "aux"], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout:
+                for line in result.stdout.split('\n'):
+                    if 'qemu-system-arm' in line:
+                        parts = line.split()
+                        if len(parts) >= 2 and parts[1].isdigit():
+                            pids.append(int(parts[1]))
+    except Exception as e:
+        print(f"Error getting QEMU PIDs: {e}")
+    
+    return pids
+
+
+def get_private_qemu_marker_path(pid):
+    """Get path for private QEMU session marker file."""
+    return f"/tmp/qemu_private_session_{os.getuid()}_{pid}.json"
+
+
+def get_all_qemu_markers():
+    """
+    Get all QEMU session markers (shared and private).
+    
+    Returns:
+        dict: {pid: marker_data} for all active QEMU sessions
+    """
+    markers = {}
+    
+    # Check shared session marker
+    shared_marker = get_qemu_session_marker_path()
+    if os.path.exists(shared_marker):
+        try:
+            with open(shared_marker, 'r') as f:
+                data = json.loads(f.read())
+                pid = data.get('pid')
+                if pid:
+                    # Verify process is still running
+                    try:
+                        os.kill(pid, 0)
+                        data['session_type'] = 'shared'
+                        markers[pid] = data
+                    except OSError:
+                        # Process dead, remove stale marker
+                        os.remove(shared_marker)
+        except (json.JSONDecodeError, IOError, OSError):
+            try:
+                os.remove(shared_marker)
+            except OSError:
+                pass
+    
+    # Check private session markers
+    import glob
+    pattern = f"/tmp/qemu_private_session_{os.getuid()}_*.json"
+    for marker_file in glob.glob(pattern):
+        try:
+            with open(marker_file, 'r') as f:
+                data = json.loads(f.read())
+                pid = data.get('pid')
+                if pid:
+                    # Verify process is still running
+                    try:
+                        os.kill(pid, 0)
+                        data['session_type'] = 'private'
+                        markers[pid] = data
+                    except OSError:
+                        # Process dead, remove stale marker
+                        os.remove(marker_file)
+        except (json.JSONDecodeError, IOError, OSError):
+            try:
+                os.remove(marker_file)
+            except OSError:
+                pass
+    
+    return markers
+
+
+def create_private_qemu_marker(qemu_process):
+    """
+    Create a marker file for a private QEMU session.
+    
+    Private sessions should clean up their own markers when they terminate.
+    """
+    marker_path = get_private_qemu_marker_path(qemu_process.pid)
+    marker_data = {
+        'pid': qemu_process.pid,
+        'started_at': time.time(),
+        'started_by': os.path.basename(__file__),
+        'session_type': 'private',
+        'test_name': os.environ.get('PYTEST_CURRENT_TEST', 'unknown')
+    }
+    
+    try:
+        with open(marker_path, 'w') as f:
+            json.dump(marker_data, f, indent=2)
+        ts = qemu_timestamp()
+        print(f"QEMU-HANDLER: [{ts}] Created private QEMU session marker: PID {qemu_process.pid}")
+    except IOError as e:
+        ts = qemu_timestamp()
+        print(f"QEMU-HANDLER: [{ts}] Warning: Could not create private QEMU marker: {e}")
+
+
+def cleanup_private_qemu_marker(pid):
+    """Clean up a private QEMU session marker."""
+    marker_path = get_private_qemu_marker_path(pid)
+    try:
+        if os.path.exists(marker_path):
+            ts = qemu_timestamp()
+            print(f"QEMU-HANDLER: [{ts}] CLEAR MARKER for: {pid}")
+            os.remove(marker_path)
+            print(f"Removed private QEMU session marker: PID {pid}")
+    except OSError as e:
+        print(f"Warning: Could not remove private QEMU marker: {e}")
+
+
 def is_qemu_session_active():
     """Check if a QEMU session is already running."""
     marker_path = get_qemu_session_marker_path()
@@ -960,7 +1085,13 @@ def is_qemu_session_active():
 
 
 def create_qemu_session_marker(qemu_process):
-    """Create a marker file indicating active QEMU session."""
+    """
+    Create a marker file indicating active QEMU session.
+    
+    Note: This should only be called for SHARED QEMU sessions.
+    Private sessions (force_new=True) should NOT create markers
+    to avoid interfering with the global session management.
+    """
     marker_path = get_qemu_session_marker_path()
     marker_data = {
         'pid': qemu_process.pid,
@@ -995,36 +1126,111 @@ def get_or_start_shared_qemu_session(force_new=False):
     """
     import uuid
     import traceback
+    
     call_id = str(uuid.uuid4())[:8]
     print(f"🔧 [GET_QEMU {call_id}] get_or_start_shared_qemu_session() called")
     print(f"🔧 [GET_QEMU {call_id}] force_new={force_new}")
-    
+
     # Print stack trace to see who called this
     print(f"🔧 [GET_QEMU {call_id}] Call stack:")
-    for i, line in enumerate(traceback.format_stack()[-4:-1]):  # Show last 3 frames
+    # Show last 5 frames for more detail
+    for i, line in enumerate(traceback.format_stack()[-6:-1]):
         print(f"🔧 [GET_QEMU {call_id}]   {i+1}: {line.strip()}")
     print(f"🔧 [GET_QEMU {call_id}] ────────────────")
     
     # If force_new is True, start a private session
     if force_new:
         print("🔧 [DEBUG] force_new=True, starting private QEMU session...")
-        return start_qemu_and_wait_for_boot()
+        print("🔧 [DEBUG] Private session will create its own marker")
+        qemu_process = start_qemu_and_wait_for_boot()
+        if qemu_process:
+            ts = qemu_timestamp()
+            print(f"QEMU-HANDLER: [{ts}] CREATED PROCESS: PID {qemu_process.pid}")
+            create_private_qemu_marker(qemu_process)
+            ts = qemu_timestamp()
+            print(f"QEMU-HANDLER: [{ts}] CREATED MARKER for: {qemu_process.pid}")
+            print("🔧 [DEBUG] Private QEMU session created successfully")
+        return qemu_process
     
     # Check if QEMU session is already active
     print("🔧 [DEBUG] Checking if QEMU session is already active...")
-    if is_qemu_session_active():
-        print("Reusing existing QEMU session...")
-        print("🔧 [DEBUG] Found active session, will reuse it")
-        
-        # Try to get the process handle from the marker
-        marker_path = get_qemu_session_marker_path()
+    marker_path = get_qemu_session_marker_path()
+    marker_pid = None
+    
+    # Get PID from marker if it exists
+    if os.path.exists(marker_path):
         try:
             with open(marker_path, 'r') as f:
                 data = json.loads(f.read())
-                pid = data.get('pid')
+                marker_pid = data.get('pid')
                 
-            # Create a mock process object for compatibility
-            # (We can't get the actual process object, but tests just need to know QEMU is running)
+            # Check if the marked process is still running
+            if marker_pid:
+                try:
+                    os.kill(marker_pid, 0)  # Check if process exists
+                    print(f"Found active QEMU session with PID {marker_pid}")
+                except OSError:
+                    # Process doesn't exist, marker is stale
+                    print(f"Removing stale QEMU session marker "
+                          f"(PID {marker_pid} not found)")
+                    ts = qemu_timestamp()
+                    print(f"QEMU-HANDLER: [{ts}] CLEAR MARKER for: {marker_pid}")
+                    os.remove(marker_path)
+                    marker_pid = None
+        except (json.JSONDecodeError, IOError, OSError):
+            # Corrupted or unreadable marker, remove it
+            try:
+                os.remove(marker_path)
+            except OSError:
+                pass
+            marker_pid = None
+    
+    # Get all running QEMU processes
+    existing_qemu_pids = get_running_qemu_pids()
+    
+    if marker_pid and existing_qemu_pids:
+        # Case 4: Hay marcador Y múltiples procesos
+        print("🔧 [DEBUG] Found marker AND multiple QEMU processes")
+        print(f"🔧 [DEBUG] Marker PID: {marker_pid}")
+        pids_str = ', '.join(str(pid) for pid in existing_qemu_pids)
+        print(f"🔧 [DEBUG] Running QEMU PIDs: {pids_str}")
+        
+        if marker_pid in existing_qemu_pids:
+            # Marcador corresponde a uno de los procesos - reutilizar
+            print("🔧 [DEBUG] Marker matches running process - reusing")
+            print("🔧 [DEBUG] Cleaning up other non-private processes...")
+            
+            # Check which are private sessions
+            private_markers = get_all_qemu_markers()
+            private_pids = {data.get('pid')
+                            for data in private_markers.values()
+                            if data.get('session_type') == 'private'}
+            
+            # Get all marked PIDs (both shared and private)
+            all_marked_pids = set(private_markers.keys())
+            
+            # Clean up orphaned processes (not marked at all)
+            orphaned_pids = [pid for pid in existing_qemu_pids
+                             if pid not in all_marked_pids]
+            
+            if orphaned_pids:
+                ts = qemu_timestamp()
+                print(f"QEMU-HANDLER: [{ts}] Cleaning orphaned PIDs: {orphaned_pids}")
+                print(f"🧹 [DEBUG] Cleaning orphaned PIDs: {orphaned_pids}")
+                for pid in orphaned_pids:
+                    try:
+                        os.kill(pid, 15)  # SIGTERM
+                        import time
+                        time.sleep(0.5)
+                        try:
+                            os.kill(pid, 0)
+                            os.kill(pid, 9)  # SIGKILL if still running
+                        except OSError:
+                            pass
+                    except OSError:
+                        pass
+            
+            # Return MockQemuProcess for the marked process
             class MockQemuProcess:
                 def __init__(self, pid):
                     self.pid = pid
@@ -1033,24 +1239,23 @@ def get_or_start_shared_qemu_session(force_new=False):
                 def poll(self):
                     try:
                         os.kill(self.pid, 0)
-                        return None  # Process is still running
+                        return None
                     except OSError:
-                        return -1  # Process has terminated
+                        return -1
                 
                 def terminate(self):
                     try:
-                        os.kill(self.pid, 15)  # SIGTERM
+                        os.kill(self.pid, 15)
                     except OSError:
                         pass
                 
                 def kill(self):
                     try:
-                        os.kill(self.pid, 9)  # SIGKILL
+                        os.kill(self.pid, 9)
                     except OSError:
                         pass
                 
                 def wait(self, timeout=None):
-                    # Simple wait implementation
                     import time
                     start_time = time.time()
                     while self.poll() is None:
@@ -1059,30 +1264,186 @@ def get_or_start_shared_qemu_session(force_new=False):
                         time.sleep(0.1)
                     return self.returncode
             
-            print(f"🔧 [DEBUG] Returning MockQemuProcess with PID {pid}")
-            # Set global QEMU PID in command executor for reused sessions
-            set_global_qemu_pid(pid)
-            return MockQemuProcess(pid)
+            print(f"🔧 [DEBUG] Returning MockQemuProcess with PID {marker_pid}")
+            set_global_qemu_pid(marker_pid)
+            return MockQemuProcess(marker_pid)
+        else:
+            # Marcador no corresponde - limpiar y crear nuevo
+            print("🔧 [DEBUG] Marker doesn't match any running process")
+            print("🔧 [DEBUG] Cleaning marker and orphaned processes...")
             
-        except (json.JSONDecodeError, IOError, KeyError):
-            print("Warning: Could not read QEMU session marker, starting new session")
+            # Remove stale marker
+            try:
+                ts = qemu_timestamp()
+                print(f"QEMU-HANDLER: [{ts}] CLEAR MARKER for: {marker_pid}")
+                os.remove(marker_path)
+                print("🔧 [DEBUG] Removed stale marker")
+            except OSError:
+                pass
+            
+            # Check private processes and clean orphaned ones
+            private_markers = get_all_qemu_markers()
+            private_pids = {data.get('pid')
+                            for data in private_markers.values()
+                            if data.get('session_type') == 'private'}
+            
+            # Get all marked PIDs (both shared and private)
+            all_marked_pids = set(private_markers.keys())
+            
+            orphaned_pids = [pid for pid in existing_qemu_pids
+                             if pid not in all_marked_pids]
+            
+            if orphaned_pids:
+                ts = qemu_timestamp()
+                print(f"QEMU-HANDLER: [{ts}] Cleaning orphaned PIDs: {orphaned_pids}")
+                print(f"🧹 [DEBUG] Cleaning orphaned PIDs: {orphaned_pids}")
+                killed_pids = []
+                for pid in orphaned_pids:
+                    try:
+                        os.kill(pid, 15)
+                        import time
+                        time.sleep(0.5)
+                        try:
+                            os.kill(pid, 0)
+                            os.kill(pid, 9)
+                            killed_pids.append(pid)
+                        except OSError:
+                            killed_pids.append(pid)
+                    except OSError:
+                        pass
+                if killed_pids:
+                    killed_pids_str = ' '.join(str(pid) for pid in killed_pids)
+                    ts = qemu_timestamp()
+                    print(f"QEMU-HANDLER: [{ts}] KILLED PROCESSES {killed_pids_str}")
+    elif marker_pid:
+        # Case 1: Solo hay marcador válido
+        print("Reusing existing QEMU session...")
+        print("🔧 [DEBUG] Found active session, will reuse it")
+        
+        class MockQemuProcess:
+            def __init__(self, pid):
+                self.pid = pid
+                self.returncode = None
+            
+            def poll(self):
+                try:
+                    os.kill(self.pid, 0)
+                    return None
+                except OSError:
+                    return -1
+            
+            def terminate(self):
+                try:
+                    os.kill(self.pid, 15)
+                except OSError:
+                    pass
+            
+            def kill(self):
+                try:
+                    os.kill(self.pid, 9)
+                except OSError:
+                    pass
+            
+            def wait(self, timeout=None):
+                import time
+                start_time = time.time()
+                while self.poll() is None:
+                    if timeout and (time.time() - start_time) > timeout:
+                        raise subprocess.TimeoutExpired([], timeout)
+                    time.sleep(0.1)
+                return self.returncode
+        
+        print(f"🔧 [DEBUG] Returning MockQemuProcess with PID {marker_pid}")
+        set_global_qemu_pid(marker_pid)
+        return MockQemuProcess(marker_pid)
+    elif existing_qemu_pids:
+        # Case 2: Solo hay procesos sin marcador
+        print("🔧 [DEBUG] No marker but found QEMU processes")
+        
+        # Check for any existing QEMU processes that need cleanup
+        print("🔧 [DEBUG] Checking for existing QEMU processes...")
+        pids_str = ', '.join(str(pid) for pid in existing_qemu_pids)
+        print(f"🔧 [DEBUG] Found running QEMU PIDs: {pids_str}")
+        
+        # Check which are private sessions and which are orphaned
+        private_markers = get_all_qemu_markers()
+        private_pids = {data.get('pid')
+                        for data in private_markers.values()
+                        if data.get('session_type') == 'private'}
+        
+        # Get all marked PIDs (both shared and private)
+        all_marked_pids = set(private_markers.keys())
+        
+        orphaned_pids = [pid for pid in existing_qemu_pids
+                         if pid not in all_marked_pids]
+        
+        if orphaned_pids:
+            ts = qemu_timestamp()
+            print(f"QEMU-HANDLER: [{ts}] Found ORPHANED QEMU processes: "
+                  f"{orphaned_pids}")
+            print(f"🧹 [DEBUG] Found orphaned QEMU processes: "
+                  f"{orphaned_pids}")
+            print("🧹 [DEBUG] Cleaning up orphaned processes...")
+            
+            # Terminate orphaned processes
+            killed_pids = []
+            for pid in orphaned_pids:
+                try:
+                    ts = qemu_timestamp()
+                    print(f"QEMU-HANDLER: [{ts}] Terminating orphaned QEMU PID {pid}")
+                    print(f"🧹 [DEBUG] Terminating orphaned QEMU PID {pid}")
+                    os.kill(pid, 15)  # SIGTERM
+                    import time
+                    time.sleep(1)
+                    # Check if still running, force kill if needed
+                    try:
+                        os.kill(pid, 0)
+                        ts = qemu_timestamp()
+                        print(f"QEMU-HANDLER: [{ts}] Force killing QEMU PID {pid}")
+                        print(f"🧹 [DEBUG] Force killing QEMU PID {pid}")
+                        os.kill(pid, 9)  # SIGKILL
+                        killed_pids.append(pid)
+                    except OSError:
+                        killed_pids.append(pid)  # Already terminated
+                except OSError:
+                    print(f"🧹 [DEBUG] QEMU PID {pid} already terminated")
+            
+            if killed_pids:
+                killed_pids_str = ' '.join(str(pid) for pid in killed_pids)
+                ts = qemu_timestamp()
+                print(f"QEMU-HANDLER: [{ts}] KILLED PROCESSES {killed_pids_str}")
+            print("🧹 [DEBUG] Orphaned process cleanup completed")
+        
+        if private_pids:
+            private_pids_str = ' '.join(str(pid) for pid in private_pids)
+            ts = qemu_timestamp()
+            print(f"QEMU-HANDLER: [{ts}] Found private processes {private_pids_str}")
+            print(f"🔧 [DEBUG] Found private QEMU sessions: {private_pids}")
+            print("🔧 [DEBUG] Will not interfere with private sessions")
     else:
-        print("🔧 [DEBUG] No active QEMU session found")
+        # Case 3: No hay marcador ni procesos
+        print("🔧 [DEBUG] No marker and no QEMU processes found")
     
-    # No active session, start new QEMU
+    # No active shared session, start new QEMU
     print("Starting new shared QEMU session...")
     print("🔧 [DEBUG] About to call start_qemu_and_wait_for_boot()")
     qemu_process = start_qemu_and_wait_for_boot()
     print(f"🔧 [DEBUG] start_qemu_and_wait_for_boot() returned: {qemu_process}")
     
     if qemu_process:
-        print("🔧 [DEBUG] QEMU process created successfully, creating marker...")
+        ts = qemu_timestamp()
+        print(f"QEMU-HANDLER: [{ts}] CREATED PROCESS: PID {qemu_process.pid}")
+        # Create marker IMMEDIATELY to prevent race conditions
+        print("🔧 [DEBUG] Creating marker immediately to prevent race...")
         create_qemu_session_marker(qemu_process)
+        ts = qemu_timestamp()
+        print(f"QEMU-HANDLER: [{ts}] CREATED MARKER for: {qemu_process.pid}")
         print("QEMU session ready - other tests will reuse this session")
         print(f"🔧 [DEBUG] Returning QEMU process with PID: {qemu_process.pid}")
     else:
         print("QEMU session NOT CREATED!")
         print("🔧 [DEBUG] QEMU process is None - something went wrong")
+    
     return qemu_process
 
 
@@ -1117,11 +1478,16 @@ def cleanup_qemu_session():
                 os.kill(qemu_pid, 0)
                 print("QEMU still running, forcing termination...")
                 os.kill(qemu_pid, 9)  # SIGKILL
+                ts = qemu_timestamp()
+                print(f"QEMU-HANDLER: [{ts}] KILLED PROCESSES {qemu_pid}")
             except OSError:
+                ts = qemu_timestamp()
+                print(f"QEMU-HANDLER: [{ts}] KILLED PROCESSES {qemu_pid}")
                 pass  # Process already terminated
                 
         except OSError:
-            print(f"QEMU process {qemu_pid} not found (may have already terminated)")
+            print(f"QEMU process {qemu_pid} not found "
+                  f"(may have already terminated)")
     
     # Clean up any remaining QEMU processes
     cleanup_qemu_processes(force_kill=True)
@@ -1129,6 +1495,8 @@ def cleanup_qemu_session():
     # Remove session marker
     try:
         if os.path.exists(marker_path):
+            ts = qemu_timestamp()
+            print(f"QEMU-HANDLER: [{ts}] CLEAR MARKER for: {qemu_pid}")
             os.remove(marker_path)
             print("QEMU session marker removed")
     except OSError as e:
@@ -1137,6 +1505,90 @@ def cleanup_qemu_session():
     # Restore terminal state
     restore_terminal()
     print("QEMU session cleanup completed")
+
+
+def cleanup_private_qemu_session(pid):
+    """
+    Clean up a specific private QEMU session.
+    
+    Args:
+        pid (int): The PID of the private QEMU session to clean up
+    """
+    try:
+        print(f"Terminating private QEMU session (PID {pid})...")
+        os.kill(pid, 15)  # SIGTERM
+        
+        # Wait a bit for graceful shutdown
+        time.sleep(1)
+        
+        # Check if it's still running
+        try:
+            os.kill(pid, 0)
+            print(f"Private QEMU {pid} still running, forcing termination...")
+            os.kill(pid, 9)  # SIGKILL
+            ts = qemu_timestamp()
+            print(f"QEMU-HANDLER: [{ts}] KILLED PROCESSES {pid}")
+        except OSError:
+            ts = qemu_timestamp()
+            print(f"QEMU-HANDLER: [{ts}] KILLED PROCESSES {pid}")
+            pass  # Process already terminated
+            
+    except OSError:
+        print(f"Private QEMU process {pid} not found "
+              f"(may have already terminated)")
+    
+    # Remove private session marker
+    cleanup_private_qemu_marker(pid)
+
+
+def cleanup_all_qemu_sessions():
+    """
+    Clean up all QEMU sessions (shared and private).
+    
+    For shared sessions: Full cleanup including force termination.
+    For private sessions: Graceful termination only - they clean up
+    their own markers.
+    
+    This is useful for complete cleanup during test teardown.
+    """
+    print("🧹 [CLEANUP] Cleaning up all QEMU sessions...")
+    
+    # Get all active markers
+    all_markers = get_all_qemu_markers()
+    
+    if not all_markers:
+        print("🧹 [CLEANUP] No active QEMU sessions found")
+        return
+    
+    for pid, marker_data in all_markers.items():
+        session_type = marker_data.get('session_type', 'unknown')
+        if session_type == 'shared':
+            print(f"🧹 [CLEANUP] Cleaning up shared session (PID {pid})")
+            cleanup_qemu_session()
+        elif session_type == 'private':
+            ts = qemu_timestamp()
+            print(f"QEMU-HANDLER: [{ts}] INFORMATIVE: Found Private session "
+                  f"running {pid}")
+            print(f"🧹 [CLEANUP] Terminating private session "
+                  f"(PID {pid}) gracefully")
+            # Private sessions: only terminate gracefully,
+            # let them clean up themselves
+            try:
+                print(f"🧹 [CLEANUP] Sending SIGTERM to private "
+                      f"QEMU PID {pid}")
+                os.kill(pid, 15)  # SIGTERM only - no force kill
+                ts = qemu_timestamp()
+                print(f"QEMU-HANDLER: [{ts}] TERMINATED PRIVATE PROCESS {pid}")
+                print("🧹 [CLEANUP] Private session will clean up "
+                      "its own marker")
+            except OSError:
+                print(f"🧹 [CLEANUP] Private QEMU PID {pid} "
+                      "already terminated")
+        else:
+            print(f"🧹 [CLEANUP] Unknown session type for PID {pid}: "
+                  f"{session_type}")
+    
+    print("🧹 [CLEANUP] All QEMU sessions processed")
 
 
 def start_qemu_and_wait_for_boot():
@@ -1227,6 +1679,10 @@ def start_qemu_and_wait_for_boot():
     print("Starting QEMU for platform driver testing...")
     cmd_preview = f"{' '.join(qemu_cmd[:3])}... ({len(qemu_cmd)} args total)"
     print(f"[START_QEMU {call_id}] QEMU command: {cmd_preview}")
+    
+    # Add QEMU-HANDLER tracking for qemu-system-arm execution
+    ts = qemu_timestamp()
+    print(f"QEMU-HANDLER: [{ts}] CALL TO qemu-system-arm")
     
     try:
         qemu_process = subprocess.Popen(

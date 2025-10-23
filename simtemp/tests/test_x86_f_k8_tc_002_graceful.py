@@ -22,7 +22,7 @@ from pathlib import Path
 # Import test utilities
 sys.path.append(str(Path(__file__).parent))
 from test_utils import (SUDO, obj_path, SHELL_PARAMS,
-                        get_shared_qemu_session)
+                        get_or_start_shared_qemu_session)
 from test_utils import load_module, rm_module
 
 # Import reader modules
@@ -354,7 +354,7 @@ class ReaderProcessManager:
 def test_readers_exit_gracefully_on_unload():
     """F-K8-TC-002: Readers exit gracefully on unload."""
     # Check if this should run in QEMU mode
-    qemu_process = get_shared_qemu_session()
+    qemu_process = get_or_start_shared_qemu_session()
     
     # Ensure module is loaded
     module_path = os.path.join(obj_path, "nxp_simtemp.ko")

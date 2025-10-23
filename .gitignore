@@ -127,3 +127,4 @@ simtemp/scripts/sysroot-arm/
 simtemp/docs/images/
 docs_to_review/
 *nxp-simtemp-overlay.dtbo
+../../arm_vs_debian_vs_host.txt

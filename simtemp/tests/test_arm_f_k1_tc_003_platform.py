@@ -11,7 +11,7 @@ import os
 import pytest
 import subprocess
 import time
-from test_utils import (SHELL_PARAMS, get_shared_qemu_session,
+from test_utils import (SHELL_PARAMS, get_or_start_shared_qemu_session,
                         get_module_path_for_context, execute_command,
                         load_module, rm_module, show_qemu_recovery_info)
 
@@ -46,7 +46,7 @@ def test_f_k1_platform_driver_dt_registration():
     """
     
     # Check if this should run in QEMU mode
-    qemu_process = get_shared_qemu_session()
+    qemu_process = get_or_start_shared_qemu_session()
     
     # Show standardized QEMU recovery banner if using QEMU
     if qemu_process:
