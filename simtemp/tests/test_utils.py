@@ -1013,13 +1013,13 @@ def get_all_qemu_markers():
     return markers
 
 
-def create_private_qemu_marker(qemu_process, monitor_port=None):
+def create_private_qemu_marker(qemu_process, socket_port=None):
     """
     Create a marker file for a private QEMU session.
     
     Args:
         qemu_process: The QEMU process object
-        monitor_port (int, optional): Monitor telnet port for connecting to QEMU
+        socket_port (int, optional): Socket port for serial communication
     
     Private sessions should clean up their own markers when they terminate.
     """
@@ -1032,10 +1032,10 @@ def create_private_qemu_marker(qemu_process, monitor_port=None):
         'test_name': os.environ.get('PYTEST_CURRENT_TEST', 'unknown')
     }
     
-    # Add monitor port if provided
-    if monitor_port is not None:
-        marker_data['monitor_port'] = monitor_port
-        marker_data['monitor_address'] = f"127.0.0.1:{monitor_port}"
+    # Add socket port if provided
+    if socket_port is not None:
+        marker_data['socket_port'] = socket_port
+        marker_data['socket_address'] = f"127.0.0.1:{socket_port}"
     
     try:
         with open(marker_path, 'w') as f:
@@ -1093,13 +1093,14 @@ def is_qemu_session_active():
     return False
 
 
-def create_qemu_session_marker(qemu_process, monitor_port=None):
+def create_qemu_session_marker(qemu_process, monitor_port=None, socket_port=None):
     """
     Create a marker file indicating active QEMU session.
     
     Args:
         qemu_process: The QEMU process object
         monitor_port (int, optional): Monitor telnet port for connecting to QEMU
+        socket_port (int, optional): Direct socket port for serial communication
     
     Note: This should only be called for SHARED QEMU sessions.
     Private sessions (force_new=True) should NOT create markers
@@ -1113,24 +1114,16 @@ def create_qemu_session_marker(qemu_process, monitor_port=None):
         'test_name': os.environ.get('PYTEST_CURRENT_TEST', 'unknown')
     }
     
-    # Add monitor port if provided
-    if monitor_port is not None:
-        marker_data['monitor_port'] = monitor_port
-        marker_data['monitor_address'] = f"127.0.0.1:{monitor_port}"
-    
-    # Add SSH port (fixed to 2222 for SSH forwarding)
-    marker_data['ssh_port'] = 2222
-    marker_data['ssh_address'] = "127.0.0.1:2222"
-    
-    # Add Telnet port (fixed to 2323 for telnet forwarding)
-    marker_data['telnet_port'] = 2323
-    marker_data['telnet_address'] = "127.0.0.1:2323"
+    # Add socket port if provided
+    if socket_port is not None:
+        marker_data['socket_port'] = socket_port
+        marker_data['socket_address'] = f"127.0.0.1:{socket_port}"
     
     try:
         with open(marker_path, 'w') as f:
             json.dump(marker_data, f, indent=2)
-        if monitor_port:
-            print(f"Created QEMU session marker: PID {qemu_process.pid}, Monitor port: {monitor_port}")
+        if socket_port:
+            print(f"Created QEMU session marker: PID {qemu_process.pid}, Socket port: {socket_port}")
         else:
             print(f"Created QEMU session marker: PID {qemu_process.pid}")
         
@@ -1171,15 +1164,23 @@ def get_or_start_shared_qemu_session(force_new=False):
     if force_new:
         print("🔧 [DEBUG] force_new=True, starting private QEMU session...")
         print("🔧 [DEBUG] Private session will create its own marker")
-        qemu_process = start_qemu_and_wait_for_boot()
-        if qemu_process:
+        qemu_result = start_qemu_and_wait_for_boot()
+        if qemu_result:
+            # Unpack result for private session
+            if len(qemu_result) == 2:
+                qemu_process, socket_port = qemu_result
+            else:
+                qemu_process = qemu_result
+                socket_port = None
+            
             ts = qemu_timestamp()
             print(f"QEMU-HANDLER: [{ts}] CREATED PROCESS: PID {qemu_process.pid}")
-            create_private_qemu_marker(qemu_process)
+            create_private_qemu_marker(qemu_process, socket_port)
             ts = qemu_timestamp()
             print(f"QEMU-HANDLER: [{ts}] CREATED MARKER for: {qemu_process.pid}")
             print("🔧 [DEBUG] Private QEMU session created successfully")
-        return qemu_process
+            return qemu_process
+        return None
     
     # Check if QEMU session is already active
     print("🔧 [DEBUG] Checking if QEMU session is already active...")
@@ -1459,19 +1460,19 @@ def get_or_start_shared_qemu_session(force_new=False):
     qemu_result = start_qemu_and_wait_for_boot()
     print(f"🔧 [DEBUG] start_qemu_and_wait_for_boot() returned: {qemu_result}")
     
-    # Unpack the result (process, monitor_port)
+    # Unpack the result (process, socket_port)
     if qemu_result and len(qemu_result) == 2:
-        qemu_process, monitor_port = qemu_result
+        qemu_process, socket_port = qemu_result
     else:
         qemu_process = qemu_result
-        monitor_port = None
+        socket_port = None
     
     if qemu_process:
         ts = qemu_timestamp()
         print(f"QEMU-HANDLER: [{ts}] CREATED PROCESS: PID {qemu_process.pid}")
         # Create marker IMMEDIATELY to prevent race conditions
         print("🔧 [DEBUG] Creating marker immediately to prevent race...")
-        create_qemu_session_marker(qemu_process, monitor_port)
+        create_qemu_session_marker(qemu_process, None, socket_port)
         ts = qemu_timestamp()
         print(f"QEMU-HANDLER: [{ts}] CREATED MARKER for: {qemu_process.pid}")
         print("QEMU session ready - other tests will reuse this session")
@@ -1669,7 +1670,7 @@ def start_qemu_and_wait_for_boot():
     #                         "imx6q-sabresd.dtb")
     dtb_path = os.path.join(qemu_base, "imx6q-sabresd-with-simtemp.dtb")
     rootfs_path = os.path.join(qemu_base, "rootfs.cpio.gz")
-    
+
     print(f"[DEBUG] QEMU base: {qemu_base}")
     print(f"[DEBUG] Kernel path: {kernel_path}")
     print(f"[DEBUG] DTB path: {dtb_path}")
@@ -1685,7 +1686,7 @@ def start_qemu_and_wait_for_boot():
         else:
             print(f"[DEBUG] Found required file: {file_path}")
     
-    # Find an available port for the monitor
+    # Find an available port for the monitor and socket
     import socket
     def find_free_port():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -1693,9 +1694,11 @@ def start_qemu_and_wait_for_boot():
             return s.getsockname()[1]
     
     monitor_port = find_free_port()
-    print(f"[DEBUG] Using monitor port: {monitor_port}")
+    monitor_port = find_free_port()
+    socket_port = find_free_port()  # Port for direct socket communication
+    print(f"[DEBUG] Using socket port: {socket_port}")
     
-    # Start QEMU process
+    # Start QEMU process with socket serial interface
     qemu_cmd = [
         "qemu-system-arm",
         "-M", "sabrelite",
@@ -1708,9 +1711,9 @@ def start_qemu_and_wait_for_boot():
         "-append",
         "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 "
         "rdinit=/init quiet loglevel=8 initcall_debug printk.time=1",
-        "-monitor", f"telnet:127.0.0.1:{monitor_port},server,nowait",
-        "-netdev", "user,id=net0,hostfwd=tcp::2222-:22,hostfwd=tcp::2323-:23",
-        "-device", "virtio-net-device,netdev=net0",
+        "-monitor", "none",
+        "-chardev", f"socket,id=mysensor,server=on,host=127.0.0.1,port={socket_port}",
+        "-serial", "chardev:mysensor",
         "-no-reboot"
     ]
     
@@ -1789,10 +1792,10 @@ def start_qemu_and_wait_for_boot():
     print("QEMU boot completed - initramfs ready")
     print("Shell prompt available - QEMU ready for platform driver tests")
     print(f"[START_QEMU {call_id}] Returning QEMU process with PID: {qemu_process.pid}")
-    print(f"[START_QEMU {call_id}] Monitor port: {monitor_port}")
+    print(f"[START_QEMU {call_id}] Socket port: {socket_port}")
     
-    # Return both process and monitor port
-    return qemu_process, monitor_port
+    # Return process and socket port (no monitor needed)
+    return qemu_process, socket_port
 
 
 # =============================================================================
