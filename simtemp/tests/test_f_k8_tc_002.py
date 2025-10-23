@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 from test_utils import (SUDO, obj_path, SHELL_PARAMS,
                         get_shared_qemu_session)
-from test_utils import load_module, rmmod_module
+from test_utils import load_module, rm_module
 
 # Import reader modules
 sys.path.append(str(Path(__file__).parent.parent / "user" / "cli"))
@@ -405,7 +405,7 @@ def test_readers_exit_gracefully_on_unload():
         
         # Unload the module while readers are active
         logger.info("Unloading module while readers are active...")
-        rmmod_module()
+        rm_module()
         
         # Give readers time to detect the unload and exit gracefully
         logger.info("Waiting for readers to detect unload and exit gracefully...")

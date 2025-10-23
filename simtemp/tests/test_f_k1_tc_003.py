@@ -13,7 +13,7 @@ import subprocess
 import time
 from test_utils import (SHELL_PARAMS, get_shared_qemu_session,
                         get_module_path_for_context,
-                        load_module, rmmod_module)
+                        load_module, rm_module)
 
 # Test configuration
 MODULE_NAME = "nxp_simtemp"
@@ -55,7 +55,7 @@ def test_f_k1_platform_driver_dt_registration():
         
         # Pre-test cleanup (skip if in QEMU as module may not be available yet)
         if not qemu_process:
-            rmmod_module()
+            rm_module()
         
         # Verify module file exists
         if not os.path.exists(module_path):
@@ -203,7 +203,7 @@ def test_f_k1_platform_driver_dt_registration():
               f"{platform_integration.stdout.strip()}")
         
         # Clean up
-        rmmod_module()
+        rm_module()
         print("\n✓ Module unloaded successfully")
         
         print("\n=== F-K1 Platform Driver Test PASSED ===")

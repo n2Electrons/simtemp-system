@@ -5,7 +5,7 @@ Test cases for kernel driver functionality.
 import os
 import pytest
 import subprocess
-from test_utils import obj_path, is_module_loaded, load_module, rmmod_module
+from test_utils import obj_path, is_module_loaded, load_module, rm_module
 
 # Execute with:
 # python3 -m pytest test_f_k1_tc_001.py -v
@@ -29,7 +29,7 @@ def test_insmod_registers_driver(capsys: pytest.CaptureFixture[str]):
     print(f"Testing module: {module_path}")
     
     # Remove pre-existing module using centralized function
-    rmmod_module()
+    rm_module()
     print("Pre-existing module removed")
     
     # Test 1: modinfo - verify module information
@@ -55,7 +55,7 @@ def test_insmod_registers_driver(capsys: pytest.CaptureFixture[str]):
     print("✓ lsmod: Module found in loaded modules")
     
     # Test 4: rmmod - unload the module
-    if not rmmod_module():
+    if not rm_module():
         pytest.fail("rmmod failed")
     print("✓ rmmod: Module unloaded successfully")
     

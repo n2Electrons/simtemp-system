@@ -5,7 +5,7 @@ import re
 import os
 import pytest
 from test_utils import (SUDO, obj_path, SHELL_PARAMS, load_module,
-                        rmmod_module)
+                        rm_module)
 
 # Execute with:
 # python3 -m pytest test_f_k8_tc_001.py -v
@@ -26,7 +26,7 @@ def test_driver_load_unload(capsys):
     
     # Test 1: rmmod with dmesg check
     subprocess.run(f"{SUDO}dmesg -C", **SHELL_PARAMS)  # Clear dmesg
-    rmmod_module()
+    rm_module()
     
     # Check dmesg after rmmod
     dmesg_after_rmmod = subprocess.run(

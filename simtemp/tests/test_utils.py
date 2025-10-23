@@ -10,6 +10,16 @@ import json
 import time
 from contextlib import contextmanager
 
+# Import unified command executor components
+from test_ucommand_exec import (
+    execute_command,
+    load_module as uexec_load_module,
+    unload_module as uexec_unload_module,
+    is_module_loaded as uexec_is_loaded,
+    set_global_qemu_pid,
+    clear_global_qemu_pid
+)
+
 
 def setup_test_environment():
     """
@@ -801,6 +811,10 @@ def create_qemu_session_marker(qemu_process):
         with open(marker_path, 'w') as f:
             json.dump(marker_data, f, indent=2)
         print(f"Created QEMU session marker: PID {qemu_process.pid}")
+        
+        # Set global QEMU PID in command executor
+        set_global_qemu_pid(qemu_process.pid)
+            
     except IOError as e:
         print(f"Warning: Could not create QEMU session marker: {e}")
 
@@ -903,6 +917,9 @@ def cleanup_qemu_session():
     """Clean up shared QEMU session and remove marker."""
     marker_path = get_qemu_session_marker_path()
     
+    # Clear global QEMU PID first
+    clear_global_qemu_pid()
+    
     # Get process info from marker if it exists
     qemu_pid = None
     if os.path.exists(marker_path):
@@ -947,6 +964,7 @@ def cleanup_qemu_session():
     # Restore terminal state
     restore_terminal()
     print("QEMU session cleanup completed")
+
 
 def start_qemu_and_wait_for_boot():
     """
@@ -1099,54 +1117,18 @@ def send_qemu_command(qemu_process, command, timeout=5):
     Send a command to QEMU process and collect output.
     
     Args:
-        qemu_process: QEMU process handle or MockQemuProcess
+        qemu_process: QEMU process handle (legacy parameter for compatibility)
         command (str): Command to execute
         timeout (int): Timeout in seconds
         
     Returns:
         tuple: (success: bool, output_lines: list)
+        
+    Note: This function now uses the UnifiedCommandExecutor which handles
+    environment detection automatically. The qemu_process parameter is
+    maintained for API compatibility.
     """
-    if qemu_process is None or qemu_process.poll() is not None:
-        return False, ["QEMU process not available"]
-    
-    # Check if this is a MockQemuProcess (shared session without stdin/stdout)
-    if hasattr(qemu_process, 'pid') and not hasattr(qemu_process, 'stdin'):
-        # This is a MockQemuProcess - simulate success for testing
-        print(f"MockQemuProcess detected - simulating command: "
-              f"{command.strip()}")
-        return True, [f"Simulated: {command.strip()}",
-                      "Command completed successfully"]
-    
-    try:
-        # Send command to real QEMU process
-        if not command.endswith('\n'):
-            command += '\n'
-        qemu_process.stdin.write(command)
-        qemu_process.stdin.flush()
-        
-        # Collect output
-        import time
-        output_lines = []
-        start_time = time.time()
-        
-        while time.time() - start_time < timeout:
-            try:
-                line = qemu_process.stdout.readline()
-                if line:
-                    output_lines.append(line.strip())
-                    # Look for command completion indicators
-                    if any(indicator in line for indicator in 
-                           ["# ", "$ ", "root@", "buildroot"]):
-                        break
-                else:
-                    time.sleep(0.1)
-            except Exception:
-                break
-                
-        return True, output_lines
-        
-    except Exception as e:
-        return False, [f"Error executing command: {e}"]
+    return execute_command(command, timeout)
 
 
 # =============================================================================
@@ -1163,17 +1145,7 @@ def is_module_loaded(module_name="nxp_simtemp"):
     Returns:
         bool: True if module is loaded, False otherwise
     """
-    qemu_process = check_qemu_test()
-    
-    if qemu_process:
-        # QEMU mode: use send_qemu_command
-        success, output = send_qemu_command(qemu_process,
-                                           f"lsmod | grep {module_name}")
-        return success and any(module_name in line for line in output)
-    else:
-        # Host mode: use subprocess
-        result = subprocess.run(f"lsmod | grep {module_name}", **SHELL_PARAMS)
-        return result.returncode == 0
+    return uexec_is_loaded(module_name)
 
 
 def load_module(module_name="nxp_simtemp", module_path=None):
@@ -1188,55 +1160,10 @@ def load_module(module_name="nxp_simtemp", module_path=None):
     Returns:
         bool: True if successful, False otherwise
     """
-    # Check if module is already loaded
-    if is_module_loaded(module_name):
-        print(f"Module {module_name} already loaded")
-        return True
-    
-    # Determine module path
-    if module_path is None:
-        # Get module path based on context
-        module_path, context = get_module_path_for_context()
-        print(f"Loading module from: {module_path} ({context})")
-    else:
-        print(f"Loading module from explicit path: {module_path}")
-    
-    qemu_process = check_qemu_test()
-    
-    if qemu_process:
-        # QEMU mode: use send_qemu_command
-        # In QEMU mode, use the QEMU internal path unless explicit path given
-        if module_path and "/tmp/prebuild" not in module_path:
-            # Use QEMU internal path for ARM modules
-            qemu_module_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
-        else:
-            qemu_module_path = module_path
-            
-        command = f"insmod {qemu_module_path}"
-        success, output = send_qemu_command(qemu_process, command)
-        
-        if not success:
-            print(f"QEMU insmod failed: {output}")
-            return False
-            
-        print(f"QEMU insmod successful: {output}")
-        return True
-    else:
-        # Host mode: use subprocess
-        if not os.path.exists(module_path):
-            print(f"Module file not found: {module_path}")
-            return False
-            
-        result = subprocess.run(f"{SUDO}insmod {module_path}", **SHELL_PARAMS)
-        if result.returncode != 0:
-            print(f"Host insmod failed: {result.stderr}")
-            return False
-            
-        print("Host insmod successful")
-        return True
+    return uexec_load_module(module_name, module_path)
 
 
-def rmmod_module(module_name="nxp_simtemp"):
+def rm_module(module_name="nxp_simtemp"):
     """
     Unload a kernel module using rmmod or modprobe -r.
     
@@ -1246,39 +1173,4 @@ def rmmod_module(module_name="nxp_simtemp"):
     Returns:
         bool: True if successful, False otherwise
     """
-    # Check if module is loaded
-    if not is_module_loaded(module_name):
-        print(f"Module {module_name} not loaded")
-        return True
-    
-    qemu_process = check_qemu_test()
-    
-    if qemu_process:
-        # QEMU mode: use send_qemu_command with rmmod
-        command = f"rmmod {module_name}"
-        success, output = send_qemu_command(qemu_process, command)
-        
-        if not success:
-            print(f"QEMU rmmod failed: {output}")
-            return False
-            
-        print(f"QEMU rmmod successful: {output}")
-        return True
-    else:
-        # Host mode: use subprocess with proper dependency handling
-        import platform
-        if platform.machine() in ['x86_64', 'i386', 'i686']:
-            # Use modprobe -r on x86 for better dependency handling
-            result = subprocess.run(f"{SUDO}modprobe -r {module_name}",
-                                    **SHELL_PARAMS)
-        else:
-            # Use rmmod on non-x86 platforms (like ARM)
-            result = subprocess.run(f"{SUDO}rmmod {module_name}",
-                                    **SHELL_PARAMS)
-        
-        if result.returncode != 0:
-            print(f"Host rmmod failed: {result.stderr}")
-            return False
-            
-        print("Host rmmod successful")
-        return True
+    return uexec_unload_module(module_name)
