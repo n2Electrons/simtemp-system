@@ -101,10 +101,10 @@ tests:
     binary_paths_profile: "arm_qemu"
     test_cases:
       - name: "test_basic_qemu_boot"
-        description: "Verifies basic QEMU boot and kernel messages"
+        description: "Boot on QEMU with no errors. Able to reuse QEMU session for further testing"
         enabled: true
-        test_id: "F-K1-TC-002-QEMU"
-        pytest_file: "test_arm_f_k1_tc_002_dtoverlay.py"
+        test_id: "F-K1-TC-002"
+        pytest_file: "test_arm_f_k1_tc_002_boot.py"
         verbose_output: true
       - name: "test_qemu_driver_load_unload"
         description: "Load/unload kernel module in QEMU environment without WARN/OOPS"

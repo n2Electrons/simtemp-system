@@ -703,7 +703,7 @@ def get_module_path_for_context():
     Returns:
         tuple: (module_path: str, context_description: str)
     """
-    qemu_process = get_or_start_shared_qemu_session()
+    qemu_process = get_shared_qemu_session()
     
     if qemu_process:
         # Real QEMU mode: use prebuilt ARM driver from rootfs
@@ -803,28 +803,33 @@ def cleanup_host_module_before_qemu():
     """
     print("🧹 [QEMU Setup] Checking for host nxp_simtemp module...")
     
-    # Check if module is loaded on the host using unified command executor
+    # Use executor with force_host to avoid circular dependency
     try:
-        # Force host execution to check host module status
+        # Check if module is loaded on the host using force_host mode
         success, output = execute_command("lsmod | grep nxp_simtemp",
-                                          timeout=5, force_host=True)
+                                         timeout=5, force_host=True)
         
-        if success and output:
+        if success and output and any(line.strip() for line in output):
             print("⚠️  [QEMU Setup] Found nxp_simtemp loaded on host - "
                   "removing...")
-            print(f"    Host module info: {' '.join(output)}")
+            module_info = ' '.join(line.strip() for line in output
+                                   if line.strip())
+            print(f"    Host module info: {module_info}")
             
-            # Remove module from host using unified command executor
-            unload_success, unload_output = execute_command(
-                f"{SUDO}rmmod nxp_simtemp", timeout=10, force_host=True)
+            # Remove module from host using executor with force_host
+            success, unload_output = execute_command(
+                f"{SUDO}rmmod -f nxp_simtemp",
+                timeout=10, force_host=True)
             
-            if unload_success:
+            if success:
                 print("✅ [QEMU Setup] Host nxp_simtemp module removed "
                       "successfully")
                 return True
             else:
+                error_info = (' '.join(unload_output) if unload_output
+                              else "Unknown error")
                 print(f"❌ [QEMU Setup] Failed to remove host module: "
-                      f"{' '.join(unload_output)}")
+                      f"{error_info}")
                 print("    This might cause conflicts with QEMU ARM testing")
                 return False
         else:
@@ -988,8 +993,17 @@ def get_or_start_shared_qemu_session(force_new=False):
     Returns:
         QEMU process handle or None.
     """
-    print("🔧 [DEBUG] get_or_start_shared_qemu_session() called")
-    print(f"🔧 [DEBUG] force_new={force_new}")
+    import uuid
+    import traceback
+    call_id = str(uuid.uuid4())[:8]
+    print(f"🔧 [GET_QEMU {call_id}] get_or_start_shared_qemu_session() called")
+    print(f"🔧 [GET_QEMU {call_id}] force_new={force_new}")
+    
+    # Print stack trace to see who called this
+    print(f"🔧 [GET_QEMU {call_id}] Call stack:")
+    for i, line in enumerate(traceback.format_stack()[-4:-1]):  # Show last 3 frames
+        print(f"🔧 [GET_QEMU {call_id}]   {i+1}: {line.strip()}")
+    print(f"🔧 [GET_QEMU {call_id}] ────────────────")
     
     # If force_new is True, start a private session
     if force_new:
@@ -1132,17 +1146,19 @@ def start_qemu_and_wait_for_boot():
     """
     import subprocess
     import pytest
+    import uuid
     
-    print("[DEBUG] start_qemu_and_wait_for_boot() called")
+    # Generate unique ID to track this call
+    call_id = str(uuid.uuid4())[:8]
+    print(f"[START_QEMU {call_id}] start_qemu_and_wait_for_boot() called")
     
     # Clean up host module first to prevent conflicts
-    print("[DEBUG] Ensuring host module cleanup before QEMU start...")
+    print(f"[START_QEMU {call_id}] Ensuring host module cleanup before QEMU start...")
     cleanup_host_module_before_qemu()
     
-    # Cleanup any existing QEMU processes first
-    print("[DEBUG] Cleaning up existing QEMU processes...")
-    cleanup_qemu_processes(force_kill=True)
-    print("[DEBUG] Cleanup completed")
+    # Note: No longer cleaning up existing QEMU processes automatically
+    # The session management handles reusing existing sessions
+    print("[DEBUG] Skipping QEMU cleanup - session management handles reuse")
     
     # Get project root directory - handle different environments
     test_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1181,6 +1197,16 @@ def start_qemu_and_wait_for_boot():
         else:
             print(f"[DEBUG] Found required file: {file_path}")
     
+    # Find an available port for the monitor
+    import socket
+    def find_free_port():
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('127.0.0.1', 0))
+            return s.getsockname()[1]
+    
+    monitor_port = find_free_port()
+    print(f"[DEBUG] Using monitor port: {monitor_port}")
+    
     # Start QEMU process
     qemu_cmd = [
         "qemu-system-arm",
@@ -1194,12 +1220,13 @@ def start_qemu_and_wait_for_boot():
         "-append",
         "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 "
         "rdinit=/init quiet loglevel=8 initcall_debug printk.time=1",
+        "-monitor", f"telnet:127.0.0.1:{monitor_port},server,nowait",
         "-no-reboot"
     ]
     
     print("Starting QEMU for platform driver testing...")
     cmd_preview = f"{' '.join(qemu_cmd[:3])}... ({len(qemu_cmd)} args total)"
-    print(f"[DEBUG] QEMU command: {cmd_preview}")
+    print(f"[START_QEMU {call_id}] QEMU command: {cmd_preview}")
     
     try:
         qemu_process = subprocess.Popen(
@@ -1211,7 +1238,7 @@ def start_qemu_and_wait_for_boot():
             bufsize=1,
             universal_newlines=True
         )
-        print(f"[DEBUG] QEMU process started with PID: {qemu_process.pid}")
+        print(f"[START_QEMU {call_id}] QEMU process started with PID: {qemu_process.pid}")
         
         # Small delay to let QEMU initialize
         import time
@@ -1267,7 +1294,7 @@ def start_qemu_and_wait_for_boot():
     
     print("QEMU boot completed - initramfs ready")
     print("Shell prompt available - QEMU ready for platform driver tests")
-    print(f"[DEBUG] Returning QEMU process with PID: {qemu_process.pid}")
+    print(f"[START_QEMU {call_id}] Returning QEMU process with PID: {qemu_process.pid}")
     return qemu_process
 
 

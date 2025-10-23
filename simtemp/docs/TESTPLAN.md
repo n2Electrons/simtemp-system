@@ -66,7 +66,7 @@ All tests are executed after each milestone (M0–M10) in the development roadma
 
 | **#** | **Requirement ID** | **Module / Sub-module** | **Description** | **Test Cases (ID → Expected Result)** |
 |:--:|:--:|:--|:--|:--|
-| **1–2** | F-K1 | Kernel / Driver core | Register as platform driver via DT or local device. | • **F-K1-TC-001** → `insmod` registers driver; sysfs entries created.<br>• **F-K1-TC-002** → DT overlay binds driver; properties parsed with no errors. |
+| **1–2** | F-K1 | Kernel / Driver core | Register as platform driver via DT or local device. | • **F-K1-TC-001** → `insmod` registers driver; sysfs entries created.<br>• **F-K1-TC-002** → Boot on QEMU with no errors. Able to reuse QEMU session for further testing. |
 | **3–4** | F-K2 | Kernel / Sampler | Generate periodic samples every N ms. | • **F-K2-TC-001** → Sampling jitter ≤ ±10 %.<br>• **F-K2-TC-002** → Updating `sampling_ms` changes rate ≤ 2 periods. |
 | **5–7** | F-K3 | Kernel / Char device | Expose `/dev/simtemp` binary records. | • **F-K3-TC-001** → Node exists with correct permissions.<br>• **F-K3-TC-002** → `read()` returns full struct.<br>• **F-K3-TC-003** → Non-blocking read returns `-EAGAIN`. |
 | **8–10** | F-K4 | Kernel / I/O | Support blocking read and poll/epoll. | • **F-K4-TC-001** → `read()` blocks until next sample.<br>• **F-K4-TC-002** → `poll()` signals `POLLIN`.<br>• **F-K4-TC-003** → `poll()` wakes on threshold event. |
