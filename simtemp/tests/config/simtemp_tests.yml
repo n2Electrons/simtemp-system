@@ -15,6 +15,15 @@
 # Test Suite Optional Fields:
 #   - use_precompiled_driver: bool     # Use pre-built driver binary
 #   - precompiled_path: str            # Path to pre-built driver
+#   - binary_paths: dict               # Binary paths configuration (see below)
+#
+# Binary Paths Configuration:
+#   binary_paths:
+#     kernel: str                      # Path to kernel image (zImage, vmlinuz, etc.)
+#     rootfs: str                      # Path to root filesystem image
+#     dtb: str                         # Path to Device Tree Blob
+#     driver: str                      # Path to kernel driver module (.ko)
+#     qemu_script: str                 # Path to QEMU launcher script (optional)
 #
 # Test Case Required Fields:
 #   - name: str              # Test function name
@@ -33,6 +42,18 @@ global:
   timeout_seconds: 60
   fail_fast: true
 
+# Default binary paths (can be overridden per test suite)
+default_binary_paths:
+  x86:
+    driver: "simtemp/kernel/obj/nxp_simtemp.ko"
+    # rootfs and dtb not typically used for x86 host testing
+  arm_qemu:
+    kernel: "deployment/qemu/linux-build-imx/arch/arm/boot/zImage"
+    rootfs: "deployment/qemu/rootfs/rootfs.ext4"
+    dtb: "deployment/qemu/imx6q-sabresd-with-simtemp.dtb"
+    driver: "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"  # NOTE: Currently uses precompiled driver for CI/CD
+    qemu_script: "deployment/qemu/scripts/start_qemu_and_wait_for_boot.sh"
+
 # GitHub issue mappings (populated by automation)
 github_issue_mappings: {}
 
@@ -42,6 +63,8 @@ tests:
     enabled: true
     repository: "n2Electrons-Infra"
     description: "Tests for the Temperature Simulator Driver (Infrastructure)"
+    # Uses default_binary_paths.x86 automatically for x86 host tests
+    binary_paths_profile: "x86"  # Reference to default_binary_paths.x86
     test_cases:
       - name: "test_insmod_registers_driver"
         description: "Verifies driver registration via insmod"
@@ -54,6 +77,7 @@ tests:
     enabled: true
     repository: "simtemp-system"
     description: "Extended Tests for the Temperature Simulator Driver"
+    binary_paths_profile: "x86"  # Reference to default_binary_paths.x86
     test_cases:
       - name: "test_driver_load_unload"
         description: "Load/unload kernel module without WARN/OOPS"
@@ -78,6 +102,7 @@ tests:
     enabled: true
     repository: "simtemp-system"
     description: "QEMU i.MX6 Integration Tests for Jenkins CI/CD"
+    binary_paths_profile: "arm_qemu"  # Reference to default_binary_paths.arm_qemu
     use_precompiled_driver: true
     precompiled_path: "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
     test_cases:
