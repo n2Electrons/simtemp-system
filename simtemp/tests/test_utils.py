@@ -676,6 +676,9 @@ def check_qemu_test():
     Check if this test should run in QEMU mode and manage shared QEMU session.
     Returns the QEMU process handle if QEMU is started/running, None otherwise.
     
+    Uses introspection to detect the current test being executed and match it
+    with the appropriate test_id from configuration.
+    
     Uses shared QEMU session management:
     - First test starts QEMU and creates session marker
     - Subsequent tests reuse existing QEMU session
@@ -683,6 +686,28 @@ def check_qemu_test():
     """
     try:
         import yaml
+        import inspect
+        
+        # Use introspection to detect current test
+        current_test_file = None
+        current_test_function = None
+        
+        for frame in inspect.stack():
+            frame_filename = frame.filename
+            frame_function = frame.function
+            
+            # Look for test files and test functions
+            if ('test_' in frame_filename and 
+                frame_filename.endswith('.py') and
+                frame_function.startswith('test_')):
+                current_test_file = os.path.basename(frame_filename)
+                current_test_function = frame_function
+                break
+        
+        if not current_test_file:
+            return None
+            
+        print(f"🔍 [DEBUG] Detected test: {current_test_file}::{current_test_function}")
         
         # Check for QEMU integration test configuration
         config_path = os.environ.get('TEST_CONFIG_PATH',
@@ -698,18 +723,25 @@ def check_qemu_test():
         if not qemu_tests.get('enabled', False):
             return None
             
-        # Check if ANY QEMU test is enabled with qemu_specific config
+        # Find the specific test case that matches current test
         test_cases = qemu_tests.get('test_cases', [])
         for test_case in test_cases:
+            pytest_file = test_case.get('pytest_file', '')
             test_id = test_case.get('test_id', '')
-            if (test_case.get('enabled', False) and
+            
+            # Match by pytest file name
+            if (pytest_file == current_test_file and 
+                test_case.get('enabled', False) and
                 ('QEMU' in test_id or test_case.get('qemu_specific', {}).get('expects_boot', False))):
-                # QEMU mode detected - check for shared session
+                # QEMU mode detected for specific test
                 print(f"\n=== QEMU Mode Detected for {test_id} ===")
+                print(f"    Test file: {current_test_file}")
+                print(f"    Test function: {current_test_function}")
                 return get_or_start_shared_qemu_session()
                 
         return None
-    except Exception:
+    except Exception as e:
+        print(f"🔍 [DEBUG] Error in check_qemu_test(): {e}")
         return None
 
 
