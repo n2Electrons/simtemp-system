@@ -8,7 +8,7 @@ Device Tree Blob driver binding tests for the simtemp driver.
 import subprocess
 import os
 import pytest
-from test_utils import get_shared_qemu_session
+from test_utils import get_shared_qemu_session, show_qemu_recovery_info
 
 
 def test_dtb_overlay_exists():
@@ -18,6 +18,9 @@ def test_dtb_overlay_exists():
     # This test is designed for QEMU ARM environment only
     if not qemu_process:
         pytest.skip("DTB tests require QEMU ARM environment")
+
+    # Show standardized QEMU recovery banner
+    show_qemu_recovery_info(qemu_process, "DTB OVERLAY EXISTS TEST")
     
     test_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(test_dir))
@@ -63,7 +66,7 @@ def test_dtb_driver_binding_and_functionality():
     QEMU only - tests DTB driver binding, property parsing, and functionality
     """
     # Import test utilities
-    from test_utils import get_driver_path, execute_command, get_qemu_communication_info
+    from test_utils import get_driver_path, execute_command
 
     # Test 1: DTB driver binding
     qemu_process = get_shared_qemu_session()
@@ -72,27 +75,8 @@ def test_dtb_driver_binding_and_functionality():
     if not qemu_process:
         pytest.skip("DTB tests require QEMU ARM environment")
 
-    # Banner verde para QEMU con sesión reutilizada
-    print("\033[92m" + "="*80)
-    print("QEMU ARM ENVIRONMENT DETECTED - REUSING SHARED SESSION")
-    pid_info = qemu_process.pid if hasattr(qemu_process, 'pid') else 'N/A'
-    print(f"QEMU PID: {pid_info}")
-    print("PREVIOUS QEMU INSTANCE SUCCESSFULLY RECOVERED")
-
-    # Verificar que estamos en QEMU ARM ejecutando uname
-    success, uname_output = execute_command("uname -a", timeout=5)
-    if success and uname_output:
-        print(f" SYSTEM: {' '.join(uname_output)}")
-
-    success, kernel_output = execute_command("uname -r", timeout=5)
-    if success and kernel_output:
-        print(f"RUNNING {' '.join(kernel_output)}")
-        
-    # Mostrar información de comunicación
-    comm_info = get_qemu_communication_info()
-    print(f"Communication: {comm_info}")
-
-    print("="*80 + "\033[0m")
+    # Show standardized QEMU recovery banner
+    show_qemu_recovery_info(qemu_process, "DTB DRIVER BINDING TEST")
 
     print("DTB test - loading driver and validating binding")
     

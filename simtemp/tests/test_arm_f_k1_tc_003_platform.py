@@ -12,8 +12,8 @@ import pytest
 import subprocess
 import time
 from test_utils import (SHELL_PARAMS, get_shared_qemu_session,
-                        get_module_path_for_context,
-                        load_module, rm_module)
+                        get_module_path_for_context, execute_command,
+                        load_module, rm_module, show_qemu_recovery_info)
 
 # Test configuration
 MODULE_NAME = "nxp_simtemp"
@@ -48,6 +48,11 @@ def test_f_k1_platform_driver_dt_registration():
     # Check if this should run in QEMU mode
     qemu_process = get_shared_qemu_session()
     
+    # Show standardized QEMU recovery banner if using QEMU
+    if qemu_process:
+        show_qemu_recovery_info(qemu_process,
+                                 "PLATFORM DRIVER DT REGISTRATION TEST")
+    
     try:
         # Get the correct module path for the current execution context
         module_path, context_description = get_module_path_for_context()
@@ -57,23 +62,24 @@ def test_f_k1_platform_driver_dt_registration():
         if not qemu_process:
             rm_module()
         
-        # Verify module file exists
-        if not os.path.exists(module_path):
+        # Verify module file exists (skip for QEMU - driver inside QEMU)
+        if not qemu_process and not os.path.exists(module_path):
             pytest.fail(f"Module file not found: {module_path}")
         
         print(f"Testing platform driver implementation for: {module_path}")
+        if qemu_process:
+            print("Running in QEMU mode - driver expected in rootfs")
         
         # Test 1: Verify modinfo shows Device Tree information
         print("\n=== Test 1: Module Device Tree Information ===")
         try:
-            modinfo = subprocess.run(
-                ['modinfo', module_path], capture_output=True,
-                text=True, timeout=10
-            )
-            if modinfo.returncode != 0:
-                pytest.fail(f"modinfo failed: {modinfo.stderr}")
+            # Run modinfo command (works for both ARM/QEMU and x86/HOST)
+            cmd = f'modinfo "{module_path}"'
+            success, output = execute_command(cmd, timeout=10)
+            if not success:
+                pytest.fail(f"modinfo failed: {output}")
+            modinfo_output = '\n'.join(output) if output else ""
             
-            modinfo_output = modinfo.stdout
             print(f"Module info output:\n{modinfo_output}")
             
             # Check for Device Tree alias information

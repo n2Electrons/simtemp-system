@@ -79,11 +79,82 @@ def is_running_in_privileged_container():
     return False
 
 
+def show_qemu_recovery_info(qemu_process, test_name):
+    """
+    Show QEMU recovery banner ONLY for ARM tests.
+    x86 tests never show banners since they don't need recovery.
+    
+    Args:
+        qemu_process: QEMU process handle
+        test_name: Descriptive name for the test
+    """
+    # Method 1: Check pytest environment variable
+    current_test = os.environ.get('PYTEST_CURRENT_TEST', '')
+    current_test_file = None
+    
+    if current_test and '::' in current_test:
+        # Extract test file name from pytest environment
+        test_file = current_test.split('::')[0]
+        current_test_file = os.path.basename(test_file)
+    else:
+        # Method 2: Fallback to introspection
+        import inspect
+        for frame in inspect.stack():
+            frame_filename = frame.filename
+            if ('test_' in frame_filename and
+                    frame_filename.endswith('.py')):
+                current_test_file = os.path.basename(frame_filename)
+                break
+    
+    # Only show banner for ARM tests
+    if not (current_test_file and current_test_file.startswith('test_arm_')):
+        return  # Silent return for x86 tests
+    
+    if not qemu_process:
+        return  # No QEMU, no banner needed
+    
+    # Get communication info
+    comm_info = get_qemu_communication_info()
+    
+    # Get system info from QEMU
+    try:
+        success, output = execute_command("uname -a", timeout=5)
+        if success and output:
+            system_info = ' '.join(output)
+        else:
+            system_info = "System info unavailable"
+            
+        success, output = execute_command("uname -r", timeout=5)
+        if success and output:
+            kernel_version = ' '.join(output)
+        else:
+            kernel_version = "Unknown"
+    except Exception:
+        system_info = "System info unavailable"
+        kernel_version = "Unknown"
+    
+    # Display banner with green colors for ARM tests
+    GREEN = '\033[92m'
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+    
+    print(f"{GREEN}{'=' * 80}{RESET}")
+    print(f"{GREEN}{BOLD}QEMU ARM ENVIRONMENT DETECTED - {test_name}{RESET}")
+    print(f"{GREEN}QEMU PID: {qemu_process.pid}{RESET}")
+    print(f"{GREEN}{BOLD}PREVIOUS QEMU INSTANCE SUCCESSFULLY RECOVERED{RESET}")
+    print(f"{GREEN} SYSTEM: {system_info}{RESET}")
+    print(f"{GREEN}RUNNING {kernel_version}{RESET}")
+    print(f"{GREEN}Communication: EMULATED via {comm_info}{RESET}")
+    print(f"{GREEN}{'=' * 80}{RESET}")
+
+
 def get_qemu_communication_info():
     """Get QEMU communication method information."""
     try:
         from test_ucommand_exec import command_executor
-        if command_executor.qemu_executor and hasattr(command_executor.qemu_executor, 'get_communication_info'):
+        if (command_executor.qemu_executor and
+                hasattr(command_executor.qemu_executor,
+                        'get_communication_info')):
             return command_executor.qemu_executor.get_communication_info()
     except Exception:
         pass
@@ -627,49 +698,21 @@ def list_qemu_binaries(qemu_dir_path=None):
 
 def get_module_path_for_context():
     """
-    Determine the correct module path based on test suite configuration first,
-    then execution context if no explicit configuration.
-
+    Get the module path based on environment configuration.
+    
     Returns:
         tuple: (module_path: str, context_description: str)
-               module_path is the absolute path to the kernel module
-               context_description is a human-readable description
     """
-    # First priority: Check test suite configuration
-    config = load_test_config()
-    
-    # Look for enabled suites and use their configured profile
-    for suite_name, suite_config in config.get('tests', {}).items():
-        if not suite_config.get('enabled', False):
-            continue
-            
-        profile = suite_config.get('binary_paths_profile')
-        if profile == 'x86':
-            # Use x86 profile - always compiled driver
-            test_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(test_dir)
-            driver_path = os.path.join(project_root,
-                                       'kernel/obj/nxp_simtemp.ko')
-            context = "Using x86 profile (compiled driver)"
-            return driver_path, context
-        elif profile == 'arm_qemu':
-            # Use ARM QEMU profile - start QEMU and use precompiled
-            qemu_process = get_or_start_shared_qemu_session()
-            driver_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
-            context = "Using arm_qemu profile (precompiled driver)"
-            return driver_path, context
-    
-    # Fallback: Use legacy auto-detection based on QEMU presence
     qemu_process = get_or_start_shared_qemu_session()
     
     if qemu_process:
         # Real QEMU mode: use prebuilt ARM driver from rootfs
         module_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
-        context = "QEMU mode - ARM prebuilt driver (auto-detected)"
+        context = "QEMU mode - ARM prebuilt driver"
     else:
         # In host/Docker/Jenkins mode: use locally compiled driver
         module_path = os.path.join(get_obj_path(), "nxp_simtemp.ko")
-        context = "Host mode - local compiled driver (auto-detected)"
+        context = "Host mode - local compiled driver"
     
     return module_path, context
 
