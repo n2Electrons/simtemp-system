@@ -38,15 +38,18 @@ def insmod_module(module_path=None):
         # Determine appropriate driver path based on test environment
         qemu_process = get_shared_qemu_session()
         if qemu_process:
-            # For QEMU tests, use driver path that considers precompiled configuration
+            # For QEMU tests, since commands run on host but we want QEMU module,
+            # use the host path to the QEMU rootfs module
+            print("QEMU environment detected - using host path to QEMU module")
             module_path = get_driver_path('qemu_integration')
-            print(f"Testing platform driver implementation for: {module_path}")
         else:
             # Use default compiled path for host tests
             module_path = os.path.join(obj_path, "nxp_simtemp.ko")
     
+    print(f"Testing platform driver implementation for: {module_path}")
     result = subprocess.run(f"{SUDO}insmod {module_path}", **SHELL_PARAMS)
     if result.returncode != 0:
+        print("Module failed to load")
         pytest.fail(f"insmod failed: {result.stderr}")
     return result
 
