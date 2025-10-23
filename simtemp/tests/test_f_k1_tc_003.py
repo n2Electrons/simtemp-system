@@ -11,8 +11,9 @@ import os
 import pytest
 import subprocess
 import time
-from test_utils import (SUDO, obj_path, SHELL_PARAMS, get_shared_qemu_session,
-                        get_driver_path, get_module_path_for_context)
+from test_utils import (SHELL_PARAMS, get_shared_qemu_session,
+                        get_module_path_for_context,
+                        load_module, rmmod_module)
 
 # Test configuration
 MODULE_NAME = "nxp_simtemp"
@@ -21,47 +22,6 @@ EXPECTED_COMPATIBLE_STRINGS = [
     "simtemp,temperature-sensor-overlay"
 ]
 EXPECTED_DRIVER_NAME = "nxp-simtemp"
-
-
-def is_module_loaded():
-    """Check if nxp_simtemp module is currently loaded"""
-    result = subprocess.run("lsmod | grep nxp_simtemp", **SHELL_PARAMS)
-    return result.returncode == 0
-
-
-def insmod_module(module_path=None):
-    """Load the nxp_simtemp kernel module"""
-    if is_module_loaded():
-        return  # Module already loaded
-    
-    if module_path is None:
-        # Determine appropriate driver path based on test environment
-        qemu_process = get_shared_qemu_session()
-        if qemu_process:
-            # For QEMU tests, since commands run on host but we want QEMU module,
-            # use the host path to the QEMU rootfs module
-            print("QEMU environment detected - using host path to QEMU module")
-            module_path = get_driver_path('qemu_integration')
-        else:
-            # Use default compiled path for host tests
-            module_path = os.path.join(obj_path, "nxp_simtemp.ko")
-    
-    print(f"Testing platform driver implementation for: {module_path}")
-    result = subprocess.run(f"{SUDO}insmod {module_path}", **SHELL_PARAMS)
-    if result.returncode != 0:
-        print("Module failed to load")
-        pytest.fail(f"insmod failed: {result.stderr}")
-    return result
-
-
-def rmmod_module():
-    """Unload the nxp_simtemp kernel module"""
-    if not is_module_loaded():
-        return  # Module not loaded
-    result = subprocess.run(f"{SUDO}rmmod nxp_simtemp", **SHELL_PARAMS)
-    if result.returncode != 0:
-        pytest.fail(f"rmmod failed: {result.stderr}")
-    return result
 
 
 def test_f_k1_platform_driver_dt_registration():
@@ -146,7 +106,7 @@ def test_f_k1_platform_driver_dt_registration():
         
         # Test 2: Load module and verify platform driver registration
         print("\n=== Test 2: Platform Driver Registration ===")
-        insmod_module(module_path)
+        load_module(module_path=module_path)
         
         # Wait for driver registration to complete
         time.sleep(1)

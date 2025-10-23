@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 from test_utils import (SUDO, obj_path, SHELL_PARAMS,
                         get_shared_qemu_session)
-from test_f_k1_tc_001 import insmod_module, rmmod_module
+from test_utils import load_module, rmmod_module
 
 # Import reader modules
 sys.path.append(str(Path(__file__).parent.parent / "user" / "cli"))
@@ -366,7 +366,7 @@ def test_readers_exit_gracefully_on_unload():
     
     # Load the module
     logger.info("Loading nxp_simtemp module...")
-    insmod_module()
+    load_module()
     
     # Find actual sysfs paths for the driver
     sysfs_paths = []
@@ -485,7 +485,7 @@ def test_readers_exit_gracefully_on_unload():
         # Clean up: reload module for subsequent tests
         try:
             logger.info("Reloading module for subsequent tests...")
-            insmod_module()
+            load_module()
         except Exception as e:
             logger.warning(f"Failed to reload module: {e}")
         if qemu_process:

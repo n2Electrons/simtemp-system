@@ -4,13 +4,14 @@ import subprocess
 import re
 import os
 import pytest
-from test_utils import SUDO, obj_path, SHELL_PARAMS
-from test_f_k1_tc_001 import insmod_module, rmmod_module
+from test_utils import (SUDO, obj_path, SHELL_PARAMS, load_module,
+                        rmmod_module)
 
 # Execute with:
 # python3 -m pytest test_f_k8_tc_001.py -v
 # or
 # python3 -m pytest test_f_k8_tc_001.py -v -s
+
 
 def test_driver_load_unload(capsys):
     """F-K8-TC-001: Load/unload kernel module without WARN/OOPS"""
@@ -21,7 +22,7 @@ def test_driver_load_unload(capsys):
         pytest.fail(f"Module file not found: {module_path}")
     
     # Ensure module is loaded first
-    insmod_module()
+    load_module()
     
     # Test 1: rmmod with dmesg check
     subprocess.run(f"{SUDO}dmesg -C", **SHELL_PARAMS)  # Clear dmesg
@@ -42,7 +43,7 @@ def test_driver_load_unload(capsys):
     
     # Test 2: insmod with dmesg check
     subprocess.run(f"{SUDO}dmesg -C", **SHELL_PARAMS)  # Clear dmesg
-    insmod_module()
+    load_module()
     
     # Check dmesg after insmod
     dmesg_after_insmod = subprocess.run(
