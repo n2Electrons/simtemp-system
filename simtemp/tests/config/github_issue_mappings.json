@@ -18,6 +18,7 @@
   "f-k8-tc-001-improve": 10,
   "f-k8-tc-001-loadunload": 7,
   "f-k8-tc-002-dtb-drv-bind": 21,
+  "f-u1-user-space-cli-config": 24,
   "fix-jenkins-tests": 6,
   "req-trigger-jenkins": 5
 }

@@ -2,7 +2,24 @@
 mount -t proc     proc /proc
 mount -t sysfs    sysfs /sys
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs -o mode=0755 none /dev
-[ -c /dev/console ] || mknod -m 600 /dev/console c 5 1
-[ -c /dev/null ]    || mknod -m 666 /dev/null    c 1 3
+
 echo "=== initramfs ready ==="
-exec setsid /bin/sh </dev/console >/dev/console 2>&1
+
+# Configure network interface
+ifconfig lo 127.0.0.1 up
+ifconfig eth0 up
+
+# Start telnetd on port 23 for SSH alternative access
+if command -v telnetd >/dev/null 2>&1; then
+    telnetd -p 23 -l /bin/sh
+    echo "telnetd started on port 23"
+fi
+
+# Requires BusyBox cttyhack applet for a proper controlling TTY
+if command -v cttyhack >/dev/null 2>&1; then
+  exec /bin/cttyhack /bin/sh
+else
+  [ -c /dev/console ] || mknod -m 600 /dev/console c 5 1
+  [ -c /dev/null ]    || mknod -m 666 /dev/null    c 1 3
+  exec setsid /bin/sh </dev/console >/dev/console 2>&1
+fi

@@ -1118,6 +1118,14 @@ def create_qemu_session_marker(qemu_process, monitor_port=None):
         marker_data['monitor_port'] = monitor_port
         marker_data['monitor_address'] = f"127.0.0.1:{monitor_port}"
     
+    # Add SSH port (fixed to 2222 for SSH forwarding)
+    marker_data['ssh_port'] = 2222
+    marker_data['ssh_address'] = "127.0.0.1:2222"
+    
+    # Add Telnet port (fixed to 2323 for telnet forwarding)
+    marker_data['telnet_port'] = 2323
+    marker_data['telnet_address'] = "127.0.0.1:2323"
+    
     try:
         with open(marker_path, 'w') as f:
             json.dump(marker_data, f, indent=2)
@@ -1701,6 +1709,8 @@ def start_qemu_and_wait_for_boot():
         "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 "
         "rdinit=/init quiet loglevel=8 initcall_debug printk.time=1",
         "-monitor", f"telnet:127.0.0.1:{monitor_port},server,nowait",
+        "-netdev", "user,id=net0,hostfwd=tcp::2222-:22,hostfwd=tcp::2323-:23",
+        "-device", "virtio-net-device,netdev=net0",
         "-no-reboot"
     ]
     

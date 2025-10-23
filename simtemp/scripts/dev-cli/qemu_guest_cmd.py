@@ -32,9 +32,9 @@ tests_dir = os.path.join(simtemp_dir, 'tests')  # simtemp/tests/
 sys.path.insert(0, tests_dir)
 
 try:
-    import test_utils
+    from test_ucommand_exec import execute_command, set_global_qemu_pid, QemuSshCommandExecutor
 except ImportError as e:
-    print(f"Error: Could not import test_utils: {e}")
+    print(f"Error: Could not import test_ucommand_exec: {e}")
     print("Make sure to run this script from simtemp-system project directory")
     sys.exit(1)
 
@@ -102,12 +102,12 @@ def execute_guest_command(pid: int, command: str, timeout: int = 10):
         return False, []
     
     # Set global PID in test_utils to use correct session
-    test_utils.set_global_qemu_pid(pid)
+    set_global_qemu_pid(pid)
     
     print(f"Executing command in guest (PID {pid}): {command}")
     
     try:
-        success, output = test_utils.execute_command(command, timeout)
+        success, output = execute_command(command, timeout)
         return success, output
     except Exception as e:
         print(f"Error executing command: {e}")
@@ -144,7 +144,7 @@ def interactive_guest_shell(pid: int):
     print()
     
     # Set global PID
-    test_utils.set_global_qemu_pid(pid)
+    set_global_qemu_pid(pid)
     
     try:
         while True:
@@ -157,7 +157,7 @@ def interactive_guest_shell(pid: int):
                 if not command:
                     continue
                 
-                success, output = test_utils.execute_command(command, timeout=15)
+                success, output = execute_command(command, timeout=15)
                 
                 if success:
                     for line in output:
