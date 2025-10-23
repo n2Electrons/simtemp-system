@@ -26,12 +26,10 @@ def test_dtb_overlay_exists():
     overlay_dtbo = os.path.join(overlay_dir, 'nxp-simtemp-overlay.dtbo')
     
     # Check if DTS source file exists
-    print(f"Checking path exist: {overlay_dts}")
     assert os.path.exists(overlay_dts), \
         f"DTB source file should exist at {overlay_dts}"
     
     # Compile DTBO if it doesn't exist
-    print(f"Checking path exist: {overlay_dtbo}")
     if not os.path.exists(overlay_dtbo):
         print("DTB overlay not found - compiling from DTS source...")
         try:
@@ -47,7 +45,6 @@ def test_dtb_overlay_exists():
             pytest.skip("Device Tree Compiler (dtc) not available")
     try:
         # Verify DTBO file exists and is valid
-        print(f"Checking path exist: {overlay_dtbo}")
         assert os.path.exists(overlay_dtbo), \
             f"DTB overlay should exist at {overlay_dtbo}"
         
@@ -85,7 +82,6 @@ def test_dtb_driver_binding_and_functionality():
     try:
         dt_path = "/proc/device-tree/simtemp"
         
-        print(f"Checking path exist: {dt_path}")
         if os.path.exists(dt_path):
             print("DTB system detected")
             # Real device tree system (ARM/QEMU)
@@ -108,7 +104,6 @@ def test_dtb_driver_binding_and_functionality():
                 project_root, 'deployment', 'qemu', 'rootfs',
                 'tmp', 'prebuild', 'simtemp-driver', 'nxp_simtemp.ko')
             
-            print(f"Checking path exist: {module_path}")
             if os.path.exists(module_path):
                 print("Non-DTB system detected - checking module aliases")
                 try:
@@ -127,12 +122,11 @@ def test_dtb_driver_binding_and_functionality():
                        "/sys/devices/platform/simtemp@0"]    # Alternative DTB
         
         for path in sysfs_paths:
-            print(f"Checking path exist: {path}")
             if os.path.exists(path):
                 print("Found simtemp sysfs path")
                 for prop in ['sampling_ms', 'threshold_mC', 'mode']:
                     prop_file = os.path.join(path, prop)
-                    print(f"Checking path exist: {prop_file}")
+                    print(f"Checking prop_file exist: {prop_file}")
                     if os.path.exists(prop_file):
                         print(f"Found simtemp sysfs property: {prop}")
                         properties_found = True
@@ -142,7 +136,7 @@ def test_dtb_driver_binding_and_functionality():
         device_file = "/sys/devices/platform/simtemp"
         functionality_working = False
         
-        print(f"Checking path exist: {device_file}")
+
         if os.path.exists(device_file):
             print("Found simtemp device file")
             try:

@@ -133,3 +133,14 @@ exec qemu-system-arm \
     -initrd "$ROOTFS_PATH" \
     -append "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 rdinit=/init quiet loglevel=8 initcall_debug printk.time=1" \
     -no-reboot
+
+# Informative:
+#                  -monitor telnet:127.0.0.1:45455,server,nowait
+
+#                modprobe.blacklist=mxc_v4l2_output,imx-ipuv3,imx6q-vdoa,imx-vpu,imxdrm,imx-hdmi, \
+#                galcore,max8903_driver,max8903,max11801_ts,max11801,pfuze100,pfuze100-regulator, \
+#                max8903_charger,max8903-charger,pfuze100_regulator,pfuze-regulator" \
+
+# To avoid annoying messages, need to unbind
+# echo 1-0048 > /sys/bus/i2c/drivers/max11801_ts/unbind
+# echo 3 > /proc/sys/kernel/printk

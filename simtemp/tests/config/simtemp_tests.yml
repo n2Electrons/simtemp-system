@@ -162,7 +162,7 @@ tests:
           validation_patterns: ["nxp-simtemp-overlay.dtbo"]
           required_tools: ["dtc"]
 
-      - name: "test_dtb_driver_binding"
+      - name: "test_dtb_driver_binding_and_functionality"
         description: "DTB / test_dtb_driver_binding() - Verifies DTB driver binding compatibility"
         enabled: true
         test_id: "F-K8-TC-003-QEMU-2"
