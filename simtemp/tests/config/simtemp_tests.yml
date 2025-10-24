@@ -99,6 +99,18 @@ tests:
         test_id: "F-K3-TC-001"
         pytest_file: "test_x86_f_k3_simple.py"
         verbose_output: false
+      - name: "test_alert_within_2_periods"
+        description: "Alert within ≤ 2 periods; stats.alerts++"
+        enabled: true
+        test_id: "F-K5-TC-001"
+        pytest_file: "test_x86_f_k5_tc_001_alert.py"
+        verbose_output: true
+      - name: "test_no_alert_when_threshold_greater"
+        description: "No alert when threshold > value"
+        enabled: true
+        test_id: "F-K5-TC-002"
+        pytest_file: "test_x86_f_k5_tc_001_alert.py"
+        verbose_output: true
 
   qemu_integration:
     enabled: true

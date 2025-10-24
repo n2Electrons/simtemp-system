@@ -5,7 +5,8 @@ import re
 import os
 import time
 import pytest
-from test_utils import SUDO, obj_path, SHELL_PARAMS
+from test_utils import (SUDO, obj_path, SHELL_PARAMS, 
+                       load_simtemp_modules, unload_simtemp_modules)
 
 # Execute with:
 # python3 -m pytest test_x86_f_k8_tc_001_loadunload.py -v
@@ -124,6 +125,7 @@ def unload_simtemp_modules():
     return success
 
 
+@pytest.mark.order(13)
 def test_driver_load_unload_clean_sequence(capsys):
     """F-K8-TC-001: Clean load/unload sequence"""
     
@@ -204,6 +206,7 @@ def test_driver_load_unload_clean_sequence(capsys):
     print("✓ Reloaded")
 
 
+@pytest.mark.order(50)
 def test_driver_load_unload_stress(capsys):
     """F-K8-TC-001-STRESS: Stress test for load/unload"""
     

@@ -6,6 +6,7 @@ import pytest
 from test_utils import load_simtemp_modules, unload_simtemp_modules
 
 
+@pytest.mark.order(21)
 def test_device_node_exists():
     """F-K3-TC-001: Node exists"""
     

@@ -351,6 +351,7 @@ class ReaderProcessManager:
         return summary
 
 
+@pytest.mark.order(30)
 def test_readers_exit_gracefully_on_unload():
     """F-K8-TC-002: Readers exit gracefully on unload."""
     # Check if this should run in QEMU mode

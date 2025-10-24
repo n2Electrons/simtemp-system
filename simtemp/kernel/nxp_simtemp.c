@@ -24,6 +24,8 @@
 #include <linux/wait.h>
 #include <linux/poll.h>
 
+#include "nxp_simtemp.h"
+
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Jorge Rodriguez Moreno");
 MODULE_DESCRIPTION("Temperature Simulator Driver with Clean Load/Unload Support");
@@ -37,52 +39,6 @@ MODULE_SOFTDEP("pre: nxp_simtemp_stub");
 #define DRIVER_NAME "nxp-simtemp"
 #define DEVICE_NAME "simtemp"
 #define CLASS_NAME "simtemp_class"
-
-/**
- * struct simtemp_record - Binary temperature record
- * @timestamp: Timestamp in jiffies
- * @temperature: Temperature in milliCelsius
- * @status: Status flags
- * @reserved: Reserved for future use
- */
-struct simtemp_record {
-	u64 timestamp;
-	s32 temperature;
-	u32 status;
-	u32 reserved;
-};
-
-/**
- * struct nxp_simtemp_data - Private data structure
- * @dev: Device pointer
- * @pdev: Platform device pointer
- * @cdev: Character device
- * @device: Device class device
- * @class: Device class
- * @devt: Device number
- * @mutex: Mutex for thread safety
- * @temperature: Current simulated temperature
- * @sampling_ms: Sampling interval in milliseconds
- * @threshold_mC: Temperature threshold in milliCelsius
- * @mode: Operating mode string
- * @is_open: Device open flag
- * @record: Current temperature record
- */
-struct nxp_simtemp_data {
-	struct device *dev;
-	struct platform_device *pdev;
-	struct cdev cdev;
-	struct device *device;
-	struct class *class;
-	dev_t devt;
-	struct mutex mutex;
-	int temperature;
-	u32 sampling_ms;
-	u32 threshold_mC;
-	const char *mode;
-	int is_open;
-	struct simtemp_record record;
-};
 
 /**
  * Sysfs show functions with safety checks
@@ -126,16 +82,33 @@ static ssize_t mode_show(struct device *dev,
 	return sprintf(buf, "%s\n", data->mode);
 }
 
+static ssize_t stats_show(struct device *dev,
+			  struct device_attribute *attr, char *buf)
+{
+	struct nxp_simtemp_data *data = dev_get_drvdata(dev);
+	
+	if (!data) {
+		dev_warn(dev, "Device data not available\n");
+		return -ENODEV;
+	}
+	
+	return sprintf(buf, "alerts: %u\ntemperature: %d\nsampling_ms: %u\nthreshold_mC: %u\n",
+		       data->alert_count, data->temperature * 1000, 
+		       data->sampling_ms, data->threshold_mC);
+}
+
 /* Define device attributes */
 static DEVICE_ATTR_RO(sampling_ms);
 static DEVICE_ATTR_RO(threshold_mC);
 static DEVICE_ATTR_RO(mode);
+static DEVICE_ATTR_RO(stats);
 
 /* Attribute group */
 static struct attribute *nxp_simtemp_attrs[] = {
 	&dev_attr_sampling_ms.attr,
 	&dev_attr_threshold_mC.attr,
 	&dev_attr_mode.attr,
+	&dev_attr_stats.attr,
 	NULL,
 };
 
@@ -158,10 +131,20 @@ static int device_count = 0;
  */
 static void simtemp_update_record(struct nxp_simtemp_data *data)
 {
-	data->record.timestamp = get_jiffies_64();
-	data->record.temperature = data->temperature * 1000; /* Convert to mC */
-	data->record.status = 0; /* Normal status */
+	s32 temp_mC = data->temperature * 1000; /* Convert to mC */
+	
+	data->record.timestamp_ns = ktime_get_ns(); /* Use monotonic nanoseconds */
+	data->record.temp_mC = temp_mC;
+	data->record.flags = SIMTEMP_FLAG_NEW_SAMPLE; /* Always set NEW_SAMPLE flag */
 	data->record.reserved = 0;
+	
+	/* Check for threshold crossing and set alert flag */
+	if (temp_mC >= (s32)data->threshold_mC) {
+		data->record.flags |= SIMTEMP_FLAG_THRESHOLD_CROSSED;
+		data->alert_count++;
+		dev_info(data->dev, "Alert: temperature %d mC >= threshold %u mC (alert #%u)\n",
+			 temp_mC, data->threshold_mC, data->alert_count);
+	}
 }
 
 /**
@@ -324,13 +307,14 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 	data->devt = MKDEV(MAJOR(simtemp_devt), device_count++);
 
 	/* Set defaults */
-	data->sampling_ms = 1000;
-	data->threshold_mC = 50000;
+	data->sampling_ms = 1000;	// To be overridden by device properties in DT
+	data->threshold_mC = 50000;	// To be overridden by device properties in DT
 	data->mode = "default";
+	data->alert_count = 0;
 
 	/* Read device properties */
 	device_property_read_u32(dev, "sampling-ms", &data->sampling_ms);
-	device_property_read_u32(dev, "threshold-microc", &data->threshold_mC);
+	device_property_read_u32(dev, "threshold-mC", &data->threshold_mC);
 	if (!device_property_read_string(dev, "mode", &mode))
 		data->mode = mode;
 
@@ -340,8 +324,8 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 		data->sampling_ms = 1000;
 	}
 
-	if (data->threshold_mC < -40000 || data->threshold_mC > 125000) {
-		dev_warn(dev, "Invalid threshold-microc %u, using default 50000\n", data->threshold_mC);
+	if (data->threshold_mC > 125000) {
+		dev_warn(dev, "Invalid threshold-mC %u, using default 50000\n", data->threshold_mC);
 		data->threshold_mC = 50000;
 	}
 

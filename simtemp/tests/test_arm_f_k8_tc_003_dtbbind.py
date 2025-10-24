@@ -11,6 +11,7 @@ import pytest
 from test_utils import get_or_start_shared_qemu_session, show_qemu_recovery_info
 
 
+@pytest.mark.order(4)
 def test_dtb_overlay_exists():
     """Test that DTB overlay exists in repository - QEMU only"""
     qemu_process = get_or_start_shared_qemu_session()
@@ -60,6 +61,7 @@ def test_dtb_overlay_exists():
             pass  # Don't terminate shared QEMU session
 
 
+@pytest.mark.order(5)
 def test_dtb_driver_binding_and_functionality():
     """Combined DTB driver binding and functionality verification test
     
@@ -83,7 +85,7 @@ def test_dtb_driver_binding_and_functionality():
     # Load the driver first to test actual binding
     # Use the locally compiled driver instead of the prebuilt one
     driver_path = get_driver_path(None)  # Use default (local) driver path
-										# MAGIC!
+										# MAGIC FOR QEMU DETECTION!
     
     binding_found = False
 

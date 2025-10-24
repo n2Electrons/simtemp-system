@@ -34,6 +34,24 @@
 #define MIN_TEMPERATURE		-40000	/* -40°C in milliCelsius */
 #define MAX_TEMPERATURE		125000	/* 125°C in milliCelsius */
 
+/* Status flags for temperature records */
+#define SIMTEMP_FLAG_NEW_SAMPLE		0x01	/* bit 0: New sample available */
+#define SIMTEMP_FLAG_THRESHOLD_CROSSED	0x02	/* bit 1: Threshold crossed */
+
+/**
+ * struct simtemp_record - Binary temperature record (matches simtemp_sample standard)
+ * @timestamp_ns: Monotonic timestamp in nanoseconds
+ * @temp_mC: Temperature in milli-Celsius (e.g., 44123 = 44.123°C)
+ * @flags: Status flags (bit0=NEW_SAMPLE, bit1=THRESHOLD_CROSSED)
+ * @reserved: Reserved for future use (padding to maintain 20-byte record)
+ */
+struct simtemp_record {
+	__u64 timestamp_ns;   /* monotonic timestamp */
+	__s32 temp_mC;        /* milli-degree Celsius */
+	__u32 flags;          /* bit0=NEW_SAMPLE, bit1=THRESHOLD_CROSSED */
+	__u32 reserved;       /* reserved for future use */
+} __attribute__((packed));
+
 /* Character device limits */
 #define MAX_DEVICES		4
 #define BUFFER_SIZE		256
@@ -124,6 +142,7 @@ struct nxp_simtemp_data {
 	int temperature;
 	u32 sampling_ms;
 	u32 threshold_mC;
+	u32 alert_count;
 	const char *mode;
 	enum simtemp_mode mode_enum;
 	
@@ -135,6 +154,9 @@ struct nxp_simtemp_data {
 	/* Buffer management */
 	char buffer[BUFFER_SIZE];
 	size_t buffer_size;
+	
+	/* Temperature record */
+	struct simtemp_record record;
 };
 
 /* Function prototypes for character device operations */
@@ -155,6 +177,7 @@ const char *nxp_simtemp_mode_to_string(enum simtemp_mode mode);
 enum simtemp_mode nxp_simtemp_string_to_mode(const char *mode_str);
 
 /* Platform driver function prototypes */
+/* Functions declared as static in nxp_simtemp.c
 int nxp_simtemp_probe(struct platform_device *pdev);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
 void nxp_simtemp_remove(struct platform_device *pdev);
@@ -163,10 +186,11 @@ int nxp_simtemp_remove(struct platform_device *pdev);
 #endif
 
 /* Module initialization/cleanup */
-int __init nxp_simtemp_init(void);
-void __exit nxp_simtemp_exit(void);
+/* int __init nxp_simtemp_init(void);
+void __exit nxp_simtemp_exit(void); */
 
 /* Sysfs attribute function prototypes */
+/* Functions declared as static in nxp_simtemp.c - commenting to avoid conflicts
 ssize_t sampling_ms_show(struct device *dev, struct device_attribute *attr, 
 			 char *buf);
 ssize_t sampling_ms_store(struct device *dev, struct device_attribute *attr,
@@ -185,6 +209,12 @@ ssize_t temperature_store(struct device *dev, struct device_attribute *attr,
 			  const char *buf, size_t count);
 ssize_t status_show(struct device *dev, struct device_attribute *attr,
 		    char *buf);
+*/
+
+/* F-K5: Stats sysfs attribute function prototype */
+/* Function declared as static in nxp_simtemp.c - commenting to avoid conflicts
+ssize_t stats_show(struct device *dev, struct device_attribute *attr, char *buf);
+*/
 
 /* Inline helper functions */
 
