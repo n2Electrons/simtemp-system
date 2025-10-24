@@ -12,8 +12,9 @@ import pytest
 import subprocess
 import time
 from test_utils import (SHELL_PARAMS, get_or_start_shared_qemu_session,
-                        get_module_path_for_context, execute_command,
-                        load_module, rm_module, show_qemu_recovery_info)
+                        get_module_path_for_context,
+                        load_module, rm_module, show_qemu_recovery_info,
+                        execute_command)
 
 # Test configuration
 MODULE_NAME = "nxp_simtemp"
@@ -21,7 +22,10 @@ EXPECTED_COMPATIBLE_STRINGS = [
     "simtemp,temperature-sensor",
     "simtemp,temperature-sensor-overlay"
 ]
-EXPECTED_DRIVER_NAME = "nxp-simtemp"
+# Platform driver names for different architectures
+SYS_BUS_DRIVER_NAME_ARM = "nxp-simtemp"
+SYS_DEVICE_NAME_ARM = "simtemp"
+EXPECTED_DRIVER_NAME_X86 = "nxp-simtemp"
 
 
 def test_f_k1_platform_driver_dt_registration():
@@ -55,16 +59,29 @@ def test_f_k1_platform_driver_dt_registration():
     
     try:
         # Get the correct module path for the current execution context
-        module_path, context_description = get_module_path_for_context()
+        if qemu_process:
+            # Force QEMU path since the auto-detection isn't working properly
+            module_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
+            context_description = "QEMU mode - ARM prebuilt driver (forced)"
+        else:
+            module_path, context_description = get_module_path_for_context()
         print(f"Running in {context_description}")
+        print(f"Module path: {module_path}")
         
         # Pre-test cleanup (skip if in QEMU as module may not be available yet)
         if not qemu_process:
             rm_module()
         
         # Verify module file exists (skip for QEMU - driver inside QEMU)
-        if not qemu_process and not os.path.exists(module_path):
-            pytest.fail(f"Module file not found: {module_path}")
+        if not qemu_process:
+            # For host testing, check if module file exists using os.path.exists
+            if not os.path.exists(module_path):
+                pytest.fail(f"Module file not found: {module_path}")
+        else:
+            # For QEMU testing, verify module exists using execute_command
+            success, output = execute_command(f"test -f {module_path}")
+            if not success:
+                pytest.fail(f"Module file not found in QEMU: {module_path}")
         
         print(f"Testing platform driver implementation for: {module_path}")
         if qemu_process:
@@ -73,13 +90,17 @@ def test_f_k1_platform_driver_dt_registration():
         # Test 1: Verify modinfo shows Device Tree information
         print("\n=== Test 1: Module Device Tree Information ===")
         try:
-            # Run modinfo command (works for both ARM/QEMU and x86/HOST)
-            cmd = f'modinfo "{module_path}"'
-            success, output = execute_command(cmd, timeout=10)
-            if not success:
-                pytest.fail(f"modinfo failed: {output}")
-            modinfo_output = '\n'.join(output) if output else ""
+            # Run modinfo command directly using subprocess
+            # (works for both ARM/QEMU and x86/HOST)
+            cmd = ['modinfo', module_path]
+            print(f"Running command: modinfo {module_path}")
+            result = subprocess.run(cmd, capture_output=True, text=True,
+                                    timeout=10)
             
+            if result.returncode != 0:
+                pytest.fail(f"modinfo failed: {result.stderr}")
+            
+            modinfo_output = result.stdout
             print(f"Module info output:\n{modinfo_output}")
             
             # Check for Device Tree alias information
@@ -118,10 +139,21 @@ def test_f_k1_platform_driver_dt_registration():
         time.sleep(1)
         
         # Check if platform driver is registered
-        platform_driver_path = f"/sys/bus/platform/drivers/{EXPECTED_DRIVER_NAME}"
-        if not os.path.exists(platform_driver_path):
+        # Use different driver names for ARM vs x86
+        if qemu_process:
+            expected_driver = SYS_BUS_DRIVER_NAME_ARM
+        else:
+            expected_driver = EXPECTED_DRIVER_NAME_X86
+            
+        platform_driver_path = f"/sys/bus/platform/drivers/{expected_driver}"
+        
+        # Check if the platform driver path exists using execute_command
+        # This works both in host and QEMU environments correctly
+        success, output = execute_command(f"test -d {platform_driver_path}")
+        
+        if not success:
             pytest.fail(f"EXPECTED FAILURE: Platform driver not registered at "
-                         f"{platform_driver_path}")
+                        f"{platform_driver_path}")
         
         print(f"✓ Platform driver registered at: {platform_driver_path}")
         
@@ -132,11 +164,15 @@ def test_f_k1_platform_driver_dt_registration():
         bind_file = os.path.join(platform_driver_path, "bind")
         unbind_file = os.path.join(platform_driver_path, "unbind")
         
-        if not os.path.exists(bind_file):
+        # Check bind file exists using execute_command
+        success, output = execute_command(f"test -f {bind_file}")
+        if not success:
             pytest.fail(f"EXPECTED FAILURE: Platform driver bind interface "
                         f"not found: {bind_file}")
         
-        if not os.path.exists(unbind_file):
+        # Check unbind file exists using execute_command
+        success, output = execute_command(f"test -f {unbind_file}")
+        if not success:
             pytest.fail(f"EXPECTED FAILURE: Platform driver unbind interface "
                         f"not found: {unbind_file}")
         
@@ -146,8 +182,19 @@ def test_f_k1_platform_driver_dt_registration():
         print("\n=== Test 4: Device Tree Compatible Strings ===")
         
         # Look for of_match_table information in driver directory
-        driver_files = os.listdir(platform_driver_path)
-        print(f"Driver directory contents: {driver_files}")
+        success, output = execute_command(f"ls {platform_driver_path}")
+        
+        if success:
+            # Handle case where output might be a list or string
+            if isinstance(output, list):
+                driver_files = output
+            else:
+                driver_files = (output.strip().split('\n')
+                                if output.strip() else [])
+            print(f"Driver directory contents: {driver_files}")
+        else:
+            driver_files = []
+            print(f"Could not list driver directory: {output}")
         
         # Check if there's a way to verify compatible strings through sysfs
         # (This might not be directly available, but we test what we can)
@@ -162,14 +209,21 @@ def test_f_k1_platform_driver_dt_registration():
         
         # Check if any devices are bound to our driver
         bound_devices = []
-        try:
-            for item in os.listdir(platform_driver_path):
-                item_path = os.path.join(platform_driver_path, item)
-                if os.path.islink(item_path):
-                    # This is likely a bound device
-                    bound_devices.append(item)
-        except OSError:
-            pass
+        
+        # Use find command to look for symbolic links in the driver directory
+        success, output = execute_command(
+            f"find {platform_driver_path} -type l")
+        
+        if success and output:
+            # Handle case where output might be a list or string
+            if isinstance(output, list):
+                bound_device_paths = output
+            else:
+                bound_device_paths = (output.strip().split('\n')
+                                      if output.strip() else [])
+            # Extract just the filenames from the full paths
+            bound_devices = [os.path.basename(path)
+                             for path in bound_device_paths]
         
         print(f"Bound devices: {bound_devices}")
         
@@ -220,7 +274,8 @@ def test_f_k1_platform_driver_dt_registration():
         # The test runner will handle QEMU cleanup at the end of all tests
         if qemu_process:
             print("QEMU session will remain active for other tests")
-            print("Test runner will cleanup QEMU session when all tests complete")
+            print("Test runner will cleanup QEMU session when all tests "
+                  "complete")
 
 
 if __name__ == "__main__":
