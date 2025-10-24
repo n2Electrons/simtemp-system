@@ -9,7 +9,7 @@ while [ ! -e /dev/ttymxc1 ]; do
   sleep 0.1
 done
 
-ln -s /dev/ttymxc1 /dev/tempsensor
+ln -s /dev/ttymxc1 /dev/mysensor
 
 # Configure network interface
 ifconfig lo 127.0.0.1 up

@@ -1,5 +1,5 @@
 metadata:
-  generated_on: '2025-10-21'
+  generated_on: '2025-10-24'
   source_files:
   - simtemp/docs/TESTPLAN.md
   notes: Regenerated from TESTPLAN.md via generate_traceability_yaml.py (preserving
@@ -11,7 +11,7 @@ requirements:
   submodule: Driver core
   summary: Register as platform driver via DT or local device
   priority: Medium
-  status: completed
+  status: in-progress
   github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/58
   branches:
   - f-k1-tc-003-driverby-dt
@@ -26,7 +26,7 @@ requirements:
   - id: F-K1-TC-002
     description: DT overlay binds driver; properties parsed with no errors
     expected: DT overlay binds driver; properties parsed with no errors
-    status: completed
+    status: in-progress
     automation: true
     github_link: https://github.com/n2Electrons/n2Electrons-Infra/issues/62
     branch: f-k1-tc-002-qemu-dt
@@ -211,22 +211,22 @@ requirements:
   status: in-progress
   github_link: https://github.com/n2Electrons/simtemp-system/issues/19
   branches:
-  - f-k8-tc-001-loadunload
+  - f-k8-tc-002-dtb-drv-bind_bk
   tests:
   - id: F-K8-TC-001
     description: Load/unload no WARN/OOPS
     expected: Load/unload no WARN/OOPS
-    status: completed
+    status: in-progress
     automation: true
     github_link: https://github.com/n2Electrons/simtemp-system/issues/19
     branch: f-k8-tc-001-loadunload
   - id: F-K8-TC-002
     description: Readers exit gracefully on unload
     expected: Readers exit gracefully on unload
-    status: planned
+    status: in-progress
     automation: true
     github_link: https://github.com/n2Electrons/simtemp-system/issues/22
-    branch: ''
+    branch: f-k8-tc-002-dtb-drv-bind_bk
   - id: F-K8-TC-003
     description: DTB driver binding and functionality verification
     expected: Driver loaded via Device Tree binds correctly and all DTB properties
@@ -265,9 +265,10 @@ requirements:
   submodule: CLI config
   summary: CLI configures sampling, threshold, and mode
   priority: Medium
-  status: planned
-  github_link: ''
-  branches: []
+  status: in-progress
+  github_link: https://github.com/n2Electrons/simtemp-system/issues/23
+  branches:
+  - f-u1-user-space-cli-config
   tests:
   - id: F-U1-TC-001
     description: '`--set sampling_ms=50` updates sysfs'

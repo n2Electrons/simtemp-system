@@ -1,0 +1,161 @@
+#!/bin/bash
+
+# QEMU Multi-Tool
+# Unified script for managing active QEMU sessions
+# Author: Jorge (simtemp-system)
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+show_help() {
+    echo "QEMU Multi-Tool - Unified utility for QEMU sessions"
+    echo ""
+    echo "Usage:"
+    echo "  $0 list                              # List active sessions"
+    echo "  $0 monitor <PID> [command]           # Access QEMU monitor"
+    echo "  $0 guest <PID> [command]             # Execute command in guest"
+    echo "  $0 shell <PID>                       # Interactive shell in guest"
+    echo "  $0 ssh <PID> [command]               # SSH command in guest"
+    echo "  $0 ssh-shell <PID>                   # Interactive SSH shell"
+    echo "  $0 status <PID>                      # Quick session status"
+    echo ""
+    echo "Examples:"
+    echo "  $0 list                              # View all sessions"
+    echo "  $0 status 1234                       # Status of PID 1234"
+    echo "  $0 monitor 1234                      # Interactive monitor"
+    echo "  $0 monitor 1234 \"info version\"       # Specific monitor command"
+    echo "  $0 guest 1234 \"lsmod\"                # Command in guest (simulated)"
+    echo "  $0 ssh 1234 \"lsmod\"                  # Command in guest (real SSH)"
+    echo "  $0 shell 1234                        # Interactive shell (simulated)"
+    echo "  $0 ssh-shell 1234                    # Interactive SSH shell (real)"
+    echo ""
+    echo "Useful monitor commands:"
+    echo "  info version, info status, info cpus, help"
+    echo ""
+    echo "Useful guest commands:"
+    echo "  lsmod, dmesg | tail, ls /sys/bus/platform/drivers/"
+    echo "  insmod /tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
+    echo "  rmmod nxp_simtemp"
+    echo ""
+}
+
+case "$1" in
+    "list"|"ls"|"")
+        python3 "$SCRIPT_DIR/qemu_connect.py" --list
+        ;;
+    
+    "monitor"|"mon")
+        if [ -z "$2" ]; then
+            echo "Error: PID required for monitor access"
+            echo "Usage: $0 monitor <PID> [command]"
+            exit 1
+        fi
+        
+        PID="$2"
+        if [ -n "$3" ]; then
+            # Specific command
+            COMMAND="$3"
+            echo "=== QEMU Monitor (PID $PID) - Command: $COMMAND ==="
+            python3 "$SCRIPT_DIR/qemu_connect.py" --connect "$PID" --command "$COMMAND"
+        else
+            # Interactive
+            echo "=== Interactive QEMU Monitor (PID $PID) ==="
+            echo "Commands: info version, info status, info cpus, help, quit"
+            python3 "$SCRIPT_DIR/qemu_connect.py" --connect "$PID" --interactive
+        fi
+        ;;
+    
+    "guest"|"cmd")
+        if [ -z "$2" ]; then
+            echo "Error: PID required for guest command"
+            echo "Usage: $0 guest <PID> <command>"
+            exit 1
+        fi
+        
+        if [ -z "$3" ]; then
+            echo "Error: Command required to execute in guest"
+            echo "Usage: $0 guest <PID> <command>"
+            echo "Example: $0 guest $2 \"lsmod\""
+            exit 1
+        fi
+        
+        PID="$2"
+        COMMAND="$3"
+        echo "=== Guest Command (PID $PID) - Command: $COMMAND ==="
+        python3 "$SCRIPT_DIR/qemu_guest_cmd.py" --pid "$PID" --command "$COMMAND"
+        ;;
+    
+    "shell"|"interactive")
+        if [ -z "$2" ]; then
+            echo "Error: PID required for interactive shell"
+            echo "Usage: $0 shell <PID>"
+            exit 1
+        fi
+        
+        PID="$2"
+        echo "=== Interactive Guest Shell (PID $PID) ==="
+        python3 "$SCRIPT_DIR/qemu_guest_cmd.py" --pid "$PID" --interactive
+        ;;
+    
+    "status"|"info")
+        if [ -z "$2" ]; then
+            echo "Error: PID required to check status"
+            echo "Usage: $0 status <PID>"
+            exit 1
+        fi
+        
+        PID="$2"
+        echo "=== QEMU Session Status (PID $PID) ==="
+        echo ""
+        echo "QEMU Monitor:"
+        python3 "$SCRIPT_DIR/qemu_connect.py" --connect "$PID" --command "info status"
+        echo ""
+        echo "CPU Information:"
+        python3 "$SCRIPT_DIR/qemu_connect.py" --connect "$PID" --command "info cpus"
+        echo ""
+        echo "Loaded modules in guest:"
+        python3 "$SCRIPT_DIR/qemu_guest_cmd.py" --pid "$PID" --command "lsmod | head -5"
+        ;;
+    
+    "ssh")
+        if [ -z "$2" ]; then
+            echo "Error: PID required for SSH command"
+            echo "Usage: $0 ssh <PID> [command]"
+            exit 1
+        fi
+        
+        PID="$2"
+        COMMAND="$3"
+        
+        if [ -z "$COMMAND" ]; then
+            echo "Error: Command required"
+            echo "Usage: $0 ssh <PID> <command>"
+            exit 1
+        fi
+        
+        echo "=== SSH Command (PID $PID) - Command: $COMMAND ==="
+        python3 "$SCRIPT_DIR/qemu_ssh_cmd.py" --pid "$PID" --command "$COMMAND"
+        ;;
+    
+    "ssh-shell"|"ssh-interactive")
+        if [ -z "$2" ]; then
+            echo "Error: PID required for SSH shell"
+            echo "Usage: $0 ssh-shell <PID>"
+            exit 1
+        fi
+        
+        PID="$2"
+        echo "=== Interactive SSH Shell (PID $PID) ==="
+        python3 "$SCRIPT_DIR/qemu_ssh_cmd.py" --pid "$PID" --interactive
+        ;;
+    
+    "help"|"-h"|"--help")
+        show_help
+        ;;
+    
+    *)
+        echo "Error: Unknown command '$1'"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac

@@ -21,8 +21,8 @@ fi
 # ===========================
 # FETCH KERNEL
 # ===========================
-rm -rf "$KDIR"
-git clone --depth=1 -b "$BRANCH" "$REPO" "$KDIR"
+#rm -rf "$KDIR"
+#git clone --depth=1 -b "$BRANCH" "$REPO" "$KDIR"
 cd "$KDIR"
 
 # ===========================
@@ -47,6 +47,7 @@ make scripts
 ./scripts/config --enable CONFIG_PRINTK
 ./scripts/config --enable CONFIG_SERIAL_IMX
 ./scripts/config --enable CONFIG_SERIAL_IMX_CONSOLE
+./scripts/config --set-val CONFIG_SERIAL_IMX_NR_UARTS 2
 ./scripts/config --enable CONFIG_SERIAL_EARLYCON
 ./scripts/config --enable CONFIG_DEVTMPFS
 ./scripts/config --enable CONFIG_DEVTMPFS_MOUNT

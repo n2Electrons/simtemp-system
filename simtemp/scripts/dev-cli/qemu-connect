@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# Utility script to easily connect to active QEMU sessions
+# Usage:
+#   qemu-connect                    # List active sessions
+#   qemu-connect <PID>              # Connect to monitor of specific session
+#   qemu-connect <PID> <command>    # Execute specific command
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_SCRIPT="$SCRIPT_DIR/qemu_connect.py"
+
+# Function to show help
+show_help() {
+    echo "QEMU Connection Utility"
+    echo ""
+    echo "Usage:"
+    echo "  $0                    # List active QEMU sessions"
+    echo "  $0 <PID>              # Connect interactively to monitor"
+    echo "  $0 <PID> <command>    # Execute specific command"
+    echo ""
+    echo "Examples:"
+    echo "  $0                           # View active sessions"
+    echo "  $0 1234                      # Connect to PID 1234"
+    echo "  $0 1234 \"info version\"       # Execute command"
+    echo "  $0 1234 \"info status\"        # View VM status"
+    echo ""
+}
+
+# If no arguments, list sessions
+if [ $# -eq 0 ]; then
+    python3 "$PYTHON_SCRIPT" --list
+    exit $?
+fi
+
+# If first argument is help
+if [ "$1" = "help" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    show_help
+    exit 0
+fi
+
+# Verify that first argument is a number (PID)
+if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+    echo "Error: First argument must be a numeric PID"
+    echo ""
+    show_help
+    exit 1
+fi
+
+PID="$1"
+
+# If there's a second argument, it's a command
+if [ $# -eq 2 ]; then
+    COMMAND="$2"
+    echo "Executing command '$COMMAND' in QEMU PID $PID..."
+    python3 "$PYTHON_SCRIPT" --connect "$PID" --command "$COMMAND"
+else
+    # Interactive connection
+    echo "Connecting interactively to QEMU PID $PID..."
+    echo "Press Ctrl+C to exit interactive mode"
+    python3 "$PYTHON_SCRIPT" --connect "$PID" --interactive
+fi
