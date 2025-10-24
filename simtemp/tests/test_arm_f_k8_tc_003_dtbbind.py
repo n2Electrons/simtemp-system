@@ -81,28 +81,44 @@ def test_dtb_driver_binding_and_functionality():
     print("DTB test - loading driver and validating binding")
     
     # Load the driver first to test actual binding
-    suite_name = "qemu_integration"  # This test is part of qemu_integration
-    driver_path = get_driver_path(suite_name)
+    # Use the locally compiled driver instead of the prebuilt one
+    driver_path = get_driver_path(None)  # Use default (local) driver path
+										# MAGIC!
     
     binding_found = False
 
     try:
         # Load the driver in QEMU
         print(f"Loading driver in QEMU from: {driver_path}")
-        success, output = execute_command(f"insmod {driver_path}", timeout=10)
+        
+        # Try with sudo first since we need root privileges to load modules
+        cmd = f"sudo insmod {driver_path}"
+        success, output = execute_command(cmd, timeout=10)
         if success:
             print("Driver loaded successfully in QEMU")
         else:
             print(f"Driver load failed in QEMU: {' '.join(output)}")
-    
+            # If sudo fails, let's check if we're actually in QEMU
+            cmd2 = "uname -r"
+            success2, output2 = execute_command(cmd2, timeout=5)
+            if success2:
+                kernel_ver = output2[0] if output2 else 'unknown'
+                print(f"Current kernel version: {kernel_ver}")
+                if "6.14" in kernel_ver:
+                    print("WARNING: Seems like we're running on host, "
+                          "not QEMU!")
+            pytest.fail("Failed to load driver in QEMU")
+        
         # Check for DTB system in QEMU
-        success, output = execute_command("ls /proc/device-tree/simtemp", timeout=5)
+        cmd = "ls /proc/device-tree/simtemp"
+        success, output = execute_command(cmd, timeout=5)
         if success:
             print("DTB system detected in QEMU")
             # Check compatible string in QEMU
-            success, compatible_data = execute_command(
-                "cat /proc/device-tree/simtemp/compatible 2>/dev/null", timeout=5)
-            if success and any('nxp,simtemp' in line for line in compatible_data):
+            cmd = "cat /proc/device-tree/simtemp/compatible 2>/dev/null"
+            success, compatible_data = execute_command(cmd, timeout=5)
+            if success and any('nxp,simtemp' in line
+                               for line in compatible_data):
                 binding_found = True
                 print("Found DTB compatible string in QEMU")
         else:
@@ -122,11 +138,13 @@ def test_dtb_driver_binding_and_functionality():
         properties_found = False
         
         # Check if platform driver is registered in QEMU
-        success, output = execute_command(
-            "ls /sys/bus/platform/drivers/nxp-simtemp", timeout=5)
+        cmd = "ls /sys/bus/platform/drivers/nxp-simtemp"
+        success, output = execute_command(cmd, timeout=5)
         if success:
             print("Platform driver found in QEMU")
             binding_found = True
+        else:
+            pytest.fail("DTB driver binding not implemented")
 
         # Check for device paths in QEMU
         qemu_sysfs_paths = ["/sys/devices/platform/simtemp",      # ARM DTB
@@ -140,8 +158,8 @@ def test_dtb_driver_binding_and_functionality():
                 # Check for properties in QEMU
                 for prop in ['sampling_ms', 'threshold_mC', 'mode']:
                     prop_file = f"{path}/{prop}"
-                    success, prop_output = execute_command(
-                        f"ls {prop_file}", timeout=5)
+                    success, prop_output = execute_command(f"ls {prop_file}",
+                                                           timeout=5)
                     if success:
                         print(f"Found simtemp sysfs property in QEMU: {prop}")
                         properties_found = True
@@ -150,8 +168,8 @@ def test_dtb_driver_binding_and_functionality():
                     break
 
         # Test 3: DTB functionality - check in QEMU
-        success, output = execute_command(
-            "ls /sys/devices/platform/simtemp", timeout=5)
+        cmd = "ls /sys/devices/platform/simtemp"
+        success, output = execute_command(cmd, timeout=5)
         if success:
             print("Found simtemp device in QEMU")
 
