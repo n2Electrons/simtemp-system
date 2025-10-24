@@ -447,7 +447,7 @@ static int __init nxp_simtemp_init(void)
 	}
 
 	/* Create device class */
-	simtemp_class = class_create(CLASS_NAME);
+	simtemp_class = class_create(THIS_MODULE, CLASS_NAME);
 	if (IS_ERR(simtemp_class)) {
 		ret = PTR_ERR(simtemp_class);
 		pr_err("NXP SimTemp driver: Failed to create class: %d\n", ret);
