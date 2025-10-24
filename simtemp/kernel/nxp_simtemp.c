@@ -483,10 +483,13 @@ static int simtemp_open(struct inode *inode, struct file *filp)
 	
 	data->is_open = 1;
 	filp->private_data = data;
-	simtemp_update_record(data);
 	
 	/* F-K2: Start periodic sampling when device opens */
 	simtemp_start_sampling(data);
+	
+	/* Generate initial sample immediately */
+	simtemp_generate_temperature(data);
+	simtemp_update_record(data);
 	
 	mutex_unlock(&data->mutex);
 	return 0;
@@ -525,22 +528,20 @@ static ssize_t simtemp_read(struct file *filp, char __user *buf,
 	if (!data)
 		return -ENODEV;
 	
+	if (count < record_size)
+		return -EINVAL;
+	
 	/* Non-blocking read when no data available */
 	if (filp->f_flags & O_NONBLOCK)
 		return -EAGAIN;
 	
-	if (count < record_size)
-		return -EINVAL;
-	
 	mutex_lock(&data->mutex);
-	simtemp_update_record(data);
-	
 	if (copy_to_user(buf, &data->record, record_size)) {
 		mutex_unlock(&data->mutex);
 		return -EFAULT;
 	}
-	
 	mutex_unlock(&data->mutex);
+	
 	return record_size;
 }
 
