@@ -1749,10 +1749,10 @@ def start_qemu_and_wait_for_boot():
         "-dtb", dtb_path,
         "-initrd", rootfs_path,
         "-append",
-        "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 "
-        "rdinit=/init quiet loglevel=8 initcall_debug printk.time=1",
+        "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 rdinit=/init",
         "-monitor", "none",
-        "-chardev", f"socket,id=mysensor,server=on,host=127.0.0.1,port={socket_port}",
+        "-serial", "stdio",
+        "-chardev", f"socket,id=mysensor,host=127.0.0.1,port={socket_port},server=on,wait=off",
         "-serial", "chardev:mysensor",
         "-no-reboot"
     ]
