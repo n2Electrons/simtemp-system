@@ -3,9 +3,9 @@
     {
       "id": "F-K1",
       "summary": "Register as platform driver via DT or local device",
-      "status": "completed",
+      "status": "partial",
       "test_count": 2,
-      "done_count": 2,
+      "done_count": 1,
       "tests": [
         {
           "id": "F-K1-TC-001",
@@ -15,7 +15,7 @@
         {
           "id": "F-K1-TC-002",
           "description": "DT overlay binds driver; properties parsed with no errors",
-          "status": "completed"
+          "status": "in-progress"
         }
       ]
     },
@@ -158,17 +158,17 @@
       "summary": "Clean load/unload sequence",
       "status": "partial",
       "test_count": 3,
-      "done_count": 2,
+      "done_count": 1,
       "tests": [
         {
           "id": "F-K8-TC-001",
           "description": "Load/unload no WARN/OOPS",
-          "status": "completed"
+          "status": "in-progress"
         },
         {
           "id": "F-K8-TC-002",
           "description": "Readers exit gracefully on unload",
-          "status": "planned"
+          "status": "in-progress"
         },
         {
           "id": "F-K8-TC-003",
@@ -199,7 +199,7 @@
     {
       "id": "F-U1",
       "summary": "CLI configures sampling, threshold, and mode",
-      "status": "planned",
+      "status": "in-progress",
       "test_count": 3,
       "done_count": 0,
       "tests": [
@@ -667,7 +667,7 @@
   "aggregate": {
     "requirements_total": 32,
     "tests_total": 75,
-    "tests_completed": 5,
-    "tests_completed_pct": 6.666666666666667
+    "tests_completed": 3,
+    "tests_completed_pct": 4.0
   }
 }

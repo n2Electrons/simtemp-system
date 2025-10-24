@@ -22,19 +22,19 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 </head><body>
 <h1>Requirements ↔ Test Cases Traceability</h1>
 <div class="legend"><span style="background:#f8f9fa">planned</span><span style="background:#fff3cd">in-progress</span><span style="background:#d1e7dd">implemented</span><span style="background:#d1e7dd">completed</span><span style="background:#d4edda">verified</span><span style="background:#f8d7da">blocked</span><span style="background:#d1d8e7">partial</span><span>🔗 = GitHub Issue</span><span>🌿 = Git Branch</span></div>
-<div class="summary">Requirements: 32 | Tests: 75 | Completed Tests: 5 (6.7%)</div>
-<div class="req" style="background:#d1e7dd">
+<div class="summary">Requirements: 32 | Tests: 75 | Completed Tests: 3 (4.0%)</div>
+<div class="req" style="background:#d1d8e7">
 <div class="req-number">1-2</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_0')">▸</span> <strong>F-K1</strong>: Register as platform driver via DT or local device
  <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/58" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
-<span class="status-pill">completed</span>
-<span class="counts">(2/2 tests completed)</span>
+<span class="status-pill">partial</span>
+<span class="counts">(1/2 tests completed)</span>
 </div>
 </div>
 <div class="tests" id="tests_0" style="display:none">
 <div class="test" style="background:#d1e7dd"><strong>F-K1-TC-001</strong>: `insmod` registers driver; sysfs entries created <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/61" target="_blank" title="GitHub Issue for F-K1-TC-001" class="gh-link">🔗</a> <span class="status-pill">completed</span></div>
-<div class="test" style="background:#d1e7dd"><strong>F-K1-TC-002</strong>: DT overlay binds driver; properties parsed with no errors <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/62" target="_blank" title="GitHub Issue for F-K1-TC-002" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/n2Electrons-Infra/tree/f-k1-tc-002-qemu-dt" target="_blank" title="Git branch: f-k1-tc-002-qemu-dt" class="branch-link">🌿</a> <span class="status-pill">completed</span></div>
+<div class="test" style="background:#fff3cd"><strong>F-K1-TC-002</strong>: DT overlay binds driver; properties parsed with no errors <a href="https://github.com/n2Electrons/n2Electrons-Infra/issues/62" target="_blank" title="GitHub Issue for F-K1-TC-002" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/n2Electrons-Infra/tree/f-k1-tc-002-qemu-dt" target="_blank" title="Git branch: f-k1-tc-002-qemu-dt" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
 <div class="req-number">3-4</div>
@@ -118,12 +118,12 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <span class="toggle" onclick="tg('tests_7')">▸</span> <strong>F-K8</strong>: Clean load/unload sequence
  <a href="https://github.com/n2Electrons/simtemp-system/issues/19" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
 <span class="status-pill">partial</span>
-<span class="counts">(2/3 tests completed)</span>
+<span class="counts">(1/3 tests completed)</span>
 </div>
 </div>
 <div class="tests" id="tests_7" style="display:none">
-<div class="test" style="background:#d1e7dd"><strong>F-K8-TC-001</strong>: Load/unload no WARN/OOPS <a href="https://github.com/n2Electrons/simtemp-system/issues/19" target="_blank" title="GitHub Issue for F-K8-TC-001" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/n2Electrons-Infra/tree/f-k8-tc-001-loadunload" target="_blank" title="Git branch: f-k8-tc-001-loadunload" class="branch-link">🌿</a> <span class="status-pill">completed</span></div>
-<div class="test" style="background:#f8f9fa"><strong>F-K8-TC-002</strong>: Readers exit gracefully on unload <a href="https://github.com/n2Electrons/simtemp-system/issues/22" target="_blank" title="GitHub Issue for F-K8-TC-002" class="gh-link">🔗</a> <span class="status-pill">planned</span></div>
+<div class="test" style="background:#fff3cd"><strong>F-K8-TC-001</strong>: Load/unload no WARN/OOPS <a href="https://github.com/n2Electrons/simtemp-system/issues/19" target="_blank" title="GitHub Issue for F-K8-TC-001" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/n2Electrons-Infra/tree/f-k8-tc-001-loadunload" target="_blank" title="Git branch: f-k8-tc-001-loadunload" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
+<div class="test" style="background:#fff3cd"><strong>F-K8-TC-002</strong>: Readers exit gracefully on unload <a href="https://github.com/n2Electrons/simtemp-system/issues/22" target="_blank" title="GitHub Issue for F-K8-TC-002" class="gh-link">🔗</a> <a href="https://github.com/n2Electrons/n2Electrons-Infra/tree/f-k8-tc-002-dtb-drv-bind_bk" target="_blank" title="Git branch: f-k8-tc-002-dtb-drv-bind_bk" class="branch-link">🌿</a> <span class="status-pill">in-progress</span></div>
 <div class="test" style="background:#d1e7dd"><strong>F-K8-TC-003</strong>: DTB driver binding and functionality verification <a href="https://github.com/n2Electrons/simtemp-system/issues/20" target="_blank" title="GitHub Issue for F-K8-TC-003" class="gh-link">🔗</a> <span class="status-pill">completed</span></div>
 </div>
 <div class="req" style="background:#f8f9fa">
@@ -138,11 +138,12 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 1.2rem; }
 <div class="test" style="background:#f8f9fa"><strong>F-K9-TC-001</strong>: DT props appear in sysfs <span class="status-pill">planned</span></div>
 <div class="test" style="background:#f8f9fa"><strong>F-K9-TC-002</strong>: Defaults used when DT missing <span class="status-pill">planned</span></div>
 </div>
-<div class="req" style="background:#f8f9fa">
+<div class="req" style="background:#fff3cd">
 <div class="req-number">24-26</div>
 <div class="req-content">
 <span class="toggle" onclick="tg('tests_9')">▸</span> <strong>F-U1</strong>: CLI configures sampling, threshold, and mode
-<span class="status-pill">planned</span>
+ <a href="https://github.com/n2Electrons/simtemp-system/issues/23" target="_blank" title="GitHub Issue" class="gh-link">🔗</a>
+<span class="status-pill">in-progress</span>
 <span class="counts">(0/3 tests completed)</span>
 </div>
 </div>

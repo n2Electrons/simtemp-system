@@ -208,7 +208,7 @@ requirements:
   submodule: Lifecycle mgmt
   summary: Clean load/unload sequence
   priority: Medium
-  status: completed
+  status: in-progress
   github_link: https://github.com/n2Electrons/simtemp-system/issues/19
   branches:
   - f-k8-tc-001-loadunload
@@ -220,17 +220,25 @@ requirements:
     automation: true
     github_link: https://github.com/n2Electrons/simtemp-system/issues/19
     branch: f-k8-tc-001-loadunload
+  - id: F-K8-TC-001-QEMU
+    description: Load/unload no WARN/OOPS in QEMU environment
+    expected: Load/unload no WARN/OOPS in QEMU ARM environment
+    status: completed
+    automation: true
+    github_link: https://github.com/n2Electrons/simtemp-system/issues/19
+    branch: f-k8-tc-001-loadunload
   - id: F-K8-TC-002
     description: Readers exit gracefully on unload
     expected: Readers exit gracefully on unload
     status: planned
     automation: true
-    github_link: ''
+    github_link: https://github.com/n2Electrons/simtemp-system/issues/22
     branch: ''
   - id: F-K8-TC-003
     description: DTB driver binding and functionality verification
-    expected: Driver loaded via Device Tree binds correctly and all DTB properties are functional
-    status: planned
+    expected: Driver loaded via Device Tree binds correctly and all DTB properties
+      are functional
+    status: completed
     automation: true
     github_link: https://github.com/n2Electrons/simtemp-system/issues/20
     branch: ''
