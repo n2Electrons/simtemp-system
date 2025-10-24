@@ -1999,6 +1999,17 @@ def load_simtemp_modules(test_suite_name=None):
         main_path = get_driver_path(test_suite_name)
         stub_path = get_simtemp_stub_path(profile)
         
+        print(f"Debug: main_path = {main_path}")
+        print(f"Debug: stub_path = {stub_path}")
+        
+        # Verify module files exist
+        if not os.path.exists(main_path):
+            print(f"Error: Main module not found at {main_path}")
+            return False
+        if stub_path and not os.path.exists(stub_path):
+            print(f"Error: Stub module not found at {stub_path}")
+            return False
+        
         # Check if modules are already loaded
         lsmod_result = subprocess.run(['lsmod'], capture_output=True,
                                      text=True)
@@ -2009,31 +2020,48 @@ def load_simtemp_modules(test_suite_name=None):
             stub_loaded = any(line.startswith('nxp_simtemp_stub ')
                              for line in output_lines)
             
+            print(f"Debug: simtemp_loaded = {simtemp_loaded}")
+            print(f"Debug: stub_loaded = {stub_loaded}")
+            
             if simtemp_loaded and stub_loaded:
                 print("✓ Both modules already loaded")
                 return True
         
         # Load main module first
         sudo_prefix = get_sudo_prefix()
+        print(f"Debug: sudo_prefix = '{sudo_prefix}'")
+        
         main_cmd = f"{sudo_prefix}insmod {main_path}"
+        print(f"Debug: Executing main_cmd = {main_cmd}")
         main_result = subprocess.run(main_cmd, shell=True,
                                     capture_output=True, text=True)
         if main_result.returncode != 0:
             print(f"Failed to load main module: {main_result.stderr}")
+            print(f"Main module stdout: {main_result.stdout}")
             return False
+        
+        print("✓ Main module loaded successfully")
         
         # Load stub module
         if stub_path:
             stub_cmd = f"{sudo_prefix}insmod {stub_path}"
+            print(f"Debug: Executing stub_cmd = {stub_cmd}")
             stub_result = subprocess.run(stub_cmd, shell=True,
                                         capture_output=True, text=True)
             if stub_result.returncode != 0:
                 print(f"Failed to load stub module: {stub_result.stderr}")
+                print(f"Stub module stdout: {stub_result.stdout}")
                 # Clean up main module if stub fails
                 subprocess.run(f"{sudo_prefix}rmmod nxp_simtemp", shell=True)
                 return False
+            
+            print("✓ Stub module loaded successfully")
         
-        print("✓ Modules loaded successfully")
+        print("✓ All modules loaded successfully")
+        
+        # Wait a moment for device node creation
+        import time
+        time.sleep(1)
     
     return True
 
