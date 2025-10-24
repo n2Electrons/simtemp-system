@@ -58,6 +58,7 @@ def unload_module_host(module_name="nxp_simtemp"):
         return False
 
 
+@pytest.mark.order(12)
 def test_insmod_registers_driver(capsys: pytest.CaptureFixture[str]):
     """
     Test case F-K1-TC-001: Test lsmod, modinfo, insmod, rmmod on x86.

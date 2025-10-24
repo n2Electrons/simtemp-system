@@ -12,6 +12,7 @@ import pytest
 from test_utils import load_simtemp_modules, unload_simtemp_modules, SUDO
 
 
+@pytest.mark.order(20)
 def test_simple_device_read():
     """Simple test: just verify we can read from the device"""
     

@@ -25,6 +25,7 @@ import time
 from test_utils import SUDO, obj_path, load_simtemp_modules
 
 
+@pytest.mark.order(25)
 class TestDriverValidation:
     """Comprehensive driver validation test suite"""
     
@@ -92,9 +93,9 @@ class TestDriverValidation:
         with open(f"{device0_path}/mode", 'r') as f:
             mode_0 = f.read().strip()
             
-        # Verify default values
+        # Verify default values for device 0 (main driver, default values)
         assert sampling_ms_0 == "1000", f"Expected 1000, got {sampling_ms_0}"
-        assert threshold_mC_0 == "60000", f"Expected 60000, got {threshold_mC_0}"
+        assert threshold_mC_0 == "50000", f"Expected 50000, got {threshold_mC_0}"
         assert mode_0 == "default", f"Expected 'default', got {mode_0}"
         
         print(f"✓ Device 0 values: sampling_ms={sampling_ms_0}, threshold_mC={threshold_mC_0}, mode={mode_0}")
@@ -108,6 +109,11 @@ class TestDriverValidation:
             mode_1 = f.read().strip()
             
         # Verify stub values (Device Tree configured values)
+        assert sampling_ms_1 == "200", f"Expected 200, got {sampling_ms_1}"
+        assert threshold_mC_1 == "60000", f"Expected 60000, got {threshold_mC_1}"
+        assert mode_1 == "lab", f"Expected 'lab', got {mode_1}"
+        
+        print(f"✓ Device 1 values: sampling_ms={sampling_ms_1}, threshold_mC={threshold_mC_1}, mode={mode_1}")
         assert sampling_ms_1 == "200", f"Expected 200, got {sampling_ms_1}"
         assert threshold_mC_1 == "60000", f"Expected 60000, got {threshold_mC_1}"
         assert mode_1 == "lab", f"Expected 'lab', got {mode_1}"
@@ -346,6 +352,7 @@ class TestDriverValidation:
         print("✓ sysfs attributes working correctly after rebind")
 
 
+@pytest.mark.order(26)
 def test_driver_validation():
     """
     Master test function for driver validation - runs all validation tests

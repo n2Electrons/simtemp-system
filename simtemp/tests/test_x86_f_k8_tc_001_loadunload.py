@@ -125,6 +125,7 @@ def unload_simtemp_modules():
     return success
 
 
+@pytest.mark.order(13)
 def test_driver_load_unload_clean_sequence(capsys):
     """F-K8-TC-001: Clean load/unload sequence"""
     
@@ -205,6 +206,7 @@ def test_driver_load_unload_clean_sequence(capsys):
     print("✓ Reloaded")
 
 
+@pytest.mark.order(50)
 def test_driver_load_unload_stress(capsys):
     """F-K8-TC-001-STRESS: Stress test for load/unload"""
     

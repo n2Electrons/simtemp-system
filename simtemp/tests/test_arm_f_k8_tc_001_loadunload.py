@@ -12,6 +12,7 @@ from test_utils import (load_environment, get_or_start_shared_qemu_session,
 
 
 # @pytest.mark.order('last') # USE IN CASE OF CONCURRENCY ISSUES IN QEMU
+@pytest.mark.order(48)
 def test_qemu_driver_load_unload():
     """
     F-K8-TC-003: Test kernel module load/unload in QEMU environment.

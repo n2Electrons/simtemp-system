@@ -8,6 +8,7 @@ import struct
 from test_utils import load_simtemp_modules, unload_simtemp_modules, SUDO
 
 
+@pytest.mark.order(35)
 def test_alert_within_2_periods():
     """F-K5-TC-001: Alert within ≤ 2 periods; stats.alerts++"""
     
