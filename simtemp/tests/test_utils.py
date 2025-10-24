@@ -283,8 +283,13 @@ def get_driver_path(test_suite_name=None):
             # x86 profile - Driver compiled in host or Jenkins
             return os.path.join(get_obj_path(), 'nxp_simtemp.ko')
         elif profile == 'arm_qemu':
-            # Use ARM QEMU profile - always use precompiled driver
-            return "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
+            # Use ARM QEMU profile - precompiled driver in rootfs
+            test_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(test_dir))
+            return os.path.join(
+                project_root, "deployment", "qemu", "rootfs",
+                "tmp", "prebuild", "simtemp-driver", "nxp_simtemp.ko"
+            )
     
     # Fall back to compiled driver path
     return os.path.join(get_obj_path(), 'nxp_simtemp.ko')
@@ -723,8 +728,13 @@ def get_module_path_for_context():
     qemu_process = get_or_start_shared_qemu_session()
     
     if qemu_process:
-        # Real QEMU mode: use prebuilt ARM driver from rootfs
-        module_path = "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"
+        # Real QEMU mode: use prebuilt ARM driver from deployment/qemu/rootfs
+        test_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(test_dir))
+        module_path = os.path.join(
+            project_root, "deployment", "qemu", "rootfs",
+            "tmp", "prebuild", "simtemp-driver", "nxp_simtemp.ko"
+        )
         context = "QEMU mode - ARM prebuilt driver"
     else:
         # In host/Docker/Jenkins mode: use locally compiled driver
@@ -1911,3 +1921,193 @@ def rm_module(module_name="nxp_simtemp"):
         bool: True if successful, False otherwise
     """
     return uexec_unload_module(module_name)
+
+
+def get_simtemp_stub_path(profile=None):
+    """
+    Get the path to the nxp_simtemp_stub.ko module file based on profile.
+    
+    Args:
+        profile (str): Test profile ('x86', 'arm_qemu', etc.)
+                      If None, assumes x86 local build
+        
+    Returns:
+        str or None: Path to stub module file, or None if stub not needed
+                     (e.g., in ARM where DTB provides the infrastructure)
+    """
+    if profile == 'arm_qemu':
+        # ARM uses DTB infrastructure - no separate stub module needed
+        return None
+    else:
+        # x86 or default: use local build - same directory as main module
+        obj_path = get_obj_path()
+        return os.path.join(obj_path, "nxp_simtemp_stub.ko")
+
+
+def load_simtemp_modules(test_suite_name=None):
+    """
+    Load simtemp modules in the correct order based on test configuration.
+    
+    For x86: loads main module first, then stub
+    For ARM: loads only main module (DTB provides infrastructure)
+    
+    Args:
+        test_suite_name (str): Name of the test suite for profile detection
+        
+    Returns:
+        bool: True if all required modules loaded successfully
+    """
+    config = load_test_config()
+    profile = None
+    
+    # Check if this is a specific test suite with profile configuration
+    if test_suite_name and test_suite_name in config.get('tests', {}):
+        suite_config = config['tests'][test_suite_name]
+        profile = suite_config.get('binary_paths_profile')
+    
+    if profile == 'arm_qemu':
+        # ARM QEMU mode: use the existing execute_command infrastructure
+        # instead of SSH, since QEMU communication is handled internally
+        from test_ucommand_exec import execute_command
+        
+        # Get module path
+        main_path = get_driver_path(test_suite_name)
+        
+        # Check if module is already loaded
+        success, output = execute_command("lsmod | grep nxp_simtemp")
+        if success:
+            for line in output:
+                if 'nxp_simtemp' in line and not ('Note: This is simulated' in line):
+                    print("✓ Module already loaded in QEMU")
+                    return True
+        
+        # Load main module in QEMU - use the corrected path
+        load_cmd = f"insmod {main_path}"
+        success, output = execute_command(load_cmd)
+        
+        if not success:
+            print(f"Failed to load module in QEMU")
+            return False
+            
+        print("✓ Module loaded successfully in QEMU")
+        return True
+    else:
+        # x86 mode: use direct subprocess calls to avoid executor issues
+        import subprocess
+        
+        # Get module paths
+        main_path = get_driver_path(test_suite_name)
+        stub_path = get_simtemp_stub_path(profile)
+        
+        print(f"Debug: main_path = {main_path}")
+        print(f"Debug: stub_path = {stub_path}")
+        
+        # Verify module files exist
+        if not os.path.exists(main_path):
+            print(f"Error: Main module not found at {main_path}")
+            return False
+        if stub_path and not os.path.exists(stub_path):
+            print(f"Error: Stub module not found at {stub_path}")
+            return False
+        
+        # Check if modules are already loaded
+        lsmod_result = subprocess.run(['lsmod'], capture_output=True,
+                                     text=True)
+        if lsmod_result.returncode == 0:
+            output_lines = lsmod_result.stdout.split('\n')
+            simtemp_loaded = any(line.startswith('nxp_simtemp ')
+                                for line in output_lines)
+            stub_loaded = any(line.startswith('nxp_simtemp_stub ')
+                             for line in output_lines)
+            
+            print(f"Debug: simtemp_loaded = {simtemp_loaded}")
+            print(f"Debug: stub_loaded = {stub_loaded}")
+            
+            if simtemp_loaded and stub_loaded:
+                print("✓ Both modules already loaded")
+                return True
+        
+        # Load main module first
+        sudo_prefix = get_sudo_prefix()
+        print(f"Debug: sudo_prefix = '{sudo_prefix}'")
+        
+        main_cmd = f"{sudo_prefix}insmod {main_path}"
+        print(f"Debug: Executing main_cmd = {main_cmd}")
+        main_result = subprocess.run(main_cmd, shell=True,
+                                    capture_output=True, text=True)
+        if main_result.returncode != 0:
+            print(f"Failed to load main module: {main_result.stderr}")
+            print(f"Main module stdout: {main_result.stdout}")
+            return False
+        
+        print("✓ Main module loaded successfully")
+        
+        # Load stub module
+        if stub_path:
+            stub_cmd = f"{sudo_prefix}insmod {stub_path}"
+            print(f"Debug: Executing stub_cmd = {stub_cmd}")
+            stub_result = subprocess.run(stub_cmd, shell=True,
+                                        capture_output=True, text=True)
+            if stub_result.returncode != 0:
+                print(f"Failed to load stub module: {stub_result.stderr}")
+                print(f"Stub module stdout: {stub_result.stdout}")
+                # Clean up main module if stub fails
+                subprocess.run(f"{sudo_prefix}rmmod nxp_simtemp", shell=True)
+                return False
+            
+            print("✓ Stub module loaded successfully")
+        
+        print("✓ All modules loaded successfully")
+        
+        # Wait a moment for device node creation
+        import time
+        time.sleep(1)
+    
+    return True
+
+
+def unload_simtemp_modules(test_suite_name=None):
+    """
+    Unload simtemp modules in the correct order (stub first, then main).
+    Safe to call regardless of which modules are actually loaded.
+    Handles both x86 (direct subprocess) and ARM (SSH to QEMU) modes.
+    
+    Args:
+        test_suite_name (str): Name of the test suite for profile detection
+    
+    Returns:
+        bool: True if unload completed (may have warnings for missing modules)
+    """
+    config = load_test_config()
+    profile = None
+    
+    # Check if this is a specific test suite with profile configuration
+    if test_suite_name and test_suite_name in config.get('tests', {}):
+        suite_config = config['tests'][test_suite_name]
+        profile = suite_config.get('binary_paths_profile')
+    
+    if profile == 'arm_qemu':
+        # ARM QEMU mode: use the existing execute_command infrastructure
+        from test_ucommand_exec import execute_command
+        
+        # Unload main module in QEMU (stub not used in ARM)
+        success, output = execute_command("rmmod nxp_simtemp 2>/dev/null || true")
+        
+        print("✓ Module unloaded from QEMU")
+        return True
+    else:
+        # x86 mode: use direct subprocess calls
+        import subprocess
+        
+        sudo_prefix = get_sudo_prefix()
+        
+        # Try to unload stub first (ignores if not loaded)
+        stub_cmd = f"{sudo_prefix}rmmod nxp_simtemp_stub 2>/dev/null || true"
+        subprocess.run(stub_cmd, shell=True, capture_output=True)
+        
+        # Then unload main module
+        main_cmd = f"{sudo_prefix}rmmod nxp_simtemp 2>/dev/null || true"
+        subprocess.run(main_cmd, shell=True, capture_output=True)
+        
+        print("✓ Modules unloaded from host")
+        return True

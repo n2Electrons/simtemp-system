@@ -17,6 +17,12 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/cdev.h>
+#include <linux/fs.h>
+#include <linux/uaccess.h>
+#include <linux/mutex.h>
+#include <linux/wait.h>
+#include <linux/poll.h>
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Jorge Rodriguez Moreno");
@@ -29,21 +35,53 @@ MODULE_SOFTDEP("pre: nxp_simtemp_stub");
 #endif
 
 #define DRIVER_NAME "nxp-simtemp"
+#define DEVICE_NAME "simtemp"
+#define CLASS_NAME "simtemp_class"
+
+/**
+ * struct simtemp_record - Binary temperature record
+ * @timestamp: Timestamp in jiffies
+ * @temperature: Temperature in milliCelsius
+ * @status: Status flags
+ * @reserved: Reserved for future use
+ */
+struct simtemp_record {
+	u64 timestamp;
+	s32 temperature;
+	u32 status;
+	u32 reserved;
+};
 
 /**
  * struct nxp_simtemp_data - Private data structure
  * @dev: Device pointer
+ * @pdev: Platform device pointer
+ * @cdev: Character device
+ * @device: Device class device
+ * @class: Device class
+ * @devt: Device number
+ * @mutex: Mutex for thread safety
  * @temperature: Current simulated temperature
  * @sampling_ms: Sampling interval in milliseconds
  * @threshold_mC: Temperature threshold in milliCelsius
  * @mode: Operating mode string
+ * @is_open: Device open flag
+ * @record: Current temperature record
  */
 struct nxp_simtemp_data {
 	struct device *dev;
+	struct platform_device *pdev;
+	struct cdev cdev;
+	struct device *device;
+	struct class *class;
+	dev_t devt;
+	struct mutex mutex;
 	int temperature;
 	u32 sampling_ms;
 	u32 threshold_mC;
 	const char *mode;
+	int is_open;
+	struct simtemp_record record;
 };
 
 /**
@@ -110,6 +148,149 @@ static const struct attribute_group *nxp_simtemp_groups[] = {
 	NULL
 };
 
+/* Global variables for character device */
+static dev_t simtemp_devt;
+static struct class *simtemp_class;
+static int device_count = 0;
+
+/**
+ * simtemp_update_record - Update temperature record
+ */
+static void simtemp_update_record(struct nxp_simtemp_data *data)
+{
+	data->record.timestamp = get_jiffies_64();
+	data->record.temperature = data->temperature * 1000; /* Convert to mC */
+	data->record.status = 0; /* Normal status */
+	data->record.reserved = 0;
+}
+
+/**
+ * simtemp_open - Character device open
+ */
+static int simtemp_open(struct inode *inode, struct file *filp)
+{
+	struct nxp_simtemp_data *data;
+	
+	data = container_of(inode->i_cdev, struct nxp_simtemp_data, cdev);
+	if (!data)
+		return -ENODEV;
+	
+	mutex_lock(&data->mutex);
+	
+	if (data->is_open) {
+		mutex_unlock(&data->mutex);
+		return -EBUSY;
+	}
+	
+	data->is_open = 1;
+	filp->private_data = data;
+	simtemp_update_record(data);
+	
+	mutex_unlock(&data->mutex);
+	return 0;
+}
+
+/**
+ * simtemp_release - Character device close
+ */
+static int simtemp_release(struct inode *inode, struct file *filp)
+{
+	struct nxp_simtemp_data *data = filp->private_data;
+	
+	if (!data)
+		return -ENODEV;
+	
+	mutex_lock(&data->mutex);
+	data->is_open = 0;
+	mutex_unlock(&data->mutex);
+	
+	return 0;
+}
+
+/**
+ * simtemp_read - Character device read
+ */
+static ssize_t simtemp_read(struct file *filp, char __user *buf,
+			    size_t count, loff_t *f_pos)
+{
+	struct nxp_simtemp_data *data = filp->private_data;
+	size_t record_size = sizeof(struct simtemp_record);
+	
+	if (!data)
+		return -ENODEV;
+	
+	/* Non-blocking read when no data available */
+	if (filp->f_flags & O_NONBLOCK)
+		return -EAGAIN;
+	
+	if (count < record_size)
+		return -EINVAL;
+	
+	mutex_lock(&data->mutex);
+	simtemp_update_record(data);
+	
+	if (copy_to_user(buf, &data->record, record_size)) {
+		mutex_unlock(&data->mutex);
+		return -EFAULT;
+	}
+	
+	mutex_unlock(&data->mutex);
+	return record_size;
+}
+
+/* Character device file operations */
+static const struct file_operations simtemp_fops = {
+	.owner = THIS_MODULE,
+	.open = simtemp_open,
+	.release = simtemp_release,
+	.read = simtemp_read,
+};
+
+/**
+ * simtemp_create_chardev - Create character device
+ */
+static int simtemp_create_chardev(struct nxp_simtemp_data *data)
+{
+	int ret;
+	
+	/* Initialize character device */
+	cdev_init(&data->cdev, &simtemp_fops);
+	data->cdev.owner = THIS_MODULE;
+	
+	/* Add character device */
+	ret = cdev_add(&data->cdev, data->devt, 1);
+	if (ret) {
+		dev_err(data->dev, "Failed to add cdev: %d\n", ret);
+		return ret;
+	}
+	
+	/* Create device node */
+	data->device = device_create(simtemp_class, data->dev,
+				     data->devt, data, DEVICE_NAME "%d",
+				     MINOR(data->devt));
+	if (IS_ERR(data->device)) {
+		ret = PTR_ERR(data->device);
+		dev_err(data->dev, "Failed to create device: %d\n", ret);
+		cdev_del(&data->cdev);
+		return ret;
+	}
+	
+	return 0;
+}
+
+/**
+ * simtemp_destroy_chardev - Destroy character device
+ */
+static void simtemp_destroy_chardev(struct nxp_simtemp_data *data)
+{
+	if (data->device) {
+		device_destroy(simtemp_class, data->devt);
+		data->device = NULL;
+	}
+	
+	cdev_del(&data->cdev);
+}
+
 /**
  * nxp_simtemp_probe - Platform driver probe function
  * @pdev: Platform device
@@ -134,7 +315,13 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 
 	/* Initialize data */
 	data->dev = dev;
+	data->pdev = pdev;
 	data->temperature = 25;
+	data->is_open = 0;
+	mutex_init(&data->mutex);
+
+	/* Allocate device number */
+	data->devt = MKDEV(MAJOR(simtemp_devt), device_count++);
 
 	/* Set defaults */
 	data->sampling_ms = 1000;
@@ -165,23 +352,28 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 	ret = devm_device_add_group(dev, &nxp_simtemp_group);
 	if (ret) {
 		dev_err(dev, "Failed to create sysfs attributes: %d\n", ret);
-		/* Cleanup on failure */
 		platform_set_drvdata(pdev, NULL);
 		return ret;
 	}
 
-	dev_info(dev, "Probe completed successfully: sampling_ms=%u threshold_mC=%u mode=%s\n",
+	/* Create character device */
+	ret = simtemp_create_chardev(data);
+	if (ret) {
+		dev_err(dev, "Failed to create character device: %d\n", ret);
+		platform_set_drvdata(pdev, NULL);
+		return ret;
+	}
+
+	dev_info(dev, "Probe completed: sampling_ms=%u threshold_mC=%u mode=%s\n",
 		 data->sampling_ms, data->threshold_mC, data->mode);
+	dev_info(dev, "Character device created: /dev/simtemp%d\n", 
+		 MINOR(data->devt));
 	return 0;
 }
 
 /**
  * nxp_simtemp_remove - Platform driver remove function
- * @pdev: Platform device being removed
- *
- * Implements proper cleanup for graceful unload.
  */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
 static void nxp_simtemp_remove(struct platform_device *pdev)
 {
 	struct nxp_simtemp_data *data = platform_get_drvdata(pdev);
@@ -189,46 +381,19 @@ static void nxp_simtemp_remove(struct platform_device *pdev)
 
 	dev_info(dev, "NXP SimTemp remove starting for device %s\n", dev_name(dev));
 
-	/* Verify data */
 	if (!data) {
 		dev_warn(dev, "No device data found during remove\n");
 		return;
 	}
 
-	/* 
-	 * Cleanup is automatic via devm_ functions
-	 */
+	/* Destroy character device */
+	simtemp_destroy_chardev(data);
 
 	/* Clear driver data */
 	platform_set_drvdata(pdev, NULL);
 
 	dev_info(dev, "NXP SimTemp remove completed successfully\n");
 }
-#else
-static int nxp_simtemp_remove(struct platform_device *pdev)
-{
-	struct nxp_simtemp_data *data = platform_get_drvdata(pdev);
-	struct device *dev = &pdev->dev;
-
-	dev_info(dev, "NXP SimTemp remove starting for device %s\n", dev_name(dev));
-
-	/* Verify data */
-	if (!data) {
-		dev_warn(dev, "No device data found during remove\n");
-		return 0;
-	}
-
-	/* 
-	 * Cleanup is automatic via devm_ functions
-	 */
-
-	/* Clear driver data */
-	platform_set_drvdata(pdev, NULL);
-
-	dev_info(dev, "NXP SimTemp remove completed successfully\n");
-	return 0;
-}
-#endif
 
 /**
  * Device Tree compatible strings
@@ -274,6 +439,21 @@ static int __init nxp_simtemp_init(void)
 	pr_info("NXP SimTemp driver: x86 detected - consider loading nxp_simtemp_stub for testing\n");
 #endif
 
+	/* Allocate character device numbers */
+	ret = alloc_chrdev_region(&simtemp_devt, 0, 4, DEVICE_NAME);
+	if (ret) {
+		pr_err("NXP SimTemp driver: Failed to allocate device numbers: %d\n", ret);
+		goto err_chrdev_alloc;
+	}
+
+	/* Create device class */
+	simtemp_class = class_create(CLASS_NAME);
+	if (IS_ERR(simtemp_class)) {
+		ret = PTR_ERR(simtemp_class);
+		pr_err("NXP SimTemp driver: Failed to create class: %d\n", ret);
+		goto err_class_create;
+	}
+
 	/* Register platform driver */
 	ret = platform_driver_register(&nxp_simtemp_driver);
 	if (ret) {
@@ -281,10 +461,14 @@ static int __init nxp_simtemp_init(void)
 		goto err_driver_register;
 	}
 
-	pr_info("NXP SimTemp driver: Platform driver registered successfully\n");
+	pr_info("NXP SimTemp driver: Initialized successfully\n");
 	return 0;
 
 err_driver_register:
+	class_destroy(simtemp_class);
+err_class_create:
+	unregister_chrdev_region(simtemp_devt, 4);
+err_chrdev_alloc:
 	pr_err("NXP SimTemp driver: Initialization failed with error %d\n", ret);
 	return ret;
 }
@@ -293,11 +477,14 @@ static void __exit nxp_simtemp_exit(void)
 {
 	pr_info("NXP SimTemp driver: Initiating cleanup\n");
 	
-	/* Unregister driver - triggers remove() for all devices */
+	/* Unregister platform driver */
 	platform_driver_unregister(&nxp_simtemp_driver);
 	
-	/* Brief pause for cleanup completion */
-	msleep(10);
+	/* Destroy device class */
+	class_destroy(simtemp_class);
+	
+	/* Release character device numbers */
+	unregister_chrdev_region(simtemp_devt, 4);
 	
 	pr_info("NXP SimTemp driver: Cleanup completed\n");
 }

@@ -56,6 +56,9 @@ SRC_FILE := nxp_simtemp.c
 SIGNING_PRIV := /var/jenkins_home/kernel_enroll/MOK.priv
 SIGNING_DER := /var/jenkins_home/kernel_enroll/MOK.der
 
+# Compiler flags for clean builds
+EXTRA_CFLAGS_CUSTOM := -Wno-unused-function
+
 obj-m := nxp_simtemp.o nxp_simtemp_stub.o
 
 # Default target - Auto-detect environment (Docker vs Host)
@@ -110,6 +113,7 @@ nxp-driver-arm64: prepare-nxp-driver-arm64 $(OBJ_DIR)
 	@echo "✅ NXP ARM64 module built and signed successfully"
 
 # Debian Docker build for x86_64 testing
+# Note: Compiler version warnings are expected when using Debian gcc with Ubuntu headers
 deb-driver: $(OBJ_DIR)
 	@echo "Building Debian x86_64 driver for testing..."
 	@echo "Using Ubuntu headers: $(DEBIAN_KERNEL_SRC)"
@@ -122,7 +126,8 @@ deb-driver: $(OBJ_DIR)
 		echo "✅ Found Ubuntu headers at $(DEBIAN_KERNEL_SRC)"; \
 	fi
 	@echo "Compiling with Debian toolchain..."
-	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(DEBIAN_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
+	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(DEBIAN_KERNEL_SRC) M=$(PWD) ARCH=x86_64 \
+		EXTRA_CFLAGS="$(EXTRA_CFLAGS_CUSTOM)" modules
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
 	@if [ -f nxp_simtemp.ko ] && [ -f nxp_simtemp_stub.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
@@ -219,7 +224,8 @@ host-driver: $(OBJ_DIR)
 	else \
 		echo "✅ Found host headers at $(HOST_KERNEL_SRC)"; \
 	fi
-	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(HOST_KERNEL_SRC) M=$(PWD) ARCH=x86_64 modules
+	env -u ARCH -u CROSS_COMPILE -u KDIR $(MAKE) -C $(HOST_KERNEL_SRC) M=$(PWD) ARCH=x86_64 \
+		EXTRA_CFLAGS="$(EXTRA_CFLAGS_CUSTOM)" modules
 	@echo "Build completed - moving artifacts to $(OBJ_DIR)/"
 	@if [ -f nxp_simtemp.ko ] && [ -f nxp_simtemp_stub.ko ]; then \
 		mv *.ko *.o *.mod *.mod.c .*.cmd Module.symvers modules.order $(OBJ_DIR)/ 2>/dev/null || true; \
@@ -282,6 +288,7 @@ info:
 	@echo "  HOST_KERNEL_SRC: $(HOST_KERNEL_SRC)"
 	@echo "  DEBIAN_KERNEL_SRC: $(DEBIAN_KERNEL_SRC)"
 	@echo "  KERNEL_SRC (NXP): $(KERNEL_SRC)"
+	@echo "  EXTRA_CFLAGS_CUSTOM: $(EXTRA_CFLAGS_CUSTOM)"
 	@if [ -f "../scripts/imx-env.sh" ]; then \
 		echo "NXP Environment: Available (source ../scripts/imx-env.sh)"; \
 		bash -c 'cd ../scripts && source ./imx-env.sh && echo "  ARCH=$$ARCH, CROSS_COMPILE=$$CROSS_COMPILE"'; \

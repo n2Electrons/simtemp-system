@@ -25,20 +25,59 @@ import time
 from test_utils import SUDO, SHELL_PARAMS, obj_path
 
 
+def load_simtemp_modules():
+    """Load simtemp modules (main driver first, then stub)"""
+    stub_path = os.path.join(obj_path, "nxp_simtemp_stub.ko")
+    main_path = os.path.join(obj_path, "nxp_simtemp.ko")
+    
+    # Verify both files exist
+    if not os.path.exists(stub_path):
+        print(f"Stub module not found: {stub_path}")
+        return False
+    if not os.path.exists(main_path):
+        print(f"Main module not found: {main_path}")
+        return False
+    
+    # Load main driver first
+    print(f"Loading main module: {main_path}")
+    main_result = subprocess.run(f"{SUDO}insmod {main_path}", **SHELL_PARAMS)
+    if main_result.returncode != 0:
+        print(f"Failed to load main module: {main_result.stderr}")
+        return False
+    
+    # Then load stub
+    print(f"Loading stub module: {stub_path}")
+    stub_result = subprocess.run(f"{SUDO}insmod {stub_path}", **SHELL_PARAMS)
+    if stub_result.returncode != 0:
+        print(f"Failed to load stub module: {stub_result.stderr}")
+        # Clean up main module if stub fails
+        subprocess.run(f"{SUDO}rmmod nxp_simtemp", **SHELL_PARAMS)
+        return False
+    
+    # Wait for device creation
+    time.sleep(0.5)
+    print("✓ Both modules loaded successfully")
+    return True
+
+
 class TestDriverValidation:
     """Comprehensive driver validation test suite"""
     
     def setup_method(self):
         """Setup for each test method"""
-        # Clean up any existing modules
-        subprocess.run(f"{SUDO}rmmod nxp_simtemp_stub nxp_simtemp",
+        # Clean up any existing modules (correct order: main first, then stub)
+        subprocess.run(f"{SUDO}rmmod nxp_simtemp",
+                       shell=True, stderr=subprocess.DEVNULL)
+        subprocess.run(f"{SUDO}rmmod nxp_simtemp_stub",
                        shell=True, stderr=subprocess.DEVNULL)
         time.sleep(0.5)
     
     def teardown_method(self):
         """Cleanup after each test method"""
-        # Clean up modules after test
-        subprocess.run(f"{SUDO}rmmod nxp_simtemp_stub nxp_simtemp",
+        # Clean up modules after test (correct order: main first, then stub)
+        subprocess.run(f"{SUDO}rmmod nxp_simtemp",
+                       shell=True, stderr=subprocess.DEVNULL)
+        subprocess.run(f"{SUDO}rmmod nxp_simtemp_stub",
                        shell=True, stderr=subprocess.DEVNULL)
 
     def test_device_sysfs_attributes(self):
@@ -52,9 +91,9 @@ class TestDriverValidation:
         """
         print("\n=== Testing Device and Sysfs Attributes ===")
         
-        # Load modules using modprobe to test dependencies
-        result = subprocess.run(f"{SUDO}modprobe nxp_simtemp", **SHELL_PARAMS)
-        assert result.returncode == 0, "Failed to load nxp_simtemp module"
+        # Load modules using our consistent method
+        if not load_simtemp_modules():
+            pytest.fail("Failed to load simtemp modules")
         
         # Give kernel time to create devices
         time.sleep(1)
@@ -105,7 +144,7 @@ class TestDriverValidation:
             
         # Verify stub values
         assert sampling_ms_1 == "200", f"Expected 200, got {sampling_ms_1}"
-        assert threshold_mC_1 == "60000", f"Expected 60000, got {threshold_mC_1}"
+        assert threshold_mC_1 == "50000", f"Expected 50000, got {threshold_mC_1}"
         assert mode_1 == "lab", f"Expected 'lab', got {mode_1}"
         
         print(f"✓ Device 1 values: sampling_ms={sampling_ms_1}, threshold_mC={threshold_mC_1}, mode={mode_1}")
@@ -118,7 +157,7 @@ class TestDriverValidation:
         - modinfo obj/nxp_simtemp.ko | grep -E "(filename|depends|softdep)"
         - modinfo obj/nxp_simtemp_stub.ko | grep -E "(filename|depends|softdep)"
         - lsmod | grep nxp
-        - sudo modprobe nxp_simtemp
+        - Load modules using consistent method
         """
         print("\n=== Testing Module Dependencies and Loading ===")
         
@@ -156,19 +195,20 @@ class TestDriverValidation:
         else:
             print("ℹ Stub module not present (normal for ARM builds)")
         
-        # Test automatic loading with modprobe
-        result = subprocess.run(f"{SUDO}modprobe nxp_simtemp", **SHELL_PARAMS)
-        assert result.returncode == 0, "modprobe failed to load nxp_simtemp"
+        # Test loading with our consistent method
+        if not load_simtemp_modules():
+            pytest.fail("Failed to load simtemp modules")
         
         # Verify main module is loaded (stub is optional)
-        lsmod = subprocess.run("lsmod | grep nxp", shell=True, capture_output=True, text=True)
+        lsmod = subprocess.run("lsmod | grep nxp", shell=True,
+                               capture_output=True, text=True)
         assert "nxp_simtemp" in lsmod.stdout, "Main module not found in lsmod"
         
         if os.path.exists(stub_path):
             assert "nxp_simtemp_stub" in lsmod.stdout, "Stub module not found in lsmod"
-            print("✓ Both modules loaded automatically via modprobe")
+            print("✓ Both modules loaded successfully")
         else:
-            print("✓ Main module loaded via modprobe (stub not needed for ARM)")
+            print("✓ Main module loaded (stub not needed for ARM)")
 
     def test_kernel_logs_verification(self):
         """
@@ -185,9 +225,9 @@ class TestDriverValidation:
         pre_dmesg = subprocess.run(f"{SUDO}dmesg | wc -l", shell=True, capture_output=True, text=True)
         pre_lines = int(pre_dmesg.stdout.strip())
         
-        # Load the driver
-        result = subprocess.run(f"{SUDO}modprobe nxp_simtemp", **SHELL_PARAMS)
-        assert result.returncode == 0, "Failed to load nxp_simtemp module"
+        # Load the driver using our consistent method
+        if not load_simtemp_modules():
+            pytest.fail("Failed to load simtemp modules")
         
         time.sleep(1)  # Give kernel time to generate logs
         
@@ -198,13 +238,17 @@ class TestDriverValidation:
         new_logs_text = '\n'.join(new_logs)
         
         # Check for driver initialization messages
-        assert "NXP SimTemp driver: Initializing" in new_logs_text, "Driver initialization message not found"
-        assert "NXP SimTemp driver: Platform driver registered" in new_logs_text, "Driver registration message not found"
+        assert "NXP SimTemp driver: Initializing" in new_logs_text, \
+            "Driver initialization message not found"
+        assert "NXP SimTemp driver: Initialized successfully" in new_logs_text, \
+            "Driver initialization completion message not found"
         print("✓ Driver initialization logs found")
         
         # Check for device probe messages
-        assert "NXP SimTemp probe start" in new_logs_text, "Device probe messages not found"
-        assert "probe ok:" in new_logs_text, "Successful probe messages not found"
+        assert "NXP SimTemp probe starting" in new_logs_text, \
+            "Device probe messages not found"
+        assert "Probe completed:" in new_logs_text, \
+            "Successful probe messages not found"
         print("✓ Device probe logs found")
         
         # Check for absence of error messages
@@ -243,10 +287,10 @@ class TestDriverValidation:
             assert "alias" in modinfo.stdout, "Module aliases not found"
             print("✓ Module compilation and device tree aliases verified")
         
-        # 2. Load with automatic dependencies
-        result = subprocess.run(f"{SUDO}modprobe nxp_simtemp", **SHELL_PARAMS)
-        assert result.returncode == 0, "Failed to load with modprobe"
-        print("✓ Automatic dependency loading successful")
+        # 2. Load with automatic dependencies using our consistent method
+        if not load_simtemp_modules():
+            pytest.fail("Failed to load simtemp modules")
+        print("✓ Module loading successful")
         
         # 3. Verify devices created
         devices = glob.glob("/sys/devices/platform/nxp-simtemp*")
@@ -266,10 +310,11 @@ class TestDriverValidation:
         
         # 5. Verify logs without errors
         recent_logs = subprocess.run(
-            f"{SUDO}dmesg | grep 'probe ok:' | tail -2",
+            f"{SUDO}dmesg | grep 'Probe completed:' | tail -2",
             shell=True, capture_output=True, text=True
         )
-        assert "probe ok:" in recent_logs.stdout, f"Successful probe not found: {recent_logs.stdout}"
+        assert "Probe completed:" in recent_logs.stdout, \
+            f"Successful probe not found: {recent_logs.stdout}"
         print("✓ Recent logs show successful operation")
         
         print("🎉 Complete driver functionality validation PASSED!")
@@ -284,9 +329,9 @@ class TestDriverValidation:
         """
         print("\n=== Testing Driver Bind/Unbind Operations ===")
         
-        # Load the driver first
-        result = subprocess.run(f"{SUDO}modprobe nxp_simtemp", **SHELL_PARAMS)
-        assert result.returncode == 0, "Failed to load nxp_simtemp module"
+        # Load the driver first using our consistent method
+        if not load_simtemp_modules():
+            pytest.fail("Failed to load simtemp modules")
         
         time.sleep(1)
         

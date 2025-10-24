@@ -48,7 +48,7 @@ default_binary_paths:
     kernel: "deployment/qemu/linux-build-imx/arch/arm/boot/zImage"
     rootfs: "deployment/qemu/rootfs/rootfs.ext4"
     dtb: "deployment/qemu/imx6q-sabresd-with-simtemp.dtb"
-    driver: "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"  # PRECOMPILED IN HOST
+    driver: "deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"  # PRECOMPILED MODULE
     qemu_script: "deployment/qemu/scripts/start_qemu_and_wait_for_boot.sh"
 
 # GitHub issue mappings (populated by automation)
@@ -93,6 +93,12 @@ tests:
         test_id: "F-K8-TC-004"
         pytest_file: "test_x86_f_k8_tc_004_validation.py"
         verbose_output: true
+      - name: "test_device_node_exists"
+        description: "Character device node /dev/simtemp exists"
+        enabled: true
+        test_id: "F-K3-TC-001"
+        pytest_file: "test_x86_f_k3_simple.py"
+        verbose_output: false
 
   qemu_integration:
     enabled: true
@@ -112,7 +118,7 @@ tests:
         test_id: "F-K8-TC-001-QEMU"
         pytest_file: "test_arm_f_k8_tc_001_loadunload.py"
         verbose_output: true
-      - name: "test_f_k1_platform_driver_dt_registration"
+      - name: "test_platform_driver_validation"
         description: "Validate platform driver with Device Tree in QEMU environment"
         enabled: true
         test_id: "F-K1-TC-003-QEMU"
