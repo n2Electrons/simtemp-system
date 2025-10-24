@@ -75,15 +75,21 @@ struct simtemp_record {
 /**
  * enum simtemp_mode - Operating modes for the temperature simulator
  * @SIMTEMP_MODE_STATIC: Static temperature, no changes
- * @SIMTEMP_MODE_LINEAR: Linear temperature changes
- * @SIMTEMP_MODE_RANDOM: Random temperature variations
- * @SIMTEMP_MODE_SINE: Sinusoidal temperature pattern
+ * @SIMTEMP_MODE_LINEAR: Linear temperature ramp
+ * @SIMTEMP_MODE_EXPONENTIAL: Exponential heating curve
+ * @SIMTEMP_MODE_SINUSOIDAL: Sinusoidal temperature pattern
+ * @SIMTEMP_MODE_STEP: Step response pattern
+ * @SIMTEMP_MODE_NOISY: Linear ramp with Gaussian noise
+ * @SIMTEMP_MODE_REALISTIC: Realistic environmental simulation
  */
 enum simtemp_mode {
 	SIMTEMP_MODE_STATIC = 0,
 	SIMTEMP_MODE_LINEAR,
-	SIMTEMP_MODE_RANDOM,
-	SIMTEMP_MODE_SINE,
+	SIMTEMP_MODE_EXPONENTIAL,
+	SIMTEMP_MODE_SINUSOIDAL,
+	SIMTEMP_MODE_STEP,
+	SIMTEMP_MODE_NOISY,
+	SIMTEMP_MODE_REALISTIC,
 	SIMTEMP_MODE_MAX
 };
 
@@ -128,6 +134,7 @@ struct simtemp_status {
  * @status: Device status structure
  * @buffer: Internal buffer for read/write operations
  * @buffer_size: Current buffer size
+ * @temp_generator: Temperature pattern generator state
  */
 struct nxp_simtemp_data {
 	struct device *dev;
@@ -157,6 +164,24 @@ struct nxp_simtemp_data {
 	
 	/* Temperature record */
 	struct simtemp_record record;
+	
+	/* F-K2: Periodic sampling */
+	struct timer_list sample_timer;
+	bool timer_active;
+	
+	/* Temperature pattern generator */
+	struct {
+		enum simtemp_mode pattern_type;
+		u32 sample_count;
+		u32 start_time_ms;
+		int base_temperature;
+		int min_temp;
+		int max_temp;
+		u32 period_ms;
+		int amplitude;
+		int noise_level;
+		bool enabled;
+	} temp_generator;
 };
 
 /* Function prototypes for character device operations */
