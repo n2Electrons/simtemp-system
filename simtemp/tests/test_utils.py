@@ -1708,7 +1708,7 @@ def start_qemu_and_wait_for_boot():
     # dtb_path = os.path.join(qemu_base, "linux-build-imx",
     #                         "arch", "arm", "boot", "dts",
     #                         "imx6q-sabresd.dtb")
-    dtb_path = os.path.join(qemu_base, "imx6q-sabresd-with-simtemp.dtb")
+    dtb_path = os.path.join(qemu_base, "imx6q-sabrelite-with-simtemp.dtb")
     rootfs_path = os.path.join(qemu_base, "rootfs.cpio.gz")
 
     print(f"[DEBUG] QEMU base: {qemu_base}")
@@ -1734,7 +1734,6 @@ def start_qemu_and_wait_for_boot():
             return s.getsockname()[1]
     
     monitor_port = find_free_port()
-    monitor_port = find_free_port()
     socket_port = find_free_port()  # Port for direct socket communication
     print(f"[DEBUG] Using socket port: {socket_port}")
     
@@ -1750,12 +1749,20 @@ def start_qemu_and_wait_for_boot():
         "-initrd", rootfs_path,
         "-append",
         "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 rdinit=/init",
-        "-monitor", "none",
+        "-monitor", f"telnet:127.0.0.1:{monitor_port},server,nowait",
         "-serial", "stdio",
         "-chardev", f"socket,id=mysensor,host=127.0.0.1,port={socket_port},server=on,wait=off",
         "-serial", "chardev:mysensor",
         "-no-reboot"
     ]
+    # Do not include:
+    # "quiet loglevel=8 initcall_debug printk.time=1",
+    # earlycon=imx,0x02020000,115200", <== earlycon may conflict with chardev
+    ###########################################################################
+    # HERE IS THE MAGIC FOR QEMU SESSION RECOVERY VIA SOCKET:
+    #         "-monitor", f"telnet:127.0.0.1:{monitor_port},server,nowait",
+    ###########################################################################
+
     
     print("Starting QEMU for platform driver testing...")
     cmd_preview = f"{' '.join(qemu_cmd[:3])}... ({len(qemu_cmd)} args total)"
