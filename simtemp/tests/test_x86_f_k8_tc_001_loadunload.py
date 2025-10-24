@@ -5,7 +5,8 @@ import re
 import os
 import time
 import pytest
-from test_utils import SUDO, obj_path, SHELL_PARAMS
+from test_utils import (SUDO, obj_path, SHELL_PARAMS, 
+                       load_simtemp_modules, unload_simtemp_modules)
 
 # Execute with:
 # python3 -m pytest test_x86_f_k8_tc_001_loadunload.py -v

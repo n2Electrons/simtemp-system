@@ -16,6 +16,7 @@
   "f-k1-reg-by-dt": 17,
   "f-k1-tc-002-qemu-dt": 16,
   "f-k3-devsimt-records": 33,
+  "f-k5-raise-alert": 34,
   "f-k8-tc-001-improve": 10,
   "f-k8-tc-001-loadunload": 7,
   "f-k8-tc-002-dtb-drv-bind": 21,

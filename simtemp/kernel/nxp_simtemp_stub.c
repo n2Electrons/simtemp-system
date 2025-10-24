@@ -23,7 +23,7 @@ MODULE_SOFTDEP("post: nxp_simtemp");
 
 static const struct property_entry simtemp_props[] = {
 	PROPERTY_ENTRY_U32("sampling-ms", 200),
-	PROPERTY_ENTRY_U32("threshold-microc", 60000),
+	PROPERTY_ENTRY_U32("threshold-mC", 60000),  /* 60000 milli-Celsius = 60°C */
 	PROPERTY_ENTRY_STRING("mode", "lab"),
 	{ }
 };
