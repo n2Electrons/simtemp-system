@@ -307,8 +307,8 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 	data->devt = MKDEV(MAJOR(simtemp_devt), device_count++);
 
 	/* Set defaults */
-	data->sampling_ms = 1000;
-	data->threshold_mC = 50000;
+	data->sampling_ms = 1000;	// To be overridden by device properties in DT
+	data->threshold_mC = 50000;	// To be overridden by device properties in DT
 	data->mode = "default";
 	data->alert_count = 0;
 
@@ -324,7 +324,7 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 		data->sampling_ms = 1000;
 	}
 
-	if (data->threshold_mC < -40000 || data->threshold_mC > 125000) {
+	if (data->threshold_mC > 125000) {
 		dev_warn(dev, "Invalid threshold-mC %u, using default 50000\n", data->threshold_mC);
 		data->threshold_mC = 50000;
 	}
