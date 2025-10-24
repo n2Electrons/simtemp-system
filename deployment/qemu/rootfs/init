@@ -5,6 +5,12 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs -o mode=0755 none 
 
 echo "=== initramfs ready ==="
 
+while [ ! -e /dev/ttymxc1 ]; do
+  sleep 0.1
+done
+
+ln -s /dev/ttymxc1 /dev/tempsensor
+
 # Configure network interface
 ifconfig lo 127.0.0.1 up
 ifconfig eth0 up
