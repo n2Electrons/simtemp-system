@@ -48,7 +48,7 @@ default_binary_paths:
     kernel: "deployment/qemu/linux-build-imx/arch/arm/boot/zImage"
     rootfs: "deployment/qemu/rootfs/rootfs.ext4"
     dtb: "deployment/qemu/imx6q-sabresd-with-simtemp.dtb"
-    driver: "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"  # PRECOMPILED IN HOST
+    driver: "deployment/qemu/rootfs/tmp/prebuild/simtemp-driver/nxp_simtemp.ko"  # PRECOMPILED MODULE
     qemu_script: "deployment/qemu/scripts/start_qemu_and_wait_for_boot.sh"
 
 # GitHub issue mappings (populated by automation)
