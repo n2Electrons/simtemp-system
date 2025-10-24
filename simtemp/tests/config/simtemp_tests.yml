@@ -118,7 +118,7 @@ tests:
         test_id: "F-K8-TC-001-QEMU"
         pytest_file: "test_arm_f_k8_tc_001_loadunload.py"
         verbose_output: true
-      - name: "
+      - name: "test_platform_driver_validation"
         description: "Validate platform driver with Device Tree in QEMU environment"
         enabled: true
         test_id: "F-K1-TC-003-QEMU"
