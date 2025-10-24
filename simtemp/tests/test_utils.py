@@ -8,6 +8,8 @@ import shutil
 import pytest
 import json
 import time
+import uuid
+import traceback
 from datetime import datetime
 from contextlib import contextmanager
 
@@ -20,6 +22,15 @@ from test_ucommand_exec import (
     set_global_qemu_pid,
     clear_global_qemu_pid
 )
+
+# Debug control macro - set to False to hide GET_QEMU debug messages
+DEBUG_GET_QEMU = os.environ.get('DEBUG_GET_QEMU', 'False').lower() == 'true'
+
+
+def debug_print_get_qemu(message):
+    """Print GET_QEMU debug messages only if DEBUG_GET_QEMU is enabled."""
+    if DEBUG_GET_QEMU:
+        print(message)
 
 
 def qemu_timestamp():
@@ -1146,24 +1157,28 @@ def get_or_start_shared_qemu_session(force_new=False):
     Returns:
         QEMU process handle or None.
     """
-    import uuid
-    import traceback
     
+    # Debug messages using macro for cleaner output control
     call_id = str(uuid.uuid4())[:8]
-    print(f"🔧 [GET_QEMU {call_id}] get_or_start_shared_qemu_session() called")
-    print(f"🔧 [GET_QEMU {call_id}] force_new={force_new}")
+    debug_print_get_qemu(f"🔧 [GET_QEMU {call_id}] "
+                         f"get_or_start_shared_qemu_session() called")
+    debug_print_get_qemu(f"🔧 [GET_QEMU {call_id}] force_new={force_new}")
 
-    # Print stack trace to see who called this
-    print(f"🔧 [GET_QEMU {call_id}] Call stack:")
+    # Print stack trace to see who called this (controlled by macro)
+    debug_print_get_qemu(f"🔧 [GET_QEMU {call_id}] Call stack:")
     # Show last 5 frames for more detail
-    for i, line in enumerate(traceback.format_stack()[-6:-1]):
-        print(f"🔧 [GET_QEMU {call_id}]   {i+1}: {line.strip()}")
-    print(f"🔧 [GET_QEMU {call_id}] ────────────────")
+    if DEBUG_GET_QEMU:
+        for i, line in enumerate(traceback.format_stack()[-6:-1]):
+            debug_print_get_qemu(f"🔧 [GET_QEMU {call_id}]   "
+                                 f"{i+1}: {line.strip()}")
+    debug_print_get_qemu(f"🔧 [GET_QEMU {call_id}] ────────────────")
     
     # If force_new is True, start a private session
     if force_new:
-        print("🔧 [DEBUG] force_new=True, starting private QEMU session...")
-        print("🔧 [DEBUG] Private session will create its own marker")
+        debug_print_get_qemu("🔧 [DEBUG] force_new=True, starting "
+                             "private QEMU session...")
+        debug_print_get_qemu("🔧 [DEBUG] Private session will create "
+                             "its own marker")
         qemu_result = start_qemu_and_wait_for_boot()
         if qemu_result:
             # Unpack result for private session
@@ -1174,16 +1189,20 @@ def get_or_start_shared_qemu_session(force_new=False):
                 socket_port = None
             
             ts = qemu_timestamp()
-            print(f"QEMU-HANDLER: [{ts}] CREATED PROCESS: PID {qemu_process.pid}")
+            print(f"QEMU-HANDLER: [{ts}] CREATED PROCESS: "
+                  f"PID {qemu_process.pid}")
             create_private_qemu_marker(qemu_process, socket_port)
             ts = qemu_timestamp()
-            print(f"QEMU-HANDLER: [{ts}] CREATED MARKER for: {qemu_process.pid}")
-            print("🔧 [DEBUG] Private QEMU session created successfully")
+            print(f"QEMU-HANDLER: [{ts}] CREATED MARKER for: "
+                  f"{qemu_process.pid}")
+            debug_print_get_qemu("🔧 [DEBUG] Private QEMU session "
+                                 "created successfully")
             return qemu_process
         return None
     
     # Check if QEMU session is already active
-    print("🔧 [DEBUG] Checking if QEMU session is already active...")
+    debug_print_get_qemu("🔧 [DEBUG] Checking if QEMU session is "
+                         "already active...")
     marker_path = get_qemu_session_marker_path()
     marker_pid = None
     
@@ -1220,15 +1239,18 @@ def get_or_start_shared_qemu_session(force_new=False):
     
     if marker_pid and existing_qemu_pids:
         # Case 4: Hay marcador Y múltiples procesos
-        print("🔧 [DEBUG] Found marker AND multiple QEMU processes")
-        print(f"🔧 [DEBUG] Marker PID: {marker_pid}")
+        debug_print_get_qemu("🔧 [DEBUG] Found marker AND multiple "
+                             "QEMU processes")
+        debug_print_get_qemu(f"🔧 [DEBUG] Marker PID: {marker_pid}")
         pids_str = ', '.join(str(pid) for pid in existing_qemu_pids)
-        print(f"🔧 [DEBUG] Running QEMU PIDs: {pids_str}")
+        debug_print_get_qemu(f"🔧 [DEBUG] Running QEMU PIDs: {pids_str}")
         
         if marker_pid in existing_qemu_pids:
             # Marcador corresponde a uno de los procesos - reutilizar
-            print("🔧 [DEBUG] Marker matches running process - reusing")
-            print("🔧 [DEBUG] Cleaning up other non-private processes...")
+            debug_print_get_qemu("🔧 [DEBUG] Marker matches running "
+                                 "process - reusing")
+            debug_print_get_qemu("🔧 [DEBUG] Cleaning up other "
+                                 "non-private processes...")
             
             # Check which are private sessions
             private_markers = get_all_qemu_markers()
@@ -1245,8 +1267,10 @@ def get_or_start_shared_qemu_session(force_new=False):
             
             if orphaned_pids:
                 ts = qemu_timestamp()
-                print(f"QEMU-HANDLER: [{ts}] Cleaning orphaned PIDs: {orphaned_pids}")
-                print(f"🧹 [DEBUG] Cleaning orphaned PIDs: {orphaned_pids}")
+                print(f"QEMU-HANDLER: [{ts}] Cleaning orphaned PIDs: "
+                      f"{orphaned_pids}")
+                debug_print_get_qemu(f"🧹 [DEBUG] Cleaning orphaned PIDs: "
+                                     f"{orphaned_pids}")
                 for pid in orphaned_pids:
                     try:
                         os.kill(pid, 15)  # SIGTERM
@@ -1294,20 +1318,23 @@ def get_or_start_shared_qemu_session(force_new=False):
                         time.sleep(0.1)
                     return self.returncode
             
-            print(f"🔧 [DEBUG] Returning MockQemuProcess with PID {marker_pid}")
+            debug_print_get_qemu(f"🔧 [DEBUG] Returning MockQemuProcess "
+                                 f"with PID {marker_pid}")
             set_global_qemu_pid(marker_pid)
             return MockQemuProcess(marker_pid)
         else:
             # Marcador no corresponde - limpiar y crear nuevo
-            print("🔧 [DEBUG] Marker doesn't match any running process")
-            print("🔧 [DEBUG] Cleaning marker and orphaned processes...")
+            debug_print_get_qemu("🔧 [DEBUG] Marker doesn't match any "
+                                 "running process")
+            debug_print_get_qemu("🔧 [DEBUG] Cleaning marker and "
+                                 "orphaned processes...")
             
             # Remove stale marker
             try:
                 ts = qemu_timestamp()
                 print(f"QEMU-HANDLER: [{ts}] CLEAR MARKER for: {marker_pid}")
                 os.remove(marker_path)
-                print("🔧 [DEBUG] Removed stale marker")
+                debug_print_get_qemu("🔧 [DEBUG] Removed stale marker")
             except OSError:
                 pass
             
@@ -1348,7 +1375,7 @@ def get_or_start_shared_qemu_session(force_new=False):
     elif marker_pid:
         # Case 1: Solo hay marcador válido
         print("Reusing existing QEMU session...")
-        print("🔧 [DEBUG] Found active session, will reuse it")
+        debug_print_get_qemu("🔧 [DEBUG] Found active session, will reuse it")
         
         class MockQemuProcess:
             def __init__(self, pid):
@@ -1383,17 +1410,20 @@ def get_or_start_shared_qemu_session(force_new=False):
                     time.sleep(0.1)
                 return self.returncode
         
-        print(f"🔧 [DEBUG] Returning MockQemuProcess with PID {marker_pid}")
+        debug_print_get_qemu(f"🔧 [DEBUG] Returning MockQemuProcess "
+                             f"with PID {marker_pid}")
         set_global_qemu_pid(marker_pid)
         return MockQemuProcess(marker_pid)
     elif existing_qemu_pids:
         # Case 2: Solo hay procesos sin marcador
-        print("🔧 [DEBUG] No marker but found QEMU processes")
+        debug_print_get_qemu("🔧 [DEBUG] No marker but found QEMU processes")
         
         # Check for any existing QEMU processes that need cleanup
-        print("🔧 [DEBUG] Checking for existing QEMU processes...")
+        debug_print_get_qemu("🔧 [DEBUG] Checking for existing "
+                             "QEMU processes...")
         pids_str = ', '.join(str(pid) for pid in existing_qemu_pids)
-        print(f"🔧 [DEBUG] Found running QEMU PIDs: {pids_str}")
+        debug_print_get_qemu(f"🔧 [DEBUG] Found running QEMU PIDs: "
+                             f"{pids_str}")
         
         # Check which are private sessions and which are orphaned
         private_markers = get_all_qemu_markers()
@@ -1411,9 +1441,10 @@ def get_or_start_shared_qemu_session(force_new=False):
             ts = qemu_timestamp()
             print(f"QEMU-HANDLER: [{ts}] Found ORPHANED QEMU processes: "
                   f"{orphaned_pids}")
-            print(f"🧹 [DEBUG] Found orphaned QEMU processes: "
-                  f"{orphaned_pids}")
-            print("🧹 [DEBUG] Cleaning up orphaned processes...")
+            debug_print_get_qemu(f"🧹 [DEBUG] Found orphaned QEMU "
+                                 f"processes: {orphaned_pids}")
+            debug_print_get_qemu("🧹 [DEBUG] Cleaning up orphaned "
+                                 "processes...")
             
             # Terminate orphaned processes
             killed_pids = []
@@ -1447,18 +1478,24 @@ def get_or_start_shared_qemu_session(force_new=False):
         if private_pids:
             private_pids_str = ' '.join(str(pid) for pid in private_pids)
             ts = qemu_timestamp()
-            print(f"QEMU-HANDLER: [{ts}] Found private processes {private_pids_str}")
-            print(f"🔧 [DEBUG] Found private QEMU sessions: {private_pids}")
-            print("🔧 [DEBUG] Will not interfere with private sessions")
+            print(f"QEMU-HANDLER: [{ts}] Found private processes "
+                  f"{private_pids_str}")
+            debug_print_get_qemu(f"🔧 [DEBUG] Found private QEMU sessions: "
+                                 f"{private_pids}")
+            debug_print_get_qemu("🔧 [DEBUG] Will not interfere with "
+                                 "private sessions")
     else:
         # Case 3: No hay marcador ni procesos
-        print("🔧 [DEBUG] No marker and no QEMU processes found")
+        debug_print_get_qemu("🔧 [DEBUG] No marker and no QEMU "
+                             "processes found")
     
     # No active shared session, start new QEMU
     print("Starting new shared QEMU session...")
-    print("🔧 [DEBUG] About to call start_qemu_and_wait_for_boot()")
+    debug_print_get_qemu("🔧 [DEBUG] About to call "
+                         "start_qemu_and_wait_for_boot()")
     qemu_result = start_qemu_and_wait_for_boot()
-    print(f"🔧 [DEBUG] start_qemu_and_wait_for_boot() returned: {qemu_result}")
+    debug_print_get_qemu(f"🔧 [DEBUG] start_qemu_and_wait_for_boot() "
+                         f"returned: {qemu_result}")
     
     # Unpack the result (process, socket_port)
     if qemu_result and len(qemu_result) == 2:
@@ -1471,15 +1508,18 @@ def get_or_start_shared_qemu_session(force_new=False):
         ts = qemu_timestamp()
         print(f"QEMU-HANDLER: [{ts}] CREATED PROCESS: PID {qemu_process.pid}")
         # Create marker IMMEDIATELY to prevent race conditions
-        print("🔧 [DEBUG] Creating marker immediately to prevent race...")
+        debug_print_get_qemu("🔧 [DEBUG] Creating marker immediately "
+                             "to prevent race...")
         create_qemu_session_marker(qemu_process, None, socket_port)
         ts = qemu_timestamp()
         print(f"QEMU-HANDLER: [{ts}] CREATED MARKER for: {qemu_process.pid}")
         print("QEMU session ready - other tests will reuse this session")
-        print(f"🔧 [DEBUG] Returning QEMU process with PID: {qemu_process.pid}")
+        debug_print_get_qemu(f"🔧 [DEBUG] Returning QEMU process "
+                             f"with PID: {qemu_process.pid}")
     else:
         print("QEMU session NOT CREATED!")
-        print("🔧 [DEBUG] QEMU process is None - something went wrong")
+        debug_print_get_qemu("🔧 [DEBUG] QEMU process is None - "
+                             "something went wrong")
     
     return qemu_process
 
