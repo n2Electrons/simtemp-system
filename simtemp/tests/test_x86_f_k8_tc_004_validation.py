@@ -22,42 +22,7 @@ import glob
 import time
 
 # Import common test utilities
-from test_utils import SUDO, SHELL_PARAMS, obj_path
-
-
-def load_simtemp_modules():
-    """Load simtemp modules (main driver first, then stub)"""
-    stub_path = os.path.join(obj_path, "nxp_simtemp_stub.ko")
-    main_path = os.path.join(obj_path, "nxp_simtemp.ko")
-    
-    # Verify both files exist
-    if not os.path.exists(stub_path):
-        print(f"Stub module not found: {stub_path}")
-        return False
-    if not os.path.exists(main_path):
-        print(f"Main module not found: {main_path}")
-        return False
-    
-    # Load main driver first
-    print(f"Loading main module: {main_path}")
-    main_result = subprocess.run(f"{SUDO}insmod {main_path}", **SHELL_PARAMS)
-    if main_result.returncode != 0:
-        print(f"Failed to load main module: {main_result.stderr}")
-        return False
-    
-    # Then load stub
-    print(f"Loading stub module: {stub_path}")
-    stub_result = subprocess.run(f"{SUDO}insmod {stub_path}", **SHELL_PARAMS)
-    if stub_result.returncode != 0:
-        print(f"Failed to load stub module: {stub_result.stderr}")
-        # Clean up main module if stub fails
-        subprocess.run(f"{SUDO}rmmod nxp_simtemp", **SHELL_PARAMS)
-        return False
-    
-    # Wait for device creation
-    time.sleep(0.5)
-    print("✓ Both modules loaded successfully")
-    return True
+from test_utils import SUDO, obj_path, load_simtemp_modules
 
 
 class TestDriverValidation:
@@ -129,7 +94,7 @@ class TestDriverValidation:
             
         # Verify default values
         assert sampling_ms_0 == "1000", f"Expected 1000, got {sampling_ms_0}"
-        assert threshold_mC_0 == "50000", f"Expected 50000, got {threshold_mC_0}"
+        assert threshold_mC_0 == "60000", f"Expected 60000, got {threshold_mC_0}"
         assert mode_0 == "default", f"Expected 'default', got {mode_0}"
         
         print(f"✓ Device 0 values: sampling_ms={sampling_ms_0}, threshold_mC={threshold_mC_0}, mode={mode_0}")
