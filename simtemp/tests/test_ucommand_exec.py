@@ -336,6 +336,8 @@ class QemuCommandExecutor(CommandExecutor):
         # Provide realistic ARM QEMU responses with Device Tree aliases
         if cmd == 'uname -a':
             return True, ["Linux buildroot 5.10.0 #1 SMP Fri Sep 19 17:02:30 UTC 2025 armv7l GNU/Linux"]
+        elif cmd == 'lsmod':
+            return True, ["nxp_simtemp 16384 0",]
         else:
             # For any other command, provide helpful output
             return True, [f"✓ Command executed successfully: {command.strip()}",
