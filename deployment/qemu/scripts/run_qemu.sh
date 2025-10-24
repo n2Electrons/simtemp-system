@@ -33,7 +33,7 @@ qemu-system-arm -M sabrelite \
   -dtb "$DTB_FILE" \
   -initrd "$ROOTFS_IMAGE" \
   -append "console=ttymxc0,115200 rdinit=/init" \
-  -chardev socket,id=mysensor,server=on,host=127.0.0.1,port=4445,wait=off \
   -monitor none \
   -serial stdio \
+  -chardev socket,id=mysensor,server=on,host=127.0.0.1,port=4445,wait=off \
   -serial chardev:mysensor
