@@ -246,33 +246,6 @@ class QemuSshCommandExecutor(CommandExecutor):
         # Provide realistic ARM QEMU responses with Device Tree aliases
         if cmd == 'uname -a':
             return True, ["Linux buildroot 5.10.0 #1 SMP Fri Sep 19 17:02:30 UTC 2025 armv7l GNU/Linux"]
-        elif cmd == 'uname -r':
-            return True, ["5.10.0"]
-        elif cmd == 'uname -m':
-            return True, ["armv7l"]
-        elif 'insmod' in cmd and 'nxp_simtemp' in cmd:
-            return True, ["Module loaded successfully"]
-        elif 'rmmod' in cmd and 'nxp_simtemp' in cmd:
-            return True, ["Module unloaded successfully"]
-        elif 'ls /tmp' in cmd:
-            return True, ["prebuild", "test_file.txt", "kernel_modules"]
-        elif 'lsmod' in cmd:
-            return True, [
-                "Module                  Size  Used by",
-                "nxp_simtemp          16384  0",
-                "bridge                176128  0"
-            ]
-        elif 'dmesg' in cmd and 'tail' in cmd:
-            return True, [
-                "[    1.234567] nxp_simtemp: loading out-of-tree module taints kernel.",
-                "[    1.234568] nxp_simtemp 20c8000.simtemp: probed successfully"
-            ]
-        elif cmd.startswith('ls '):
-            path = cmd.replace('ls ', '').strip()
-            if path == '/':
-                return True, ["bin", "dev", "etc", "proc", "sys", "tmp", "usr", "var"]
-            else:
-                return True, ["file1", "file2", "directory/"]
         else:
             return True, [f"✓ Real SSH/Telnet execution attempted for: {command.strip()}",
                          "Note: Fallback to simulation (SSH/Telnet not available)"]
@@ -363,78 +336,6 @@ class QemuCommandExecutor(CommandExecutor):
         # Provide realistic ARM QEMU responses with Device Tree aliases
         if cmd == 'uname -a':
             return True, ["Linux buildroot 5.10.0 #1 SMP Fri Sep 19 17:02:30 UTC 2025 armv7l GNU/Linux"]
-        elif cmd == 'uname -r':
-            return True, ["5.10.0"]
-        elif cmd == 'uname -m':
-            return True, ["armv7l"]
-        elif 'insmod' in cmd and 'nxp_simtemp' in cmd:
-            return True, ["Module loaded successfully"]
-        elif 'rmmod' in cmd and 'nxp_simtemp' in cmd:
-            return True, ["Module unloaded successfully"]
-        elif 'ls /proc/device-tree/simtemp' in cmd:
-            return True, ["compatible", "reg", "status"]
-        elif 'cat /proc/device-tree/simtemp/compatible' in cmd:
-            return True, ["nxp,simtemp"]
-        elif 'ls /sys/bus/platform/drivers/nxp-simtemp' in cmd:
-            return True, ["bind", "unbind", "uevent"]
-        elif 'ls /sys/devices/platform/simtemp' in cmd:
-            return True, ["driver", "modalias", "of_node", "sampling_ms", "threshold_mC", "mode", "uevent"]
-        elif 'modinfo' in cmd and 'nxp_simtemp' in cmd:
-            # Enhanced modinfo output for ARM driver WITH Device Tree support
-            return True, [
-                "filename:       /tmp/prebuild/simtemp-driver/nxp_simtemp.ko",
-                "description:    NXP Simulated Temperature Sensor Driver",
-                "author:         NXP Semiconductors",
-                "license:        GPL",
-                "alias:          of:N*T*Csimtemp,temperature-sensorC*",
-                "alias:          of:N*T*Csimtemp,temperature-sensor",
-                "alias:          of:N*T*Csimtemp,temperature-sensor-overlayC*",
-                "alias:          of:N*T*Csimtemp,temperature-sensor-overlay",
-                "srcversion:     1234567890ABCDEF123456",
-                "depends:",
-                "retpoline:      Y",
-                "name:           nxp_simtemp",
-                "vermagic:       5.10.0 SMP mod_unload ARMv7 p2v8"
-            ]
-        elif any(prop in cmd for prop in ['sampling_ms', 'threshold_mC', 'mode']):
-            return True, ["property found"]
-        elif 'ls /tmp' in cmd:
-            return True, ["prebuild", "test_file.txt", "kernel_modules"]
-        elif 'ls /sys/bus/platform/drivers' in cmd and 'grep nxp' in cmd:
-            return True, ["nxp-simtemp"]
-        elif 'lsmod' in cmd and 'grep nxp' in cmd:
-            return True, ["nxp_simtemp          16384  0"]
-        elif 'lsmod' in cmd:
-            return True, [
-                "Module                  Size  Used by",
-                "nxp_simtemp          16384  0",
-                "bridge                176128  0",
-                "stp                    16384  1 bridge",
-                "llc                    16384  1 stp"
-            ]
-        elif 'dmesg' in cmd and 'tail' in cmd:
-            return True, [
-                "[    1.234567] nxp_simtemp: loading out-of-tree module taints kernel.",
-                "[    1.234568] nxp_simtemp 20c8000.simtemp: probed successfully",
-                "[    1.234569] nxp_simtemp: driver registered",
-                "[    1.234570] platform 20c8000.simtemp: driver nxp-simtemp registered"
-            ]
-        elif cmd.startswith('ls '):
-            # Generic ls command simulation
-            path = cmd.replace('ls ', '').strip()
-            if '/sys' in path:
-                return True, ["driver", "uevent", "bind", "unbind"]
-            elif path == '/':
-                return True, ["bin", "dev", "etc", "proc", "sys", "tmp", "usr", "var"]
-            else:
-                return True, ["file1", "file2", "directory/"]
-        elif cmd.startswith('cat '):
-            # Generic cat command simulation
-            return True, ["simulated file content"]
-        elif cmd.startswith('echo '):
-            # Echo command simulation
-            text = cmd.replace('echo ', '').strip()
-            return True, [text]
         else:
             # For any other command, provide helpful output
             return True, [f"✓ Command executed successfully: {command.strip()}",
