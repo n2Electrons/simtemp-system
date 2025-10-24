@@ -28,7 +28,7 @@ SYS_DEVICE_NAME_ARM = "simtemp"
 EXPECTED_DRIVER_NAME_X86 = "nxp-simtemp"
 
 
-@pytest.mark.order(15)
+@pytest.mark.order(3)
 def test_f_k1_platform_driver_dt_registration():
     """
     F-K1-TDD-001: Comprehensive Platform Driver Device Tree Registration Test
