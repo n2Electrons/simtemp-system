@@ -35,4 +35,8 @@ qemu-system-arm -M sabrelite \
                 -append "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 rdinit=/init quiet loglevel=8 initcall_debug printk.time=1 modprobe.blacklist=mxc_v4l2_output,imx-ipuv3,imx6q-vdoa,imx-vpu,imxdrm,imx-hdmi,galcore,max8903_driver,max8903,max11801_ts,max11801,pfuze100,pfuze100-regulator,max8903_charger,max8903-charger,pfuze100_regulator,pfuze-regulator,max8903_driver_init" \
                 -monitor none \
                 -chardev socket,id=mysensor,server=on,host=127.0.0.1,port=${SOCKET_PORT} \
-                -serial chardev:mysensor
+                -serial chardev:mysensor &
+
+echo "QEMU started in background with socket on port ${SOCKET_PORT}"
+echo "Connect with: telnet 127.0.0.1 ${SOCKET_PORT}"
+echo "QEMU PID: $!"
