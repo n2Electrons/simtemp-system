@@ -142,9 +142,9 @@ class TestDriverValidation:
         with open(f"{device1_path}/mode", 'r') as f:
             mode_1 = f.read().strip()
             
-        # Verify stub values
+        # Verify stub values (Device Tree configured values)
         assert sampling_ms_1 == "200", f"Expected 200, got {sampling_ms_1}"
-        assert threshold_mC_1 == "50000", f"Expected 50000, got {threshold_mC_1}"
+        assert threshold_mC_1 == "60000", f"Expected 60000, got {threshold_mC_1}"
         assert mode_1 == "lab", f"Expected 'lab', got {mode_1}"
         
         print(f"✓ Device 1 values: sampling_ms={sampling_ms_1}, threshold_mC={threshold_mC_1}, mode={mode_1}")
