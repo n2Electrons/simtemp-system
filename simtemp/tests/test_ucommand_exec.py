@@ -587,7 +587,21 @@ def unload_module(module_name: str = "nxp_simtemp") -> bool:
 def is_module_loaded(module_name: str = "nxp_simtemp") -> bool:
     """Check if a kernel module is loaded."""
     success, output = command_executor.execute_module_command("check", module_name)
-    return success and any(module_name in line for line in output)
+    if not success:
+        return False
+    
+    # Filter out status messages and check if module appears in lsmod output
+    for line in output:
+        # Skip status messages and simulated output notifications
+        if ("✓ Command executed successfully:" in line or
+                "Note: This is simulated output" in line or
+                "RUNNING" in line or
+                "FAILED" in line):
+            continue
+        # Look for actual lsmod output format: module_name size used_by
+        if module_name in line and len(line.split()) >= 2:
+            return True
+    return False
 
 
 def get_environment_info() -> Dict[str, Any]:
