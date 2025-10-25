@@ -30,6 +30,33 @@ if command -v telnetd >/dev/null 2>&1; then
     echo "telnetd started on port 23"
 fi
 
+# Start dropbear (SSH) on port 22 if available
+if [ -x /usr/sbin/dropbear ]; then
+  echo "Starting dropbear SSH server on port 22..."
+  # Ensure runtime directories exist
+  mkdir -p /etc/dropbear /var/run
+  
+  # Generate host keys if they don't exist
+  if [ ! -f /etc/dropbear/dropbear_rsa_host_key ]; then
+    echo "Generating RSA host key..."
+    /usr/sbin/dropbearkey -t rsa -f /etc/dropbear/dropbear_rsa_host_key
+  fi
+  if [ ! -f /etc/dropbear/dropbear_ecdsa_host_key ]; then
+    echo "Generating ECDSA host key..."
+    /usr/sbin/dropbearkey -t ecdsa -f /etc/dropbear/dropbear_ecdsa_host_key
+  fi
+  if [ ! -f /etc/dropbear/dropbear_ed25519_host_key ]; then
+    echo "Generating Ed25519 host key..."
+    /usr/sbin/dropbearkey -t ed25519 -f /etc/dropbear/dropbear_ed25519_host_key
+  fi
+  
+  # Start dropbear in background (fork mode)
+  /usr/sbin/dropbear -p 22 || echo "Warning: dropbear failed to start"
+  if pidof dropbear >/dev/null 2>&1; then
+    echo "dropbear started on port 22"
+  fi
+fi
+
 # Load SimTemp driver with error handling
 if [ -f "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko" ]; then
   echo "Loading SimTemp driver..."
