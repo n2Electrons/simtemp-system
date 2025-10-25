@@ -1,23 +1,26 @@
 #!/bin/sh
 
 DOCKER_ENV="/.dockerenv"
+# Resolve script base dir so relative paths work regardless of CWD
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 if [ -e "$DOCKER_ENV" ]; then
   KERNEL_IMAGE="/workspace/deployment/qemu/linux-build-imx/arch/arm/boot/zImage"
   DTB_FILE="/workspace/deployment/qemu/imx6q-sabresd-with-simtemp.dtb"
   ROOTFS_IMAGE="/workspace/deployment/qemu/rootfs.cpio.gz"
 else
-  KERNEL_IMAGE="linux-build-imx/arch/arm/boot/zImage"
-  #DTB_FILE="imx6q-sabresd-with-simtemp.dtb"
-  #DTB_FILE="imx6q-sabrelite.dtb"
-  DTB_FILE="imx6q-sabrelite-with-simtemp.dtb"
-  ROOTFS_IMAGE="rootfs.cpio.gz"
+  KERNEL_IMAGE="$BASE_DIR/linux-build-imx/arch/arm/boot/zImage"
+  #DTB_FILE="$BASE_DIR/imx6q-sabresd-with-simtemp.dtb"
+  #DTB_FILE="$BASE_DIR/imx6q-sabrelite.dtb"
+  DTB_FILE="$BASE_DIR/imx6q-sabrelite-with-simtemp.dtb"
+  ROOTFS_IMAGE="$BASE_DIR/rootfs.cpio.gz"
 fi
 
 echo "Current working directory: $(pwd)"
-echo "KERNEL_IMAGE env var: '$KERNEL_IMAGE'"
-echo "DTB_FILE env var: '$DTB_FILE'"
-echo "ROOTFS_IMAGE env var: '$ROOTFS_IMAGE'"
+echo "KERNEL_IMAGE: $KERNEL_IMAGE"
+echo "DTB_FILE:    $DTB_FILE"
+echo "ROOTFS_IMAGE:$ROOTFS_IMAGE"
 
 # Networking and ports
 # Use a dedicated monitor port to avoid clashing with telnet port forwarding
@@ -25,19 +28,24 @@ MONITOR_PORT=45455
 TELNET_PORT=2323   # host TCP port exposing the guest serial console via Telnet
 SENSOR_PORT=4445   # existing sensor socket
 
-INTERACTIVE=0
-ENABLE_SSH=0
+INTERACTIVE=1
+ENABLE_SSH=1
 
 # Minimal arg parsing:
-# --interactive / -i  -> serial to stdio (this terminal)
-# --ssh               -> enable user networking and forward host 2222 -> guest 22
+# --interactive / -i           -> serial to stdio (this terminal) [default]
+# --no-interactive / -no-interactive -> expose serial via telnet on $TELNET_PORT
+# --ssh / -ssh                 -> enable user networking and forward host 2222 -> guest 22 [default]
 while [ $# -gt 0 ]; do
   case "${1-}" in
     -i|--interactive)
       INTERACTIVE=1
       shift
       ;;
-    --ssh)
+    --no-interactive|-no-interactive)
+      INTERACTIVE=0
+      shift
+      ;;
+    --ssh|-ssh)
       ENABLE_SSH=1
       shift
       ;;

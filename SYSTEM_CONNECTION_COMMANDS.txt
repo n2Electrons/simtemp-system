@@ -31,3 +31,7 @@ QEMU REMOTO (Solución 1 - telnet)
 
  Monitor QEMU (si necesitas comandos de monitor):
 	- telnet localhost 45455
+
+INSPECT KERNEL
+zcat /proc/config.gz | egrep 'CONFIG_UNIX98_PTYS|CONFIG_LEGACY_PTYS|CONFIG_DEVPTS'
+

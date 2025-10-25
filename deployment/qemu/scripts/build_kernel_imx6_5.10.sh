@@ -51,6 +51,10 @@ make scripts
 ./scripts/config --enable CONFIG_SERIAL_EARLYCON
 ./scripts/config --enable CONFIG_DEVTMPFS
 ./scripts/config --enable CONFIG_DEVTMPFS_MOUNT
+./scripts/config --enable CONFIG_UNIX98_PTYS
+./scripts/config --enable CONFIG_DEVPTS_FS
+./scripts/config --enable CONFIG_DEVPTS_MULTIPLE_INSTANCES
+./scripts/config --enable CONFIG_LEGACY_PTYS
 
 # Disable SATA/AHCI and graphics (not needed for headless QEMU)
 ./scripts/config --disable CONFIG_ATA
