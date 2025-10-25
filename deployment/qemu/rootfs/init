@@ -29,3 +29,7 @@ else
   [ -c /dev/null ]    || mknod -m 666 /dev/null    c 1 3
   exec setsid /bin/sh </dev/console >/dev/console 2>&1
 fi
+
+insmod /tmp/prebuild/simtemp-driver/nxp_simtemp.ko
+lsmod
+echo "SimTemp driver loaded"
