@@ -1,0 +1,3 @@
+% Octave/MATLAB model for temperature ramps
+
+% ...existing content from original file...

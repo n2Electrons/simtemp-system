@@ -1,0 +1,3 @@
+# Temperature generator Python script
+
+# ...existing content from original file...

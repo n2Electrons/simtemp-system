@@ -23,6 +23,8 @@
 #include <linux/mutex.h>
 #include <linux/wait.h>
 #include <linux/poll.h>
+#include <linux/timer.h>
+#include <linux/jiffies.h>
 
 #include "nxp_simtemp.h"
 
@@ -54,6 +56,102 @@ static ssize_t sampling_ms_show(struct device *dev,
 	}
 	
 	return sprintf(buf, "%u\n", data->sampling_ms);
+}
+
+/* Forward declarations */
+static void simtemp_update_record(struct nxp_simtemp_data *data);
+static int simtemp_generate_temperature(struct nxp_simtemp_data *data);
+
+/**
+ * F-K2: Timer callback for periodic sampling
+ */
+static void simtemp_timer_callback(struct timer_list *t)
+{
+	struct nxp_simtemp_data *data = from_timer(data, t, sample_timer);
+	
+	mutex_lock(&data->mutex);
+	
+	/* Generate new temperature value based on current mode */
+	simtemp_generate_temperature(data);
+	
+	/* Update record with new temperature */
+	simtemp_update_record(data);
+	
+	/* Reschedule if timer is active */
+	if (data->timer_active) {
+		mod_timer(&data->sample_timer, 
+			  jiffies + msecs_to_jiffies(data->sampling_ms));
+	}
+	mutex_unlock(&data->mutex);
+}
+
+/**
+ * F-K2: Start periodic sampling timer
+ */
+static void simtemp_start_sampling(struct nxp_simtemp_data *data)
+{
+	if (!data->timer_active) {
+		data->timer_active = true;
+		mod_timer(&data->sample_timer,
+			  jiffies + msecs_to_jiffies(data->sampling_ms));
+		dev_info(data->dev, "Started periodic sampling every %u ms\n", 
+			 data->sampling_ms);
+	}
+}
+
+/**
+ * F-K2: Stop periodic sampling timer
+ */
+static void simtemp_stop_sampling(struct nxp_simtemp_data *data)
+{
+	if (data->timer_active) {
+		data->timer_active = false;
+		del_timer_sync(&data->sample_timer);
+		dev_info(data->dev, "Stopped periodic sampling\n");
+	}
+}
+
+/**
+ * F-K2: Make sampling_ms writable for runtime adjustment
+ */
+static ssize_t sampling_ms_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct nxp_simtemp_data *data = dev_get_drvdata(dev);
+	u32 new_sampling_ms;
+	int ret;
+	
+	if (!data) {
+		dev_warn(dev, "Device data not available\n");
+		return -ENODEV;
+	}
+	
+	ret = kstrtou32(buf, 10, &new_sampling_ms);
+	if (ret)
+		return ret;
+	
+	/* Validate range: 100ms to 10s */
+	if (new_sampling_ms < 100 || new_sampling_ms > 10000) {
+		dev_warn(dev, "Invalid sampling_ms %u (valid: 100-10000)\n", 
+			 new_sampling_ms);
+		return -EINVAL;
+	}
+	
+	mutex_lock(&data->mutex);
+	data->sampling_ms = new_sampling_ms;
+	
+	/* Restart timer with new interval if active */
+	if (data->timer_active) {
+		del_timer_sync(&data->sample_timer);
+		mod_timer(&data->sample_timer,
+			  jiffies + msecs_to_jiffies(data->sampling_ms));
+		dev_info(data->dev, "Updated sampling interval to %u ms\n", 
+			 data->sampling_ms);
+	}
+	mutex_unlock(&data->mutex);
+	
+	return count;
 }
 
 static ssize_t threshold_mC_show(struct device *dev,
@@ -97,11 +195,81 @@ static ssize_t stats_show(struct device *dev,
 		       data->sampling_ms, data->threshold_mC);
 }
 
+static ssize_t temp_pattern_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct nxp_simtemp_data *data = dev_get_drvdata(dev);
+	const char *pattern_names[] = {
+		"static", "linear", "exponential", "sinusoidal", 
+		"step", "noisy", "realistic"
+	};
+	
+	if (!data) {
+		dev_warn(dev, "Device data not available\n");
+		return -ENODEV;
+	}
+	
+	if (data->temp_generator.pattern_type >= SIMTEMP_MODE_MAX) {
+		return sprintf(buf, "unknown\n");
+	}
+	
+	return sprintf(buf, "%s\n", pattern_names[data->temp_generator.pattern_type]);
+}
+
+static ssize_t temp_pattern_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct nxp_simtemp_data *data = dev_get_drvdata(dev);
+	char pattern_name[32];
+	enum simtemp_mode new_pattern = SIMTEMP_MODE_STATIC;
+	
+	if (!data) {
+		dev_warn(dev, "Device data not available\n");
+		return -ENODEV;
+	}
+	
+	if (sscanf(buf, "%31s", pattern_name) != 1) {
+		dev_err(dev, "Invalid pattern name\n");
+		return -EINVAL;
+	}
+	
+	/* Parse pattern name */
+	if (strcmp(pattern_name, "static") == 0) {
+		new_pattern = SIMTEMP_MODE_STATIC;
+	} else if (strcmp(pattern_name, "linear") == 0) {
+		new_pattern = SIMTEMP_MODE_LINEAR;
+	} else if (strcmp(pattern_name, "exponential") == 0) {
+		new_pattern = SIMTEMP_MODE_EXPONENTIAL;
+	} else if (strcmp(pattern_name, "sinusoidal") == 0) {
+		new_pattern = SIMTEMP_MODE_SINUSOIDAL;
+	} else if (strcmp(pattern_name, "step") == 0) {
+		new_pattern = SIMTEMP_MODE_STEP;
+	} else if (strcmp(pattern_name, "noisy") == 0) {
+		new_pattern = SIMTEMP_MODE_NOISY;
+	} else if (strcmp(pattern_name, "realistic") == 0) {
+		new_pattern = SIMTEMP_MODE_REALISTIC;
+	} else {
+		dev_err(dev, "Unknown pattern: %s\n", pattern_name);
+		dev_info(dev, "Valid patterns: static, linear, exponential, sinusoidal, step, noisy, realistic\n");
+		return -EINVAL;
+	}
+	
+	mutex_lock(&data->mutex);
+	data->temp_generator.pattern_type = new_pattern;
+	data->temp_generator.sample_count = 0;  /* Reset pattern */
+	mutex_unlock(&data->mutex);
+	
+	dev_info(dev, "Temperature pattern changed to: %s\n", pattern_name);
+	return count;
+}
+
 /* Define device attributes */
-static DEVICE_ATTR_RO(sampling_ms);
+static DEVICE_ATTR(sampling_ms, 0644, sampling_ms_show, sampling_ms_store);
 static DEVICE_ATTR_RO(threshold_mC);
 static DEVICE_ATTR_RO(mode);
 static DEVICE_ATTR_RO(stats);
+static DEVICE_ATTR(temp_pattern, 0644, temp_pattern_show, temp_pattern_store);
 
 /* Attribute group */
 static struct attribute *nxp_simtemp_attrs[] = {
@@ -109,6 +277,7 @@ static struct attribute *nxp_simtemp_attrs[] = {
 	&dev_attr_threshold_mC.attr,
 	&dev_attr_mode.attr,
 	&dev_attr_stats.attr,
+	&dev_attr_temp_pattern.attr,
 	NULL,
 };
 
@@ -125,6 +294,155 @@ static const struct attribute_group *nxp_simtemp_groups[] = {
 static dev_t simtemp_devt;
 static struct class *simtemp_class;
 static int device_count = 0;
+
+/**
+ * simtemp_generate_temperature - Generate dynamic temperature based on mode
+ * @data: Device data structure
+ *
+ * This function implements various temperature generation patterns:
+ * - STATIC: No change
+ * - LINEAR: Linear ramp from min to max temperature
+ * - EXPONENTIAL: Exponential heating curve
+ * - SINUSOIDAL: Sinusoidal temperature variation
+ * - STEP: Step changes between temperature levels
+ * - NOISY: Linear ramp with Gaussian noise
+ * - REALISTIC: Complex environmental simulation
+ */
+static int simtemp_generate_temperature(struct nxp_simtemp_data *data)
+{
+	u32 elapsed_ms;
+	int new_temp = data->temperature;
+	int temp_range, progress_percent;
+	u64 current_time_ns = ktime_get_ns();
+	
+	if (!data->temp_generator.enabled) {
+		return data->temperature;
+	}
+	
+	/* Calculate elapsed time since pattern start */
+	elapsed_ms = data->temp_generator.sample_count * data->sampling_ms;
+	data->temp_generator.sample_count++;
+	
+	/* Generate temperature based on pattern type */
+	switch (data->temp_generator.pattern_type) {
+	case SIMTEMP_MODE_STATIC:
+		/* No change - keep current temperature */
+		break;
+		
+	case SIMTEMP_MODE_LINEAR:
+		/* Linear ramp: T = T_min + (T_max - T_min) * (t / period) */
+		if (data->temp_generator.period_ms > 0) {
+			progress_percent = (elapsed_ms % data->temp_generator.period_ms) * 100 / 
+					   data->temp_generator.period_ms;
+			temp_range = data->temp_generator.max_temp - data->temp_generator.min_temp;
+			new_temp = data->temp_generator.min_temp + (temp_range * progress_percent / 100);
+		}
+		break;
+		
+	case SIMTEMP_MODE_EXPONENTIAL:
+		/* Exponential heating: T = T_min + (T_max - T_min) * (1 - exp(-t/tau)) */
+		if (data->temp_generator.period_ms > 0) {
+			/* Use period_ms as time constant (tau) in milliseconds */
+			int tau_ms = data->temp_generator.period_ms / 3; /* tau = period/3 for 95% completion */
+			int exp_factor = 1000 - (1000 * elapsed_ms / (elapsed_ms + tau_ms)); /* Approximation */
+			temp_range = data->temp_generator.max_temp - data->temp_generator.min_temp;
+			new_temp = data->temp_generator.min_temp + (temp_range * (1000 - exp_factor) / 1000);
+		}
+		break;
+		
+	case SIMTEMP_MODE_SINUSOIDAL:
+		/* Sinusoidal: T = T_base + amplitude * sin(2*pi*t/period) */
+		if (data->temp_generator.period_ms > 0) {
+			/* Simple sine approximation using lookup table approach */
+			int phase = (elapsed_ms % data->temp_generator.period_ms) * 360 / data->temp_generator.period_ms;
+			int sine_approx = 0;
+			
+			/* Simple sine approximation (good enough for kernel space) */
+			if (phase < 90) {
+				sine_approx = phase * 1000 / 90;  /* 0 to 1000 (0 to 1.0) */
+			} else if (phase < 180) {
+				sine_approx = (180 - phase) * 1000 / 90;  /* 1000 to 0 */
+			} else if (phase < 270) {
+				sine_approx = -(phase - 180) * 1000 / 90;  /* 0 to -1000 */
+			} else {
+				sine_approx = -(360 - phase) * 1000 / 90;  /* -1000 to 0 */
+			}
+			
+			new_temp = data->temp_generator.base_temperature + 
+				   (data->temp_generator.amplitude * sine_approx / 1000);
+		}
+		break;
+		
+	case SIMTEMP_MODE_STEP:
+		/* Step pattern: Change temperature every period/4 */
+		if (data->temp_generator.period_ms > 0) {
+			int step_duration = data->temp_generator.period_ms / 4;
+			int step_index = (elapsed_ms / step_duration) % 4;
+			int step_temps[] = {
+				data->temp_generator.min_temp,
+				data->temp_generator.base_temperature,
+				data->temp_generator.max_temp,
+				data->temp_generator.base_temperature
+			};
+			new_temp = step_temps[step_index];
+		}
+		break;
+		
+	case SIMTEMP_MODE_NOISY:
+		/* Linear ramp with noise */
+		/* First calculate linear ramp */
+		if (data->temp_generator.period_ms > 0) {
+			progress_percent = (elapsed_ms % data->temp_generator.period_ms) * 100 / 
+					   data->temp_generator.period_ms;
+			temp_range = data->temp_generator.max_temp - data->temp_generator.min_temp;
+			new_temp = data->temp_generator.min_temp + (temp_range * progress_percent / 100);
+		}
+		/* Add simple noise (using current time as pseudo-random source) */
+		{
+			u32 noise_seed = (u32)(current_time_ns & 0xFFFFFFFF);
+			int noise = ((int)(noise_seed % 2000) - 1000) * data->temp_generator.noise_level / 1000;
+			new_temp += noise;
+		}
+		break;
+		
+	case SIMTEMP_MODE_REALISTIC:
+		/* Complex environmental simulation */
+		/* Base exponential heating with multiple frequency components */
+		if (data->temp_generator.period_ms > 0) {
+			/* Variable declarations at beginning of block */
+			int tau_ms = data->temp_generator.period_ms / 2;
+			int exp_factor = 1000 - (1000 * elapsed_ms / (elapsed_ms + tau_ms));
+			int hvac_phase = (elapsed_ms % (data->temp_generator.period_ms * 2)) * 360 / 
+					 (data->temp_generator.period_ms * 2);
+			int hvac_effect = data->temp_generator.amplitude * hvac_phase / 720; /* Small modulation */
+			u32 noise_seed = (u32)(current_time_ns & 0xFFFFFFFF);
+			int env_noise = ((int)(noise_seed % 1000) - 500) * data->temp_generator.noise_level / 1000;
+			
+			/* Primary heating curve */
+			temp_range = data->temp_generator.max_temp - data->temp_generator.min_temp;
+			new_temp = data->temp_generator.min_temp + (temp_range * (1000 - exp_factor) / 1000);
+			
+			/* Add HVAC-like cycling (slow oscillation) */
+			new_temp += hvac_effect;
+			
+			/* Add environmental noise */
+			new_temp += env_noise;
+		}
+		break;
+		
+	default:
+		/* Unknown mode - keep current temperature */
+		break;
+	}
+	
+	/* Clamp temperature to reasonable bounds */
+	if (new_temp < -40) new_temp = -40;  /* -40°C minimum */
+	if (new_temp > 125) new_temp = 125;  /* 125°C maximum */
+	
+	data->temperature = new_temp;
+	
+	return new_temp;
+}
 
 /**
  * simtemp_update_record - Update temperature record
@@ -167,6 +485,12 @@ static int simtemp_open(struct inode *inode, struct file *filp)
 	
 	data->is_open = 1;
 	filp->private_data = data;
+	
+	/* F-K2: Start periodic sampling when device opens */
+	simtemp_start_sampling(data);
+	
+	/* Generate initial sample immediately */
+	simtemp_generate_temperature(data);
 	simtemp_update_record(data);
 	
 	mutex_unlock(&data->mutex);
@@ -185,6 +509,10 @@ static int simtemp_release(struct inode *inode, struct file *filp)
 	
 	mutex_lock(&data->mutex);
 	data->is_open = 0;
+	
+	/* F-K2: Stop periodic sampling when device closes */
+	simtemp_stop_sampling(data);
+	
 	mutex_unlock(&data->mutex);
 	
 	return 0;
@@ -202,22 +530,20 @@ static ssize_t simtemp_read(struct file *filp, char __user *buf,
 	if (!data)
 		return -ENODEV;
 	
+	if (count < record_size)
+		return -EINVAL;
+	
 	/* Non-blocking read when no data available */
 	if (filp->f_flags & O_NONBLOCK)
 		return -EAGAIN;
 	
-	if (count < record_size)
-		return -EINVAL;
-	
 	mutex_lock(&data->mutex);
-	simtemp_update_record(data);
-	
 	if (copy_to_user(buf, &data->record, record_size)) {
 		mutex_unlock(&data->mutex);
 		return -EFAULT;
 	}
-	
 	mutex_unlock(&data->mutex);
+	
 	return record_size;
 }
 
@@ -257,6 +583,27 @@ static int simtemp_create_chardev(struct nxp_simtemp_data *data)
 		cdev_del(&data->cdev);
 		return ret;
 	}
+
+	/* Link private data to class device for sysfs handlers */
+	dev_set_drvdata(data->device, data);
+
+	/* Expose key attributes on the class device (under /sys/class/simtemp_class) */
+	ret = device_create_file(data->device, &dev_attr_sampling_ms);
+	if (ret) {
+		dev_warn(data->dev, "Could not create sampling_ms attribute on class device: %d\n", ret);
+	}
+	ret = device_create_file(data->device, &dev_attr_threshold_mC);
+	if (ret) {
+		dev_warn(data->dev, "Could not create threshold_mC attribute on class device: %d\n", ret);
+	}
+	ret = device_create_file(data->device, &dev_attr_mode);
+	if (ret) {
+		dev_warn(data->dev, "Could not create mode attribute on class device: %d\n", ret);
+	}
+	ret = device_create_file(data->device, &dev_attr_stats);
+	if (ret) {
+		dev_warn(data->dev, "Could not create stats attribute on class device: %d\n", ret);
+	}
 	
 	return 0;
 }
@@ -267,6 +614,11 @@ static int simtemp_create_chardev(struct nxp_simtemp_data *data)
 static void simtemp_destroy_chardev(struct nxp_simtemp_data *data)
 {
 	if (data->device) {
+		/* Remove class device attributes if present */
+		device_remove_file(data->device, &dev_attr_stats);
+		device_remove_file(data->device, &dev_attr_mode);
+		device_remove_file(data->device, &dev_attr_threshold_mC);
+		device_remove_file(data->device, &dev_attr_sampling_ms);
 		device_destroy(simtemp_class, data->devt);
 		data->device = NULL;
 	}
@@ -302,6 +654,22 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 	data->temperature = 25;
 	data->is_open = 0;
 	mutex_init(&data->mutex);
+
+	/* F-K2: Initialize sampling timer */
+	timer_setup(&data->sample_timer, simtemp_timer_callback, 0);
+	data->timer_active = false;
+
+	/* Initialize temperature generator with default linear ramp */
+	data->temp_generator.pattern_type = SIMTEMP_MODE_LINEAR;
+	data->temp_generator.sample_count = 0;
+	data->temp_generator.start_time_ms = 0;
+	data->temp_generator.base_temperature = 25;  /* 25°C base */
+	data->temp_generator.min_temp = 20;          /* 20°C minimum */
+	data->temp_generator.max_temp = 80;          /* 80°C maximum */
+	data->temp_generator.period_ms = 60000;      /* 60 second period */
+	data->temp_generator.amplitude = 5;          /* ±5°C amplitude for sine/noise */
+	data->temp_generator.noise_level = 500;      /* 0.5°C noise level (milli-degrees) */
+	data->temp_generator.enabled = true;         /* Enable by default */
 
 	/* Allocate device number */
 	data->devt = MKDEV(MAJOR(simtemp_devt), device_count++);
@@ -358,7 +726,7 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 /**
  * nxp_simtemp_remove - Platform driver remove function
  */
-static void nxp_simtemp_remove(struct platform_device *pdev)
+static int nxp_simtemp_remove(struct platform_device *pdev)
 {
 	struct nxp_simtemp_data *data = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
@@ -367,8 +735,11 @@ static void nxp_simtemp_remove(struct platform_device *pdev)
 
 	if (!data) {
 		dev_warn(dev, "No device data found during remove\n");
-		return;
+		return 0;
 	}
+
+	/* F-K2: Stop and cleanup timer */
+	simtemp_stop_sampling(data);
 
 	/* Destroy character device */
 	simtemp_destroy_chardev(data);
@@ -377,6 +748,8 @@ static void nxp_simtemp_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 
 	dev_info(dev, "NXP SimTemp remove completed successfully\n");
+	
+	return 0;
 }
 
 /**
@@ -431,7 +804,7 @@ static int __init nxp_simtemp_init(void)
 	}
 
 	/* Create device class */
-	simtemp_class = class_create(CLASS_NAME);
+	simtemp_class = class_create(THIS_MODULE, CLASS_NAME);
 	if (IS_ERR(simtemp_class)) {
 		ret = PTR_ERR(simtemp_class);
 		pr_err("NXP SimTemp driver: Failed to create class: %d\n", ret);

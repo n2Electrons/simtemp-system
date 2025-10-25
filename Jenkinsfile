@@ -2237,23 +2237,45 @@ pipeline {
             steps {
                 script {
                     echo "=== Cleanup Stage ==="
-                    echo "Cleaning up workspace permissions for kernel module files"
-                    
-                    try {
-                        // Get cleanup script from pipeline configuration
-                        def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
-                        def cleanupScript = pipelineConfig.stages?.cleanup?.script
+                    echo "Cleanup stage ready - actual cleanup tasks run in post.always"
+                }
+            }
+            post {
+                always {
+                    script {
+                        echo "=== Always Cleanup Tasks ==="
+                        echo "Cleaning up workspace permissions for kernel module files"
                         
-                        if (cleanupScript && fileExists(cleanupScript)) {
-                            sh "chmod +x ${cleanupScript}"
-                            sh "${cleanupScript}"
-                            echo "✅ Workspace permissions cleaned up successfully using ${cleanupScript}"
-                        } else {
-                            echo "⚠️ Warning: Cleanup script not found or not configured"
+                        try {
+                            // Get cleanup script from pipeline configuration
+                            def pipelineConfig = loadPipelineConfig(env.ACTUAL_PIPELINE_CONFIG_PATH ?: env.PIPELINE_CONFIG_PATH)
+                            def cleanupScript = pipelineConfig.stages?.cleanup?.script
+                            
+                            if (cleanupScript && fileExists(cleanupScript)) {
+                                sh "chmod +x ${cleanupScript}"
+                                sh "${cleanupScript}"
+                                echo "✅ Workspace permissions cleaned up successfully using ${cleanupScript}"
+                            } else {
+                                echo "⚠️ Warning: Cleanup script not found or not configured"
+                            }
+                        } catch (Exception e) {
+                            echo "⚠️ Warning: Could not clean up workspace permissions: ${e.message}"
+                            // Don't fail the build if cleanup fails
                         }
-                    } catch (Exception e) {
-                        echo "⚠️ Warning: Could not clean up workspace permissions: ${e.message}"
-                        // Don't fail the build if cleanup fails
+                        
+                        // Additional cleanup tasks that should always run
+                        try {
+                            echo "🧹 Performing additional cleanup tasks..."
+                            
+                            // Clean up temporary test files
+                            sh "rm -f /tmp/test_details_*.json || true"
+                            sh "find ${WORKSPACE} -name '*.tmp' -delete || true"
+                            sh "find ${WORKSPACE} -name 'comment_*.json' -delete || true"
+                            
+                            echo "✅ Additional cleanup completed"
+                        } catch (Exception e) {
+                            echo "⚠️ Warning: Could not complete additional cleanup: ${e.message}"
+                        }
                     }
                 }
             }
