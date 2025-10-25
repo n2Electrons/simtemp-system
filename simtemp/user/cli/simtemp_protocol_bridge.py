@@ -23,7 +23,6 @@ Protocol Commands:
 Task Force Role: CLI Agent - Bridge Console Data to Protocol Server
 """
 
-import telnetlib
 import socket
 import threading
 import time
@@ -54,28 +53,39 @@ class SensorState:
 
 
 class QEMUConsoleReader:
-    """Read temperature data from QEMU console via telnet monitor."""
+    """Read temperature data from sensor clients connecting to port 4445.
     
-    def __init__(self, host='127.0.0.1', port=2323):
+    Acts as a server listening on port 4445 to receive temperature data
+    from generators, QEMU chardev, or other sensor sources.
+    """
+    
+    def __init__(self, host='127.0.0.1', port=4445):
+        # Listen on port 4445 as server for sensor data
         self.host = host
         self.port = port
-        self.tn = None
+        self.server_socket = None
+        self.client_socket = None
         self.connected = False
         self.running = False
         self.thread = None
         self.data_callback = None
         
     def connect(self) -> bool:
-        """Connect to QEMU monitor via telnet."""
+        """Start listening for sensor connections on port 4445."""
         try:
-            self.tn = telnetlib.Telnet(self.host, self.port, timeout=5)
-            # Read initial prompt
-            self.tn.read_until(b"(qemu)", timeout=2)
+            self.server_socket = socket.socket(socket.AF_INET, 
+                                               socket.SOCK_STREAM)
+            self.server_socket.setsockopt(socket.SOL_SOCKET, 
+                                          socket.SO_REUSEADDR, 1)
+            self.server_socket.bind((self.host, self.port))
+            self.server_socket.listen(1)
             self.connected = True
-            logger.info(f"✅ QEMU monitor connected via telnet {self.host}:{self.port}")
+            logger.info(f"✅ Sensor server listening on "
+                        f"{self.host}:{self.port}")
+            logger.info("🎯 Waiting for sensor data connections...")
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to connect to QEMU monitor: {e}")
+            logger.error(f"❌ Failed to start sensor server: {e}")
             return False
     
     def set_data_callback(self, callback):
@@ -90,8 +100,48 @@ class QEMUConsoleReader:
         self.running = True
         self.thread = threading.Thread(target=self._reading_loop, daemon=True)
         self.thread.start()
-        logger.info("🌡️ Started QEMU console temperature reading")
+        logger.info("🌡️ Started QEMU sensor socket temperature reading")
+        logger.info("📟 Reading /dev/simtemp0 via QEMU chardev socket")
         return True
+    
+    def _send_guest_command(self, command: str) -> bool:
+        """Send command directly to guest console."""
+        try:
+            # Send command directly to guest console
+            cmd_bytes = f"{command}\n".encode('ascii')
+            self.tn.write(cmd_bytes)
+            logger.debug(f"📟 Sent to guest console: {command}")
+            return True
+        except Exception as e:
+            logger.debug(f"Error sending guest command '{command}': {e}")
+            return False
+    
+    def _check_simtemp_device(self) -> bool:
+        """Check if /dev/simtemp0 exists in guest system."""
+        try:
+            logger.info("🔍 Checking for /dev/simtemp0 in guest system...")
+            logger.info("📟 Sending command to guest console")
+            
+            # Send 'ls -la /dev/simtemp*' command to guest console
+            self._send_guest_command("ls -la /dev/simtemp*")
+            time.sleep(1.0)  # Wait for response
+            
+            # Read response
+            response = self.tn.read_very_eager().decode('ascii',
+                                                        errors='ignore')
+            logger.debug(f"🔍 Device check response: {response}")
+            
+            if "simtemp0" in response:
+                logger.info("✅ /dev/simtemp0 found in guest system")
+                return True
+            else:
+                logger.warning("⚠️ /dev/simtemp0 not found in guest system")
+                logger.info("🔍 Full response: " + response.strip())
+                # Continue anyway - device might exist but not listed
+                return True
+        except Exception as e:
+            logger.error(f"❌ Error checking simtemp device: {e}")
+            return False
     
     def stop_reading(self):
         """Stop reading temperature data."""
@@ -100,49 +150,47 @@ class QEMUConsoleReader:
             self.thread.join(timeout=2.0)
     
     def _reading_loop(self):
-        """Background loop to read temperature from console."""
+        """Background loop to read temperature from QEMU sensor socket."""
         temp_pattern = re.compile(r'(\d+\.?\d*)\s*°?C')
         
         while self.running and self.connected:
             try:
-                # Read any available output from console
-                try:
-                    output = self.tn.read_very_eager().decode('ascii', errors='ignore')
+                # Read data from socket (connected to /dev/simtemp0 via chardev)
+                data = self.socket.recv(1024).decode('ascii', errors='ignore')
+                if data:
+                    logger.debug(f"QEMU sensor socket data: {data.strip()}")
                     
-                    if output.strip():
-                        logger.debug(f"Console output: {output.strip()}")
+                    # Look for temperature patterns
+                    matches = temp_pattern.findall(data)
+                    for match in matches:
+                        temperature = float(match)
+                        if self.data_callback:
+                            self.data_callback(temperature)
                         
-                        # Look for temperature patterns in output
-                        matches = temp_pattern.findall(output)
-                        if matches:
-                            # Get the last (most recent) temperature
-                            temp_str = matches[-1]
-                            temperature = float(temp_str)
-                            
-                            if self.data_callback:
-                                self.data_callback(temperature)
-                            
-                            logger.debug(f"🌡️ Console temp: {temperature:.1f}°C")
+                        # Echo de medición desde /dev/simtemp0
+                        logger.info(f"🌡️📟 ECHO - Temperature from "
+                                    f"/dev/simtemp0: {temperature:.2f}°C")
+                        print(f"🌡️📟 ECHO - Temperature from "
+                              f"/dev/simtemp0: {temperature:.2f}°C")
                 
-                except Exception as e:
-                    logger.debug(f"Console read error: {e}")
+                time.sleep(0.1)
                 
-                time.sleep(0.2)  # Read every 200ms
-                
+            except socket.timeout:
+                continue
             except Exception as e:
-                logger.error(f"Error in console reading loop: {e}")
+                logger.error(f"Error in sensor socket reading loop: {e}")
                 time.sleep(1.0)
     
     def disconnect(self):
-        """Disconnect from QEMU monitor."""
+        """Disconnect from QEMU sensor socket."""
         self.running = False
         self.connected = False
-        if self.tn:
+        if self.socket:
             try:
-                self.tn.close()
+                self.socket.close()
             except:
                 pass
-            self.tn = None
+            self.socket = None
 
 
 class SensorSocketReader:
@@ -206,7 +254,11 @@ class SensorSocketReader:
                         temperature = float(match)
                         if self.data_callback:
                             self.data_callback(temperature)
-                        logger.debug(f"🔌 Socket temp: {temperature:.1f}°C")
+                        # Echo de medición de temperatura desde Sensor Socket
+                        logger.info(f"🌡️🔌 ECHO - Temperature from Sensor Socket: "
+                                    f"{temperature:.2f}°C")
+                        print(f"🌡️🔌 ECHO - Temperature from Sensor Socket: "
+                              f"{temperature:.2f}°C")
                 
                 time.sleep(0.1)
                 
@@ -290,14 +342,26 @@ class SimTempProtocolServer:
             while self.running:
                 try:
                     # Receive command from client
-                    data = client_socket.recv(1024).decode('ascii', errors='ignore').strip()
+                    data = client_socket.recv(1024).decode('ascii',
+                                                           errors='ignore')
+                    data = data.strip()
                     if not data:
                         break
+                    
+                    # Echo del comando recibido
+                    logger.info(f"📡📥 ECHO - Protocol Command Received: "
+                                f"'{data}'")
+                    print(f"📡📥 ECHO - Protocol Command Received: '{data}'")
                     
                     # Process command
                     response = self._process_command(data)
                     if response:
                         client_socket.send(f"{response}\n".encode('ascii'))
+                        # Echo de la respuesta enviada
+                        logger.info(f"📡📤 ECHO - Protocol Response Sent: "
+                                    f"'{response}'")
+                        print(f"📡📤 ECHO - Protocol Response Sent: "
+                              f"'{response}'")
                         logger.debug(f"📤 Sent to {address}: {response}")
                     
                 except socket.timeout:
@@ -368,7 +432,15 @@ class SimTempProtocolServer:
         self.sensor_state.temperature = temperature
         self.sensor_state.last_update = time.time()
         self.sensor_state.sample_count += 1
-        logger.debug(f"📊 Updated temperature: {temperature:.2f}°C (sample #{self.sensor_state.sample_count})")
+        
+        # Echo completo de la actualización de temperatura
+        logger.info(f"📊🌡️ ECHO - Temperature Update "
+                    f"#{self.sensor_state.sample_count}: {temperature:.2f}°C")
+        print(f"📊🌡️ ECHO - Temperature Update "
+              f"#{self.sensor_state.sample_count}: {temperature:.2f}°C")
+        
+        logger.debug(f"📊 Updated temperature: {temperature:.2f}°C "
+                     f"(sample #{self.sensor_state.sample_count})")
     
     def stop_server(self):
         """Stop the protocol server."""
@@ -396,8 +468,8 @@ class SimTempProtocolBridge:
     """Main bridge coordinator."""
     
     def __init__(self):
+        # Reads from /dev/simtemp0 via QEMU chardev port 4445
         self.console_reader = QEMUConsoleReader()
-        self.socket_reader = SensorSocketReader()
         self.protocol_server = SimTempProtocolServer()
         self.running = False
         
@@ -406,9 +478,9 @@ class SimTempProtocolBridge:
         logger.info("🎯 SimTemp Protocol Bridge - Task Force CLI Agent")
         logger.info("📡 Mission: QEMU Console → SimTemp Protocol → GUI")
         
-        # Connect to QEMU console
+        # Connect to QEMU sensor socket (chardev for /dev/simtemp0)
         if not self.console_reader.connect():
-            logger.error("❌ Failed to connect to QEMU console")
+            logger.error("❌ Failed to connect to QEMU sensor socket")
             return False
         
         # Start protocol server
@@ -416,15 +488,21 @@ class SimTempProtocolBridge:
             logger.error("❌ Failed to start protocol server")
             return False
         
-        # Set up data callbacks (only console, not socket)
+        # Set up data callback for temperature updates
         self.console_reader.set_data_callback(self._on_temperature_data)
         
-        # Start reading from console only
+        # Start reading from QEMU sensor socket
         self.console_reader.start_reading()
         
         self.running = True
         logger.info("✅ SimTemp Protocol Bridge started successfully")
         logger.info("🔄 Task Force CLI Agent operational - Bridge active")
+        logger.info("🔊 ECHO MODE ENABLED - All temperature measurements "
+                    "will be echoed")
+        print("🔊 ECHO MODE ENABLED - All temperature measurements "
+              "will be echoed")
+        logger.info("📟 QEMU Sensor Socket: Reading /dev/simtemp0 via chardev")
+        print("📟 QEMU Sensor Socket: Reading /dev/simtemp0 via chardev")
         return True
     
     def _on_temperature_data(self, temperature: float):
@@ -481,8 +559,10 @@ def main():
     print("📡 Mission: QEMU Console + Sensor → SimTemp Protocol → GUI")
     print("=" * 60)
     print()
+    print("🔊 ECHO MODE ENABLED - All temperature measurements will be echoed")
+    print()
     print("Architecture:")
-    print("  📟 QEMU Console (telnet 2323) ← Monitor commands")
+    print("  📟 QEMU Sensor Socket (port 4445) ← /dev/simtemp0 via chardev")
     print("  🔌 Sensor Socket (port 4445) ← Direct sensor data")
     print("  🖥️ Protocol Server (port 4446) → GUI clients")
     print()
@@ -492,7 +572,8 @@ def main():
     print("  SET_THRESHOLD <value> → OK: Threshold set to <value>°C")
     print("  SET_SAMPLING <ms> → OK: Sampling set to <ms>ms")
     print()
-    print("Task Force Role: CLI Agent - Bridge Console Data to Protocol Server")
+    print("Task Force Role: CLI Agent - Bridge Console Data to "
+          "Protocol Server")
     print("=" * 60)
     print()
     
