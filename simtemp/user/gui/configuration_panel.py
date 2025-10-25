@@ -34,7 +34,7 @@ class ConfigurationPanel(ctk.CTkFrame):
         # Configuration client
         self.config_client = None
         self.host = "127.0.0.1"
-        self.port = 4445
+        self.port = 4446  # SimTemp Protocol Bridge port
         
         # Current values
         self.current_threshold = 45.0

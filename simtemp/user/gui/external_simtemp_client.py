@@ -30,8 +30,8 @@ class ExternalSimTempClient:
     the SimTemp sensor on the ARM target system.
     """
     
-    def __init__(self, host: str = "127.0.0.1", port: int = 4445,
-                 timeout: int = 5):
+    def __init__(self, host: str = "127.0.0.1", port: int = 4446,
+                 timeout: float = 10.0):
         """
         Initialize the external SimTemp client.
         
@@ -61,32 +61,48 @@ class ExternalSimTempClient:
         
     def connect(self) -> bool:
         """
-        Connect to the SimTemp sensor via TCP socket.
+        Connect to SimTemp sensor.
         
         Returns:
-            bool: True if connection successful, False otherwise
+            bool: True if connected successfully
         """
+        if self.connected:
+            logger.warning("Already connected")
+            return True
+            
         try:
+            logger.info(f"Connecting to SimTemp Protocol Bridge at {self.host}:{self.port}")
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.settimeout(self.timeout)
             self.socket.connect((self.host, self.port))
             
-            # Try to read welcome message
-            try:
-                welcome = self.socket.recv(1024).decode('ascii', errors='ignore')
-                logger.info(f"Connected to SimTemp sensor: {welcome.strip()}")
-            except socket.timeout:
-                logger.info(f"Connected to SimTemp sensor at {self.host}:{self.port}")
+            # Receive welcome message from bridge
+            welcome_msg = self.socket.recv(1024).decode('utf-8').strip()
+            logger.info(f"Bridge welcome message: {welcome_msg}")
             
-            self.connected = True
-            self.connection_errors = 0
-            logger.info(f"Successfully connected to {self.host}:{self.port}")
-            return True
-            
+            if "SimTemp Protocol Bridge" in welcome_msg:
+                self.connected = True
+                self.connection_errors = 0
+                logger.info(f"✓ Connected to SimTemp sensor at {self.host}:{self.port}")
+                print(f"✓ Connected to SimTemp sensor at {self.host}:{self.port}")
+                print(f"Sensor response: {welcome_msg}")
+                return True
+            else:
+                logger.error(f"Unexpected welcome message: {welcome_msg}")
+                self.socket.close()
+                return False
+                
+        except socket.timeout:
+            logger.error(f"Failed to connect to {self.host}:{self.port}: timed out")
+            print(f"Failed to connect to SimTemp sensor at {self.host}:{self.port}")
+            return False
+        except ConnectionRefusedError:
+            logger.error(f"Failed to connect to {self.host}:{self.port}: connection refused")
+            print(f"Failed to connect to SimTemp sensor at {self.host}:{self.port}")
+            return False
         except Exception as e:
             logger.error(f"Failed to connect to {self.host}:{self.port}: {e}")
-            self.connected = False
-            self.connection_errors += 1
+            print(f"Failed to connect to SimTemp sensor at {self.host}:{self.port}")
             return False
     
     def disconnect(self):
@@ -122,7 +138,7 @@ class ExternalSimTempClient:
         
         try:
             # Send command with newline
-            self.socket.send(f"{command}\\n".encode('ascii'))
+            self.socket.send(f"{command}\n".encode('ascii'))
             
             # Receive response
             response = self.socket.recv(1024).decode('ascii', errors='ignore')
@@ -195,6 +211,31 @@ class ExternalSimTempClient:
                 
             except Exception as e:
                 logger.error(f"Failed to parse status response: {e}")
+        return None
+    
+    def get_bridge_info(self) -> Optional[Dict[str, Any]]:
+        """
+        Get information about the SimTemp Protocol Bridge.
+        
+        Returns:
+            dict: Bridge information or None if error
+        """
+        # The bridge sends welcome message on connect, we can parse that
+        # or send a STATUS command for current info
+        status = self.get_status()
+        if status:
+            bridge_info = {
+                'bridge_version': 'SimTemp Protocol Bridge v1.0',
+                'protocol': 'TempMC (milli-Celsius)',
+                'current_temp_mc': int(status.get('temperature', 0) * 1000),
+                'current_temp_celsius': status.get('temperature', 0),
+                'sampling_ms': status.get('sampling_ms', 500),
+                'threshold_mc': int(status.get('threshold_celsius', 45.0) * 1000),
+                'threshold_celsius': status.get('threshold_celsius', 45.0),
+                'uptime_ms': status.get('uptime_ms', 0),
+                'connected': self.connected
+            }
+            return bridge_info
         return None
     
     def set_data_callback(self, callback: Callable[[Dict], None]):
@@ -337,7 +378,7 @@ def main():
     
     parser = argparse.ArgumentParser(description='External SimTemp Client Test')
     parser.add_argument('--host', default='127.0.0.1', help='SimTemp host')
-    parser.add_argument('--port', type=int, default=4445, help='SimTemp port')
+    parser.add_argument('--port', type=int, default=4446, help='SimTemp port')
     parser.add_argument('--test', action='store_true', help='Run test mode')
     
     args = parser.parse_args()
