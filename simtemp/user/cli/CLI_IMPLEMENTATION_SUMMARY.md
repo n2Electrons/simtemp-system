@@ -1,38 +1,38 @@
-# SimTemp CLI - Resumen de Implementación
+# SimTemp CLI - Implementation Summary
 
-## 🎯 Requerimientos Cumplidos
-✅ **CLI en C Puro**: Implementación completa con arquitectura modular  
-✅ **Configuración de Thresholds**: Alertas configurables via sysfs  
-✅ **Sampling Configurable**: Períodos de muestreo ajustables  
-✅ **Temperatura en Tiempo Real**: Salida en consola con timestamps  
-✅ **Comunicación Remota**: Soporte SSH/Telnet completo  
-✅ **Generación de Ondas**: Integración con patrones de Octave  
+## Requirements Met
+✅ **Pure C CLI**: Complete implementation with modular architecture  
+✅ **Threshold Configuration**: Configurable alerts via sysfs  
+✅ **Configurable Sampling**: Adjustable sampling periods  
+✅ **Real-time Temperature**: Console output with timestamps  
+✅ **Remote Communication**: Complete SSH/Telnet support  
+✅ **Wave Generation**: Integration with Octave patterns  
 
-## 🚀 Uso Rápido
+## Quick Usage
 
-### CLI Principal
+### Main CLI
 ```bash
 # Local
 ./simtemp_cli --threshold-min 20.0 --threshold-max 40.0
 
-# Remoto SSH
+# Remote SSH
 ./simtemp_cli --host 192.168.1.100 --user root --port 22
 
-# Salida JSON
+# JSON output
 ./simtemp_cli --format json --output temp.json --samples 100
 ```
 
-### Generador de Ondas
+### Wave Generator
 ```bash
-# Onda seno
+# Sine wave
 python3 continuous_wave_generator.py --wave sine --frequency 0.1 --amplitude 10.0
 
-# Tipos disponibles
+# Available types
 python3 continuous_wave_generator.py --list-waves
-# Salida: sine, square, triangle, sawtooth, noise, step, ramp
+# Output: sine, square, triangle, sawtooth, noise, step, ramp
 ```
 
-## 📁 Arquitectura
+## Architecture
 ```
 simtemp/user/cli/
 ├── simtemp_cli.h              # Header principal + estructuras

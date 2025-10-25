@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 SimTemp Telnet Server Simulator
-Simula un sensor de temperatura que acepta comandos vía Telnet
+Simulates a temperature sensor that accepts commands via Telnet
 """
 
 import socket
@@ -46,7 +46,7 @@ class SimTempTelnetServer:
             while self.running:
                 try:
                     client_socket, addr = self.server_socket.accept()
-                    print(f"Nueva conexión desde {addr}")
+                    print(f"New connection from {addr}")
                     
                     client_thread = threading.Thread(
                         target=self.handle_client,
@@ -200,7 +200,7 @@ class SimTempTelnetServer:
         for client in self.clients[:]:
             try:
                 client.close()
-            except:
+            except Exception:
                 pass
         self.clients.clear()
         

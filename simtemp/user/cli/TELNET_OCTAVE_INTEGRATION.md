@@ -1,55 +1,55 @@
-# SimTemp - Integración Telnet con Octave
+# SimTemp - Telnet Integration with Octave
 
-## 🌊 Generación de Ondas vía Telnet
+## Wave Generation via Telnet
 
-El sistema SimTemp ahora soporta el envío de señales directamente al puerto telnet del sensor de temperatura usando Octave y el generador de ondas continuas.
+The SimTemp system now supports sending signals directly to the temperature sensor's telnet port using Octave and the continuous wave generator.
 
-## 🔧 Configuración de Puerto Telnet
+## Telnet Port Configuration
 
-### Especificar Host y Puerto
+### Specify Host and Port
 ```bash
-# Conexión telnet básica
+# Basic telnet connection
 python3 continuous_wave_generator.py --host 192.168.1.100 --port 23
 
-# Puerto personalizado
+# Custom port
 python3 continuous_wave_generator.py --host sensor.local --port 9999
 
-# Con parámetros de onda
+# With wave parameters
 python3 continuous_wave_generator.py \
     --host 192.168.1.100 --port 23 \
     --wave sine --frequency 0.1 --amplitude 10.0 --offset 30.0
 ```
 
-### Si el dispositivo local no existe:
+### If local device doesn't exist:
 ```
 ERROR: Device /dev/simtemp not found
 TIP: Use --host and --port for telnet connection to remote sensor
 ```
 
-## 🎯 Tipos de Onda Disponibles
+## Available Wave Types
 
-| Tipo | Descripción | Uso |
+| Type | Description | Usage |
 |------|-------------|-----|
-| `sine` | Onda sinusoidal suave | Variaciones graduales de temperatura |
-| `square` | Onda cuadrada | Cambios bruscos de temperatura |
-| `triangle` | Onda triangular | Rampas lineales |
-| `sawtooth` | Diente de sierra | Rampas asimétricas |
-| `noise` | Ruido aleatorio | Fluctuaciones aleatorias |
-| `step` | Escalones | Niveles discretos |
-| `ramp` | Rampa lenta | Incremento/decremento gradual |
+| `sine` | Smooth sinusoidal wave | Gradual temperature variations |
+| `square` | Square wave | Abrupt temperature changes |
+| `triangle` | Triangular wave | Linear ramps |
+| `sawtooth` | Sawtooth wave | Asymmetric ramps |
+| `noise` | Random noise | Random fluctuations |
+| `step` | Steps | Discrete levels |
+| `ramp` | Slow ramp | Gradual increment/decrement |
 
-## 📡 Protocolo Telnet
+## Telnet Protocol
 
-### Comandos del Sensor
+### Sensor Commands
 ```
-SET_TEMP <temperatura>  - Establecer temperatura en °C
-GET_TEMP                - Obtener temperatura actual
-STATUS                  - Estado del sensor
-HELP                    - Ayuda de comandos
-QUIT                    - Cerrar conexión
+SET_TEMP <temperature>  - Set temperature in °C
+GET_TEMP                - Get current temperature
+STATUS                  - Sensor status
+HELP                    - Command help
+QUIT                    - Close connection
 ```
 
-### Ejemplo de Sesión Telnet
+### Telnet Session Example
 ```
 $ telnet 192.168.1.100 23
 SimTemp Sensor v1.0 - Telnet Interface
@@ -62,9 +62,9 @@ simtemp> STATUS
 STATUS: OK, Temp=25.50°C, Uptime=120s, Clients=1
 ```
 
-## 🌊 Ejemplos de Generación de Ondas
+## Wave Generation Examples
 
-### Onda Seno para Pruebas Graduales
+### Sine Wave for Gradual Tests
 ```bash
 python3 continuous_wave_generator.py \
     --host 192.168.1.100 --port 23 \
@@ -74,8 +74,8 @@ python3 continuous_wave_generator.py \
     --offset 30.0 \
     --duration 60
 ```
-- Frecuencia: 0.1 Hz (período de 10 segundos)
-- Temperatura: 22°C a 38°C (30±8°C)
+- Frequency: 0.1 Hz (10 second period)
+- Temperature: 22°C to 38°C (30±8°C)
 - Duración: 60 segundos
 
 ### Onda Cuadrada para Pruebas de Stress
