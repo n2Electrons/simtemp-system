@@ -1,0 +1,15 @@
+
+GUI
+cd /home/jorge/challenge-2509/simtemp-system/simtemp/user/gui
+source simtemp_gui_env/bin/activate && python3 main.py --port 4446
+
+
+CLI ORQUESTATOR
+cd /home/jorge/challenge-2509/simtemp-system/simtemp/user/cli
+python3 simtemp_orchestrator.py --gui-port 4446 --sensor-port 4445 --wave sine --frequency 0.1 --amplitude 10.0 --offset 35.0
+
+
+ln -s /dev/ttymxc1 /dev/tempsensor
+
+ps aux | grep -E "(octave|python.*wave|continuous_wave)" | grep -v grep
+

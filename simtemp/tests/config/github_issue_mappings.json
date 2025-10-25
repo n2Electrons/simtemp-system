@@ -23,6 +23,7 @@
   "f-k8-tc-001-loadunload": 7,
   "f-k8-tc-002-dtb-drv-bind": 21,
   "f-u1-user-space-cli-config": 24,
+  "f-u5-user-gui": 38,
   "fix-jenkins-tests": 6,
   "k8-clean-loadunload": 32,
   "req-trigger-jenkins": 5
