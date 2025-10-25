@@ -172,3 +172,9 @@ tests:
         test_id: "F-K2-TC-001-ARM"
         pytest_file: "test_arm_f_k2_tc_001_sampling.py"
         verbose_output: true
+      - name: "test_configuration_support_arm"
+        description: "F-K7: Configuration support via sysfs and ioctl in QEMU ARM environment"
+        enabled: true
+        test_id: "F-K7-TC-001-ARM"
+        pytest_file: "test_arm_f_k7_tc_001_configuration.py"
+        verbose_output: true

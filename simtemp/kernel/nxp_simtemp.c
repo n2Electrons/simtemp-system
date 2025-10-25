@@ -896,7 +896,11 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 /**
  * nxp_simtemp_remove - Platform driver remove function
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
 static void nxp_simtemp_remove(struct platform_device *pdev)
+#else
+static int nxp_simtemp_remove(struct platform_device *pdev)
+#endif
 {
 	struct nxp_simtemp_data *data = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
@@ -905,7 +909,11 @@ static void nxp_simtemp_remove(struct platform_device *pdev)
 
 	if (!data) {
 		dev_warn(dev, "No device data found during remove\n");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
 		return;
+#else
+		return 0;
+#endif
 	}
 
 	/* F-K2: Stop and cleanup timer */
@@ -918,6 +926,9 @@ static void nxp_simtemp_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 
 	dev_info(dev, "NXP SimTemp remove completed successfully\n");
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0)
+	return 0;
+#endif
 }
 
 /**
@@ -972,7 +983,11 @@ static int __init nxp_simtemp_init(void)
 	}
 
 	/* Create device class */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,4,0)
 	simtemp_class = class_create(CLASS_NAME);
+#else
+	simtemp_class = class_create(THIS_MODULE, CLASS_NAME);
+#endif
 	if (IS_ERR(simtemp_class)) {
 		ret = PTR_ERR(simtemp_class);
 		pr_err("NXP SimTemp driver: Failed to create class: %d\n", ret);
