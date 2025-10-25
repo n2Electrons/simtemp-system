@@ -76,9 +76,9 @@ class SimTempRemoteCLI:
             
             cleanup_qemu_processes(force_kill=True)
     
-    def execute_command(self, command: str) -> Tuple[bool, List[str]]:
-        """Execute SSH command wrapper"""
-        return execute_ssh_command(command, self.ssh_port)
+    def execute_command(self, command):
+        """Execute command via SSH and return (success, output_lines)"""
+        return execute_ssh_command(command)
     
     def read_sysfs_attribute(self, attr_name: str) -> Optional[str]:
         """Read sysfs attribute value"""
@@ -92,7 +92,8 @@ class SimTempRemoteCLI:
     def write_sysfs_attribute(self, attr_name: str, value: str) -> bool:
         """Write sysfs attribute value"""
         path = f"{self.sysfs_base}/{attr_name}"
-        success, output = self.execute_command(f"echo '{value}' > {path}")
+        cmd = f'echo "{value}" > {path}'
+        success, output = self.execute_command(cmd)
         return success
     
     def get_sample_rate(self) -> Optional[int]:
@@ -112,7 +113,9 @@ class SimTempRemoteCLI:
                   f"(valid range: 1-60000)")
             return False
         
-        success = self.write_sysfs_attribute("sampling_ms", str(rate_ms))
+        # Use direct echo command to write to sysfs
+        cmd = f'echo "{rate_ms}" > {self.sysfs_base}/sampling_ms'
+        success, output = self.execute_command(cmd)
         if success:
             print(f"[INFO] Sample rate set to {rate_ms}ms")
         else:
@@ -137,7 +140,9 @@ class SimTempRemoteCLI:
                   f"(valid range: -50°C to 150°C)")
             return False
         
-        success = self.write_sysfs_attribute("threshold_mC", str(threshold_mc))
+        # Use direct echo command to write to sysfs
+        cmd = f'echo "{threshold_mc}" > {self.sysfs_base}/threshold_mC'
+        success, output = self.execute_command(cmd)
         if success:
             temp_c = threshold_mc / 1000.0
             print(f"[INFO] Threshold set to {temp_c}°C ({threshold_mc}mC)")
@@ -150,18 +155,28 @@ class SimTempRemoteCLI:
         """Show current driver configuration"""
         print("\n=== SimTemp Driver Configuration ===")
         
-        # Get sample rate
-        sample_rate = self.get_sample_rate()
-        if sample_rate is not None:
-            print(f"Sample Rate: {sample_rate}ms")
+        # Get sample rate directly with cat
+        cmd = f"cat {self.sysfs_base}/sampling_ms 2>/dev/null"
+        success, output = self.execute_command(cmd)
+        if success and output:
+            try:
+                sample_rate = int(output[0].strip())
+                print(f"Sample Rate: {sample_rate}ms")
+            except ValueError:
+                print("Sample Rate: Invalid value")
         else:
             print("Sample Rate: Unable to read")
         
-        # Get threshold
-        threshold = self.get_threshold()
-        if threshold is not None:
-            temp_c = threshold / 1000.0
-            print(f"Threshold: {temp_c}°C ({threshold}mC)")
+        # Get threshold directly with cat
+        cmd = f"cat {self.sysfs_base}/threshold_mC 2>/dev/null"
+        success, output = self.execute_command(cmd)
+        if success and output:
+            try:
+                threshold = int(output[0].strip())
+                temp_c = threshold / 1000.0
+                print(f"Threshold: {temp_c}°C ({threshold}mC)")
+            except ValueError:
+                print("Threshold: Invalid value")
         else:
             print("Threshold: Unable to read")
         
@@ -243,10 +258,10 @@ class SimTempRemoteCLI:
     
     def show_help(self):
         """Show concise help information"""
-        print("\n" + "="*50)
-        print("🔧 SimTemp Remote CLI - Quick Help")
-        print("="*50)
-        print("📋 COMMANDS:")
+        print("=" * 70)
+        print("SimTemp Remote CLI - Quick Help")
+        print("=" * 70)
+        print("COMMANDS:")
         print("  config        - Show current settings")
         print("  rate <ms>     - Set sample rate (1-60000)")
         print("  thr <°C>      - Set temperature threshold")
@@ -254,26 +269,26 @@ class SimTempRemoteCLI:
         print("  status        - Show driver status")
         print("  help          - Show this help")
         print("  quit          - Exit CLI")
-        print("")
-        print("📖 EXAMPLES:")
+        print()
+        print("EXAMPLES:")
         print("  rate 500      - Set to 500ms sampling")
         print("  thr 40        - Set threshold to 40°C")
         print("  read 30       - Read for 30 seconds")
-        print("="*50 + "\n")
+        print("=" * 70)
     
     def show_welcome_message(self):
         """Show welcome message and basic commands"""
-        print("\n🚀 SimTemp Remote CLI - SSH Driver Configuration")
-        print("="*50)
-        print("📋 Quick Commands:")
+        print("\nSimTemp Remote CLI - SSH Driver Configuration")
+        print("=" * 70)
+        print("Quick Commands:")
         print("  config       - Show configuration")
         print("  rate <ms>    - Set sample rate")
         print("  thr <°C>     - Set threshold")
         print("  read         - Read temperature")
         print("  help         - Extended help")
         print("  quit         - Exit")
-        print("="*50)
-        print("💡 Type 'help' for detailed usage information\n")
+        print("=" * 70)
+        print("Type 'help' for detailed usage information\n")
         print("")
     
     def interactive_mode(self):
@@ -305,10 +320,14 @@ class SimTempRemoteCLI:
                         continue
                     try:
                         rate = int(cmd[1])
-                        self.set_sample_rate(rate)
+                        if rate < 1 or rate > 60000:
+                            print(f" [ERROR] Rate {rate}ms out of range "
+                                  f"(valid: 1-60000)")
+                        else:
+                            self.set_sample_rate(rate)
                     except ValueError:
-                        print(" Invalid rate value. Must be a number "
-                              "(1-60000)")
+                        print(f" [ERROR] Invalid rate '{cmd[1]}' - "
+                              f"must be a number (1-60000)")
                 
                 elif cmd[0].lower() in ['thr', 'threshold', 'thresh']:
                     if len(cmd) < 2:
@@ -317,11 +336,15 @@ class SimTempRemoteCLI:
                         continue
                     try:
                         temp_c = float(cmd[1])
-                        threshold_mc = int(temp_c * 1000)
-                        self.set_threshold(threshold_mc)
+                        if temp_c < -50.0 or temp_c > 150.0:
+                            print(f" [ERROR] Threshold {temp_c}°C out of range"
+                                  f" (valid: -50°C to 150°C)")
+                        else:
+                            threshold_mc = int(temp_c * 1000)
+                            self.set_threshold(threshold_mc)
                     except ValueError:
-                        print(" Invalid threshold value. Must be a number "
-                              "(-50 to 150)")
+                        print(f" [ERROR] Invalid threshold '{cmd[1]}' - "
+                              f"must be a number (-50 to 150)")
                 
                 elif cmd[0].lower() == 'read':
                     duration = 0
