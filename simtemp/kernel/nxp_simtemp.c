@@ -463,6 +463,10 @@ static void simtemp_update_record(struct nxp_simtemp_data *data)
 		dev_info(data->dev, "Alert: temperature %d mC >= threshold %u mC (alert #%u)\n",
 			 temp_mC, data->threshold_mC, data->alert_count);
 	}
+	
+	/* F-K4: Signal new sample available and wake waiting processes */
+	data->new_sample_available = true;
+	wake_up_interruptible(&data->read_wait);
 }
 
 /**
@@ -519,13 +523,14 @@ static int simtemp_release(struct inode *inode, struct file *filp)
 }
 
 /**
- * simtemp_read - Character device read
+ * simtemp_read - Character device read (F-K4: supports blocking)
  */
 static ssize_t simtemp_read(struct file *filp, char __user *buf,
 			    size_t count, loff_t *f_pos)
 {
 	struct nxp_simtemp_data *data = filp->private_data;
 	size_t record_size = sizeof(struct simtemp_record);
+	int ret;
 	
 	if (!data)
 		return -ENODEV;
@@ -533,11 +538,23 @@ static ssize_t simtemp_read(struct file *filp, char __user *buf,
 	if (count < record_size)
 		return -EINVAL;
 	
-	/* Non-blocking read when no data available */
-	if (filp->f_flags & O_NONBLOCK)
-		return -EAGAIN;
+	/* F-K4: Blocking read - wait for new sample unless O_NONBLOCK */
+	if (!(filp->f_flags & O_NONBLOCK)) {
+		ret = wait_event_interruptible(data->read_wait, 
+					       data->new_sample_available);
+		if (ret)
+			return ret; /* Interrupted by signal */
+	} else {
+		/* Non-blocking: return immediately if no data */
+		if (!data->new_sample_available)
+			return -EAGAIN;
+	}
 	
 	mutex_lock(&data->mutex);
+	
+	/* Clear the flag since we're consuming the sample */
+	data->new_sample_available = false;
+	
 	if (copy_to_user(buf, &data->record, record_size)) {
 		mutex_unlock(&data->mutex);
 		return -EFAULT;
@@ -547,12 +564,37 @@ static ssize_t simtemp_read(struct file *filp, char __user *buf,
 	return record_size;
 }
 
+/**
+ * simtemp_poll - F-K4: Poll/epoll support
+ */
+static __poll_t simtemp_poll(struct file *filp, poll_table *wait)
+{
+	struct nxp_simtemp_data *data = filp->private_data;
+	__poll_t mask = 0;
+	
+	if (!data)
+		return EPOLLERR;
+	
+	/* Add to wait queue for poll/epoll */
+	poll_wait(filp, &data->read_wait, wait);
+	
+	/* Check if data is available */
+	if (data->new_sample_available)
+		mask |= EPOLLIN | EPOLLRDNORM; /* Data ready for reading */
+	
+	/* Always ready for writing (not implemented but good practice) */
+	mask |= EPOLLOUT | EPOLLWRNORM;
+	
+	return mask;
+}
+
 /* Character device file operations */
 static const struct file_operations simtemp_fops = {
 	.owner = THIS_MODULE,
 	.open = simtemp_open,
 	.release = simtemp_release,
 	.read = simtemp_read,
+	.poll = simtemp_poll,
 };
 
 /**
@@ -659,6 +701,10 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 	timer_setup(&data->sample_timer, simtemp_timer_callback, 0);
 	data->timer_active = false;
 
+	/* F-K4: Initialize wait queue for blocking read/poll */
+	init_waitqueue_head(&data->read_wait);
+	data->new_sample_available = false;
+
 	/* Initialize temperature generator with default linear ramp */
 	data->temp_generator.pattern_type = SIMTEMP_MODE_LINEAR;
 	data->temp_generator.sample_count = 0;
@@ -726,7 +772,7 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 /**
  * nxp_simtemp_remove - Platform driver remove function
  */
-static int nxp_simtemp_remove(struct platform_device *pdev)
+static void nxp_simtemp_remove(struct platform_device *pdev)
 {
 	struct nxp_simtemp_data *data = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
@@ -735,7 +781,7 @@ static int nxp_simtemp_remove(struct platform_device *pdev)
 
 	if (!data) {
 		dev_warn(dev, "No device data found during remove\n");
-		return 0;
+		return;
 	}
 
 	/* F-K2: Stop and cleanup timer */
@@ -748,8 +794,6 @@ static int nxp_simtemp_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 
 	dev_info(dev, "NXP SimTemp remove completed successfully\n");
-	
-	return 0;
 }
 
 /**
@@ -804,7 +848,7 @@ static int __init nxp_simtemp_init(void)
 	}
 
 	/* Create device class */
-	simtemp_class = class_create(THIS_MODULE, CLASS_NAME);
+	simtemp_class = class_create(CLASS_NAME);
 	if (IS_ERR(simtemp_class)) {
 		ret = PTR_ERR(simtemp_class);
 		pr_err("NXP SimTemp driver: Failed to create class: %d\n", ret);

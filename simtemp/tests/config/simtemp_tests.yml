@@ -117,6 +117,12 @@ tests:
         test_id: "F-K2-TC-001"
         pytest_file: "test_x86_f_k2_tc_001_sampling.py"
         verbose_output: true
+      - name: "test_blocking_read_and_poll"
+        description: "F-K4: Blocking read and poll/epoll support"
+        enabled: true
+        test_id: "F-K4-TC-001"
+        pytest_file: "test_x86_f_k4_tc_001_blocking.py"
+        verbose_output: true
 
   qemu_integration:
     enabled: true
