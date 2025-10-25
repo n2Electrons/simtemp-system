@@ -32,15 +32,15 @@ class SimTempTelnetServer:
             self.running = True
             
             print(f"SimTemp Telnet Server listening on {self.host}:{self.port}")
-            print("Comandos soportados:")
-            print("  SET_TEMP <temperatura>  - Establecer temperatura")
-            print("  GET_TEMP                - Obtener temperatura actual")
-            print("  SET_SAMPLING <ms>       - Configurar período muestreo")
-            print("  GET_SAMPLING            - Obtener período muestreo")
-            print("  SET_THRESHOLD <mC>      - Configurar umbral (mili-°C)")
-            print("  GET_THRESHOLD           - Obtener umbral")
-            print("  STATUS                  - Estado del sensor")
-            print("  QUIT                    - Cerrar conexión")
+            print("Supported commands:")
+            print("  SET_TEMP <temperature>  - Set temperature")
+            print("  GET_TEMP                - Get current temperature")
+            print("  SET_SAMPLING <ms>       - Configure sampling period")
+            print("  GET_SAMPLING            - Get sampling period")
+            print("  SET_THRESHOLD <mC>      - Configure threshold (milli-°C)")
+            print("  GET_THRESHOLD           - Get threshold")
+            print("  STATUS                  - Sensor status")
+            print("  QUIT                    - Close connection")
             print()
             
             while self.running:
@@ -107,7 +107,7 @@ class SimTempTelnetServer:
             if client_socket in self.clients:
                 self.clients.remove(client_socket)
             client_socket.close()
-            print(f"Cliente {addr} desconectado")
+            print(f"Client {addr} disconnected")
     
     def process_command(self, command):
         """Process telnet commands"""
@@ -119,7 +119,7 @@ class SimTempTelnetServer:
                 temp = float(parts[1])
                 old_temp = self.current_temp
                 self.current_temp = temp
-                print(f"Temperatura cambiada: {old_temp:.2f}°C -> {temp:.2f}°C")
+                print(f"Temperature changed: {old_temp:.2f}°C -> {temp:.2f}°C")
                 return f"OK: Temperature set to {temp:.2f}°C"
             except ValueError:
                 return "ERROR: Invalid temperature value"
@@ -133,7 +133,7 @@ class SimTempTelnetServer:
                 if 1 <= sampling_ms <= 60000:  # 1ms to 60s
                     old_sampling = self.sampling_ms
                     self.sampling_ms = sampling_ms
-                    print(f"Sampling cambiado: {old_sampling}ms -> {sampling_ms}ms")
+                    print(f"Sampling changed: {old_sampling}ms -> {sampling_ms}ms")
                     return f"OK: Sampling period set to {sampling_ms} ms"
                 else:
                     return "ERROR: Invalid sampling period (1-60000 ms)"
@@ -151,7 +151,7 @@ class SimTempTelnetServer:
                     self.threshold_mC = threshold_mC
                     temp_c = threshold_mC / 1000.0
                     old_temp_c = old_threshold / 1000.0
-                    print(f"Threshold cambiado: {old_temp_c:.1f}°C -> {temp_c:.1f}°C")
+                    print(f"Threshold changed: {old_temp_c:.1f}°C -> {temp_c:.1f}°C")
                     return f"OK: Threshold set to {temp_c:.1f}°C ({threshold_mC} mC)"
                 else:
                     return "ERROR: Invalid threshold (-50000 to 150000 mC)"
@@ -172,16 +172,16 @@ class SimTempTelnetServer:
             return status
             
         elif cmd == "HELP":
-            help_text = "Comandos disponibles:\r\n"
-            help_text += "  SET_TEMP <valor>      - Establecer temperatura\r\n"
-            help_text += "  GET_TEMP              - Obtener temperatura\r\n"
-            help_text += "  SET_SAMPLING <ms>     - Configurar muestreo\r\n"
-            help_text += "  GET_SAMPLING          - Obtener muestreo\r\n"
-            help_text += "  SET_THRESHOLD <mC>    - Configurar umbral\r\n"
-            help_text += "  GET_THRESHOLD         - Obtener umbral\r\n"
-            help_text += "  STATUS                - Estado del sistema\r\n"
-            help_text += "  HELP                  - Esta ayuda\r\n"
-            help_text += "  QUIT                  - Cerrar conexión"
+            help_text = "Available commands:\r\n"
+            help_text += "  SET_TEMP <value>      - Set temperature\r\n"
+            help_text += "  GET_TEMP              - Get temperature\r\n"
+            help_text += "  SET_SAMPLING <ms>     - Configure sampling\r\n"
+            help_text += "  GET_SAMPLING          - Get sampling\r\n"
+            help_text += "  SET_THRESHOLD <mC>    - Configure threshold\r\n"
+            help_text += "  GET_THRESHOLD         - Get threshold\r\n"
+            help_text += "  STATUS                - System status\r\n"
+            help_text += "  HELP                  - This help\r\n"
+            help_text += "  QUIT                  - Close connection"
             return help_text
             
         elif cmd == "QUIT":
@@ -204,12 +204,12 @@ class SimTempTelnetServer:
                 pass
         self.clients.clear()
         
-        print("Servidor telnet detenido")
+        print("Telnet server stopped")
 
 def signal_handler(signum, frame):
     """Handle shutdown signals"""
     global server
-    print("\nDeteniendo servidor...")
+    print("\nStopping server...")
     if server:
         server.stop()
     sys.exit(0)

@@ -512,8 +512,8 @@ def main():
                        help="SimTemp device path")
     parser.add_argument("--host", 
                        help="Telnet host for remote SimTemp sensor")
-    parser.add_argument("--port", type=int, default=23,
-                       help="Telnet port (default: 23)")
+    parser.add_argument("--port", type=int, default=4445,
+                       help="SimTemp sensor socket port (default: 4445 for QEMU)")
     
     # Operation modes
     parser.add_argument("--duration", type=int,
