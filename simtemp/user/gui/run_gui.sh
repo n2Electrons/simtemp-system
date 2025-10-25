@@ -1,11 +1,11 @@
 #!/bin/bash
-"""
-SimTemp External GUI Launcher
-Copyright (c) 2025 Jorge Rodriguez Moreno
-
-Launcher script for the SimTemp External GUI application.
-This script activates the virtual environment and starts the GUI.
-"""
+#
+# SimTemp External GUI Launcher
+# Copyright (c) 2025 Jorge Rodriguez Moreno
+#
+# Launcher script for the SimTemp External GUI application.
+# This script activates the virtual environment and starts the GUI.
+#
 
 # Script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"

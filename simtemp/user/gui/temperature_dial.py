@@ -160,22 +160,32 @@ class TemperatureDial(ctk.CTkFrame):
                 )
     
     def draw_threshold_line(self):
-        """Draw threshold temperature line."""
+        """Draw threshold temperature point on dial border."""
         angle = self.temp_to_angle(self.threshold_temp)
-        x1, y1 = self.polar_to_cartesian(angle, 20)
-        x2, y2 = self.polar_to_cartesian(angle, self.radius - 5)
         
-        self.canvas.create_line(
-            x1, y1, x2, y2,
+        # Draw threshold as a single point on the border
+        point_x, point_y = self.polar_to_cartesian(angle, self.radius - 2)
+        
+        # Draw threshold point (circle)
+        self.canvas.create_oval(
+            point_x - 6, point_y - 6,
+            point_x + 6, point_y + 6,
             fill=self.threshold_color,
-            width=3
+            outline="#ffffff",
+            width=2
         )
         
-        # Threshold label
-        label_x, label_y = self.polar_to_cartesian(angle, self.radius + 15)
+        # Threshold label in two lines
+        label_x, label_y = self.polar_to_cartesian(angle, self.radius + 20)
         self.canvas.create_text(
-            label_x, label_y,
-            text=f"T: {self.threshold_temp:.0f}°C",
+            label_x, label_y - 8,
+            text="Threshold",
+            fill=self.threshold_color,
+            font=("Arial", 8, "bold")
+        )
+        self.canvas.create_text(
+            label_x, label_y + 5,
+            text=f"{self.threshold_temp:.0f}°C",
             fill=self.threshold_color,
             font=("Arial", 9, "bold")
         )

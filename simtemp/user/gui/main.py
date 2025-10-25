@@ -135,14 +135,17 @@ class SimTempExternalGUI:
         )
         title_label.pack(side="left", padx=20, pady=15)
         
-        # Connection indicator
+        # Connection indicator (top right corner)
+        connection_frame = ctk.CTkFrame(title_frame, fg_color="transparent")
+        connection_frame.pack(side="right", padx=20, pady=15)
+        
         self.connection_indicator = ctk.CTkLabel(
-            title_frame,
-            text="● Disconnected",
-            text_color="red",
+            connection_frame,
+            text="Disconnected",
+            text_color="white",
             font=ctk.CTkFont(size=14, weight="bold")
         )
-        self.connection_indicator.pack(side="right", padx=20, pady=15)
+        self.connection_indicator.pack(side="right")
         
         # Red alarm lamp
         self.alarm_lamp = ctk.CTkLabel(
@@ -260,7 +263,16 @@ class SimTempExternalGUI:
         )
         self.status_label.pack(side="left", padx=10, pady=5)
         
-        # Data rate indicator
+        # Threshold display (bottom right corner)
+        self.threshold_display = ctk.CTkLabel(
+            status_frame,
+            text=f"Threshold: {self.current_threshold:.1f}°C",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color="#ff6b6b"
+        )
+        self.threshold_display.pack(side="right", padx=10, pady=5)
+        
+        # Data rate indicator  
         self.data_rate_label = ctk.CTkLabel(
             status_frame,
             text="Data Rate: 0 Hz",
@@ -285,6 +297,11 @@ class SimTempExternalGUI:
         # Update plot threshold
         self.plot.set_threshold(threshold)
         
+        # Update threshold display in bottom right corner
+        self.threshold_display.configure(
+            text=f"Threshold: {threshold:.1f}°C"
+        )
+        
         logger.info(f"Threshold changed to {threshold:.1f}°C")
     
     def on_sample_rate_change(self, sample_rate):
@@ -296,8 +313,8 @@ class SimTempExternalGUI:
         """Handle connection state change."""
         if connected:
             self.connection_indicator.configure(
-                text="● Connected",
-                text_color="green"
+                text="Connected",
+                text_color="white"
             )
             self.status_label.configure(
                 text="Connected to SimTemp sensor - Ready to monitor"
@@ -310,8 +327,8 @@ class SimTempExternalGUI:
             
         else:
             self.connection_indicator.configure(
-                text="● Disconnected",
-                text_color="red"
+                text="Disconnected",
+                text_color="white"
             )
             self.status_label.configure(
                 text="Disconnected from sensor"

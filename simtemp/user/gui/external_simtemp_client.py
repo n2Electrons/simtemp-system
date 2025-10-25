@@ -15,6 +15,7 @@ import socket
 import threading
 import time
 import logging
+import re
 from typing import Dict, Optional, Callable, Any
 
 logger = logging.getLogger(__name__)
@@ -141,11 +142,14 @@ class ExternalSimTempClient:
         response = self.send_command("GET_TEMP")
         if response and response.startswith("TEMP:"):
             try:
-                # Parse response like "TEMP: 25.50°C"
-                temp_str = response.split(":")[1].strip().replace("°C", "")
-                return float(temp_str)
-            except (ValueError, IndexError):
-                logger.error(f"Failed to parse temperature response: {response}")
+                # Parse response like "TEMP: 127000" (milli-Celsius)
+                temp_mc_str = response.split(":")[1].strip()
+                temp_mc = int(temp_mc_str)
+                # Convert milli-Celsius to Celsius
+                temp_celsius = temp_mc / 1000.0
+                return temp_celsius
+            except (ValueError, IndexError) as e:
+                logger.error(f"Failed to parse temperature response: '{response}' - Error: {e}")
         return None
     
     def get_status(self) -> Optional[Dict[str, Any]]:
@@ -163,25 +167,29 @@ class ExternalSimTempClient:
                 status = {"raw_status": status_str}
                 
                 # Try to extract key information
-                if "Temp=" in status_str:
-                    temp_part = status_str.split("Temp=")[1].split(",")[0]
-                    temp_val = float(temp_part.replace("°C", ""))
-                    status["temperature"] = temp_val
+                if "TempMC=" in status_str:
+                    temp_part = status_str.split("TempMC=")[1].split(",")[0]
+                    # Parse milli-Celsius and convert to Celsius
+                    temp_mc = int(temp_part.strip())
+                    status["temperature"] = temp_mc / 1000.0
                 
-                if "Sampling=" in status_str:
-                    sampling_part = status_str.split("Sampling=")[1].split(",")[0]
-                    sampling_val = int(sampling_part.replace("ms", ""))
+                if "SamplingMS=" in status_str:
+                    sampling_part = status_str.split("SamplingMS=")[1].split(",")[0]
+                    # Parse milliseconds directly
+                    sampling_val = int(sampling_part.strip())
                     status["sampling_ms"] = sampling_val
                 
-                if "Threshold=" in status_str:
-                    threshold_part = status_str.split("Threshold=")[1].split(",")[0]
-                    threshold_val = float(threshold_part.replace("°C", ""))
-                    status["threshold_celsius"] = threshold_val
+                if "ThresholdMC=" in status_str:
+                    threshold_part = status_str.split("ThresholdMC=")[1].split(",")[0]
+                    # Parse milli-Celsius and convert to Celsius
+                    threshold_mc = int(threshold_part.strip())
+                    status["threshold_celsius"] = threshold_mc / 1000.0
                 
-                if "Uptime=" in status_str:
-                    uptime_part = status_str.split("Uptime=")[1].split(",")[0]
-                    uptime_val = float(uptime_part.replace("s", ""))
-                    status["uptime_seconds"] = uptime_val
+                if "UptimeMS=" in status_str:
+                    uptime_part = status_str.split("UptimeMS=")[1]
+                    # Parse milliseconds directly
+                    uptime_val = int(uptime_part.strip())
+                    status["uptime_ms"] = uptime_val
                 
                 return status
                 

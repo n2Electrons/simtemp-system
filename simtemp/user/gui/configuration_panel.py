@@ -104,14 +104,34 @@ class ConfigurationPanel(ctk.CTkFrame):
         self.port_entry.insert(0, str(self.port))
         
         # Connect button
-        self.connect_button = ctk.CTkButton(conn_frame, text="Connect", 
-                                          command=self.toggle_connection)
-        self.connect_button.pack(pady=10)
+        self.connect_button = ctk.CTkButton(conn_frame, text="Connect",
+                                          command=self.connect_to_sensor)
+        self.connect_button.pack(pady=(10, 5))
         
-        # Connection status
-        self.connection_status = ctk.CTkLabel(conn_frame, text="Disconnected", 
-                                            text_color="red")
-        self.connection_status.pack(pady=(0, 10))
+        # Disconnect button (red text, white background)
+        self.disconnect_button = ctk.CTkButton(conn_frame, text="Disconnect",
+                                             command=self.disconnect_from_sensor,
+                                             text_color="red",
+                                             fg_color="white",
+                                             hover_color="#f0f0f0",
+                                             state="disabled")
+        self.disconnect_button.pack(pady=(0, 10))
+        
+        # Connection status with visual indicator (moved to top right)
+        status_frame = ctk.CTkFrame(conn_frame, fg_color="transparent")
+        status_frame.pack(pady=(0, 10))
+        
+        # Status indicator circle
+        self.status_circle = ctk.CTkLabel(status_frame, text="●",
+                                         text_color="red",
+                                         font=ctk.CTkFont(size=16))
+        self.status_circle.pack(side="left", padx=(0, 5))
+        
+        # Connection status text
+        self.connection_status = ctk.CTkLabel(status_frame,
+                                             text="Disconnected",
+                                             text_color="white")
+        self.connection_status.pack(side="left")
     
     def setup_threshold_section(self):
         """Setup threshold configuration controls."""
@@ -119,15 +139,22 @@ class ConfigurationPanel(ctk.CTkFrame):
         threshold_frame.pack(fill="x", padx=10, pady=5)
         
         # Threshold title
-        threshold_label = ctk.CTkLabel(threshold_frame, text="Temperature Threshold", 
+        threshold_label = ctk.CTkLabel(threshold_frame,
+                                     text="Temperature Threshold",
                                      font=ctk.CTkFont(size=14, weight="bold"))
         threshold_label.pack(pady=(10, 5))
         
-        # Threshold value display
-        self.threshold_value_label = ctk.CTkLabel(threshold_frame, 
+        # Threshold value display (two lines)
+        self.threshold_title_label = ctk.CTkLabel(threshold_frame,
+                                                text="Current Threshold",
+                                                font=ctk.CTkFont(size=12))
+        self.threshold_title_label.pack()
+        
+        self.threshold_value_label = ctk.CTkLabel(threshold_frame,
                                                 text=f"{self.current_threshold:.1f}°C",
-                                                font=ctk.CTkFont(size=18))
-        self.threshold_value_label.pack(pady=5)
+                                                font=ctk.CTkFont(size=18,
+                                                               weight="bold"))
+        self.threshold_value_label.pack(pady=(0, 5))
         
         # Threshold slider
         self.threshold_slider = ctk.CTkSlider(threshold_frame, from_=0, to=100,
@@ -239,49 +266,53 @@ class ConfigurationPanel(ctk.CTkFrame):
             if self.sample_rate_callback:
                 self.sample_rate_callback(self.current_sample_rate)
     
-    def toggle_connection(self):
-        """Toggle connection to SimTemp sensor."""
-        if self.config_client is None:
-            # Connect
-            self.host = self.host_entry.get()
-            self.port = int(self.port_entry.get())
+    def connect_to_sensor(self):
+        """Connect to SimTemp sensor."""
+        # Connect
+        self.host = self.host_entry.get()
+        self.port = int(self.port_entry.get())
+        
+        if SimTempConfigClient:
+            self.config_client = SimTempConfigClient(self.host, self.port)
             
-            if SimTempConfigClient:
-                self.config_client = SimTempConfigClient(self.host, self.port)
+            if self.config_client.connect():
+                self.connection_status.configure(text="Connected")
+                self.status_circle.configure(text_color="green")
+                self.connect_button.configure(state="disabled")
+                self.disconnect_button.configure(state="normal")
+                self.apply_threshold_btn.configure(state="normal")
+                self.apply_sample_rate_btn.configure(state="normal")
+                self.add_status_message("Connected to SimTemp sensor")
                 
-                if self.config_client.connect():
-                    self.connection_status.configure(text="Connected", 
-                                                   text_color="green")
-                    self.connect_button.configure(text="Disconnect")
-                    self.apply_threshold_btn.configure(state="normal")
-                    self.apply_sample_rate_btn.configure(state="normal")
-                    self.add_status_message("Connected to SimTemp sensor")
-                    
-                    # Get current configuration
-                    self.get_current_config()
-                    
-                    if self.connection_callback:
-                        self.connection_callback(True)
-                else:
-                    self.connection_status.configure(text="Connection Failed", 
-                                                   text_color="red")
-                    self.config_client = None
-                    self.add_status_message("Failed to connect to sensor")
+                # Get current configuration
+                self.get_current_config()
+                
+                if self.connection_callback:
+                    self.connection_callback(True)
             else:
-                self.add_status_message("SimTempConfigClient not available")
+                self.connection_status.configure(text="Connection Failed")
+                self.status_circle.configure(text_color="red")
+                self.config_client = None
+                self.add_status_message("Failed to connect to sensor")
         else:
-            # Disconnect
+            self.add_status_message("SimTempConfigClient not available")
+    
+    def disconnect_from_sensor(self):
+        """Disconnect from SimTemp sensor."""
+        if self.config_client:
             self.config_client.disconnect()
             self.config_client = None
-            self.connection_status.configure(text="Disconnected", 
-                                           text_color="red")
-            self.connect_button.configure(text="Connect")
-            self.apply_threshold_btn.configure(state="disabled")
-            self.apply_sample_rate_btn.configure(state="disabled")
-            self.add_status_message("Disconnected from sensor")
             
-            if self.connection_callback:
-                self.connection_callback(False)
+        self.connection_status.configure(text="Disconnected")
+        self.status_circle.configure(text_color="red")
+        self.connect_button.configure(state="normal")
+        self.disconnect_button.configure(state="disabled")
+        self.apply_threshold_btn.configure(state="disabled")
+        self.apply_sample_rate_btn.configure(state="disabled")
+        self.add_status_message("Disconnected from sensor")
+        
+        if self.connection_callback:
+            self.connection_callback(False)
     
     def apply_threshold(self):
         """Apply threshold configuration to sensor."""
