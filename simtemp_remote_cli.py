@@ -454,10 +454,9 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
         print("\nSimTemp Remote CLI - Interactive Mode")
         print("=" * 50)
         print("Available commands:")
-        print("  config                    - Show current configuration")
-        print("  status                    - Same as config")
-        print("  freq <ms>                 - Set sample rate in milliseconds")
-        print("  threshold <C>             - Set temperature threshold")
+        print("  status                    - Show current configuration")
+        print("  samples <ms>              - Set sample rate in milliseconds")
+        print("  thr <C>                   - Set temperature threshold")
         print("  read [duration] [count]   - Read temperature (duration in sec, count max readings)")
         print("  gen sine [freq] [amp] [offset]  - Generate sine wave signal")
         print("  gen ramp [slope] [start]        - Generate ramp signal")  
@@ -474,19 +473,19 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                 
                 if input_text in ["exit", "quit", "q"]:
                     break
-                elif input_text in ["config", "status"]:
+                elif input_text == "status":
                     self.show_current_config()
-                elif input_text.startswith("freq "):
+                elif input_text.startswith("samples "):
                     try:
                         parts = input_text.split()
                         if len(parts) >= 2:
                             freq_ms = int(parts[1])
                             self.set_sample_rate(freq_ms)
                         else:
-                            print("[ERROR] Usage: freq <ms>")
+                            print("[ERROR] Usage: samples <ms>")
                     except ValueError:
-                        print("[ERROR] Frequency must be an integer")
-                elif input_text.startswith("threshold "):
+                        print("[ERROR] Sample rate must be an integer")
+                elif input_text.startswith("thr "):
                     try:
                         parts = input_text.split()
                         if len(parts) >= 2:
@@ -494,7 +493,7 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                             threshold_mc = int(threshold_c * 1000)
                             self.set_threshold(threshold_mc)
                         else:
-                            print("[ERROR] Usage: threshold <C>")
+                            print("[ERROR] Usage: thr <C>")
                     except ValueError:
                         print("[ERROR] Threshold must be a number")
                 elif input_text.startswith("read"):
@@ -509,9 +508,9 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                     print("[INFO] Generator stopped")
                 elif input_text == "help":
                     print("\nAvailable commands:")
-                    print("  config                    - Show current configuration")
-                    print("  freq <ms>                 - Set sample rate in milliseconds")
-                    print("  threshold <C>             - Set temperature threshold")
+                    print("  status                    - Show current configuration")
+                    print("  samples <ms>              - Set sample rate in milliseconds")
+                    print("  thr <C>                   - Set temperature threshold")
                     print("  read [duration] [count]   - Read temperature")
                     print("  gen sine [freq] [amp] [offset]  - Generate sine wave signal")
                     print("  gen ramp [slope] [start]        - Generate ramp signal")
@@ -634,7 +633,7 @@ Examples:
     # Actions
     parser.add_argument('--interactive', '-i', action='store_true',
                        help='Interactive mode (default behavior)')
-    parser.add_argument('--config', action='store_true',
+    parser.add_argument('--status', action='store_true',
                        help='Show current configuration')
     parser.add_argument('--set-rate', type=int, metavar='MS',
                        help='Set sample rate in milliseconds')
@@ -657,7 +656,7 @@ Examples:
     
     try:
         # Execute actions
-        if args.config:
+        if args.status:
             cli.show_current_config()
         
         elif args.set_rate is not None:
