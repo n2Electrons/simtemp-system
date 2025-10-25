@@ -409,21 +409,23 @@ static int simtemp_generate_temperature(struct nxp_simtemp_data *data)
 		/* Complex environmental simulation */
 		/* Base exponential heating with multiple frequency components */
 		if (data->temp_generator.period_ms > 0) {
-			/* Primary heating curve */
+			/* Variable declarations at beginning of block */
 			int tau_ms = data->temp_generator.period_ms / 2;
 			int exp_factor = 1000 - (1000 * elapsed_ms / (elapsed_ms + tau_ms));
+			int hvac_phase = (elapsed_ms % (data->temp_generator.period_ms * 2)) * 360 / 
+					 (data->temp_generator.period_ms * 2);
+			int hvac_effect = data->temp_generator.amplitude * hvac_phase / 720; /* Small modulation */
+			u32 noise_seed = (u32)(current_time_ns & 0xFFFFFFFF);
+			int env_noise = ((int)(noise_seed % 1000) - 500) * data->temp_generator.noise_level / 1000;
+			
+			/* Primary heating curve */
 			temp_range = data->temp_generator.max_temp - data->temp_generator.min_temp;
 			new_temp = data->temp_generator.min_temp + (temp_range * (1000 - exp_factor) / 1000);
 			
 			/* Add HVAC-like cycling (slow oscillation) */
-			int hvac_phase = (elapsed_ms % (data->temp_generator.period_ms * 2)) * 360 / 
-					 (data->temp_generator.period_ms * 2);
-			int hvac_effect = data->temp_generator.amplitude * hvac_phase / 720; /* Small modulation */
 			new_temp += hvac_effect;
 			
 			/* Add environmental noise */
-			u32 noise_seed = (u32)(current_time_ns & 0xFFFFFFFF);
-			int env_noise = ((int)(noise_seed % 1000) - 500) * data->temp_generator.noise_level / 1000;
 			new_temp += env_noise;
 		}
 		break;
@@ -724,7 +726,7 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 /**
  * nxp_simtemp_remove - Platform driver remove function
  */
-static void nxp_simtemp_remove(struct platform_device *pdev)
+static int nxp_simtemp_remove(struct platform_device *pdev)
 {
 	struct nxp_simtemp_data *data = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
@@ -733,7 +735,7 @@ static void nxp_simtemp_remove(struct platform_device *pdev)
 
 	if (!data) {
 		dev_warn(dev, "No device data found during remove\n");
-		return;
+		return 0;
 	}
 
 	/* F-K2: Stop and cleanup timer */
@@ -746,6 +748,8 @@ static void nxp_simtemp_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 
 	dev_info(dev, "NXP SimTemp remove completed successfully\n");
+	
+	return 0;
 }
 
 /**
@@ -800,7 +804,7 @@ static int __init nxp_simtemp_init(void)
 	}
 
 	/* Create device class */
-	simtemp_class = class_create(CLASS_NAME);
+	simtemp_class = class_create(THIS_MODULE, CLASS_NAME);
 	if (IS_ERR(simtemp_class)) {
 		ret = PTR_ERR(simtemp_class);
 		pr_err("NXP SimTemp driver: Failed to create class: %d\n", ret);

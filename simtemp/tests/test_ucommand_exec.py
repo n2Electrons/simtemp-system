@@ -191,7 +191,8 @@ class QemuSshCommandExecutor(CommandExecutor):
         except Exception as e:
             return False, [f"SSH execution error: {e}"]
     
-    def _execute_via_telnet(self, command: str, timeout: int) -> Tuple[bool, List[str]]:
+    def _execute_via_telnet(self, command: str,
+                            timeout: int) -> Tuple[bool, List[str]]:
         """Execute command via telnet connection to busybox telnetd."""
         try:
             import telnetlib
@@ -200,28 +201,47 @@ class QemuSshCommandExecutor(CommandExecutor):
             tn = telnetlib.Telnet('127.0.0.1', self.telnet_port, timeout=5)
             
             # Send command
-            tn.write(command.encode('ascii') + b'\\n')
+            tn.write(command.encode('ascii') + b'\n')
             
             # Read response with timeout
             response = tn.read_until(b'# ', timeout=timeout)
             tn.close()
             
-            # Parse response
+            # Parse response - handle carriage returns and line feeds
             output = response.decode('utf-8', errors='ignore')
-            lines = [line.strip() for line in output.split('\\n') if line.strip()]
+            # Replace \r\n and \r with \n, then split
+            output = output.replace('\r\n', '\n').replace('\r', '\n')
+            lines = [line.strip() for line in output.split('\n')
+                     if line.strip()]
             
-            # Remove command echo and prompt
-            if lines and command in lines[0]:
-                lines = lines[1:]
-            if lines and lines[-1].endswith('#'):
-                lines = lines[:-1]
+            # Remove command echo - be more aggressive about removing command
+            filtered_lines = []
+            command_found = False
+            for line in lines:
+                # Skip lines that contain the command or are prompts
+                if (command in line or
+                        line.endswith('#') or
+                        line.startswith('#')):
+                    command_found = True
+                    continue
+                # Only start collecting after command is found
+                if command_found:
+                    filtered_lines.append(line)
             
-            return True, lines
+            # If we didn't find command echo, just remove obvious prompts
+            if not command_found:
+                filtered_lines = [line for line in lines
+                                  if not (line.endswith('#') or
+                                          line.startswith('#') or
+                                          command in line)]
+            
+            return True, filtered_lines
             
         except Exception as e:
             return False, [f"Telnet execution error: {e}"]
     
-    def execute_command(self, command: str, timeout: int = 30) -> Tuple[bool, List[str]]:
+    def execute_command(self, command: str,
+                        timeout: int = 30) -> Tuple[bool, List[str]]:
         """Execute command in QEMU environment using real connection."""
         if not self.is_available():
             return False, ["QEMU process not available"]
@@ -245,10 +265,16 @@ class QemuSshCommandExecutor(CommandExecutor):
         
         # Provide realistic ARM QEMU responses with Device Tree aliases
         if cmd == 'uname -a':
-            return True, ["Linux buildroot 5.10.0 #1 SMP Fri Sep 19 17:02:30 UTC 2025 armv7l GNU/Linux"]
+            return True, [
+                "Linux buildroot 5.10.0 #1 SMP Fri Sep 19 17:02:30 UTC",
+                "2025 armv7l GNU/Linux"
+            ]
         else:
-            return True, [f"✓ Real SSH/Telnet execution attempted for: {command.strip()}",
-                         "Note: Fallback to simulation (SSH/Telnet not available)"]
+            return True, [
+                ("✓ Real SSH/Telnet execution attempted for: "
+                 f"{command.strip()}"),
+                "Note: Fallback to simulation (SSH/Telnet not available)"
+            ]
     
     def is_available(self) -> bool:
         """Check if QEMU executor is available."""
@@ -335,13 +361,20 @@ class QemuCommandExecutor(CommandExecutor):
         
         # Provide realistic ARM QEMU responses with Device Tree aliases
         if cmd == 'uname -a':
-            return True, ["Linux buildroot 5.10.0 #1 SMP Fri Sep 19 17:02:30 UTC 2025 armv7l GNU/Linux"]
+            return True, [
+                "Linux buildroot 5.10.0 #1 SMP Fri Sep 19 17:02:30 UTC",
+                "2025 armv7l GNU/Linux"
+            ]
         elif cmd == 'lsmod':
             return True, ["nxp_simtemp 16384 0",]
         else:
             # For any other command, provide helpful output
-            return True, [f"✓ Command executed successfully: {command.strip()}",
-                         "Note: This is simulated output. Use SSH for real execution."]
+            return True, [
+                ("✓ Command executed successfully: "
+                 f"{command.strip()}"),
+                ("Note: This is simulated output. "
+                 "Use SSH for real execution.")
+            ]
     
     def is_available(self) -> bool:
         """Check if QEMU executor is available."""
@@ -393,13 +426,25 @@ class UnifiedCommandExecutor:
             # Try to get QEMU process from global PID first
             qemu_process = self._get_global_qemu_process()
             if qemu_process:
-                self.qemu_executor = QemuCommandExecutor(qemu_process)
+                # Prefer Telnet/SSH executor when console telnet mode
+                # is enabled via env var QEMU_CONSOLE_TELNET
+                use_telnet = os.environ.get('QEMU_CONSOLE_TELNET', '1') \
+                    in ['1', 'true', 'True']
+                if use_telnet:
+                    self.qemu_executor = QemuSshCommandExecutor(qemu_process)
+                else:
+                    self.qemu_executor = QemuCommandExecutor(qemu_process)
                 return
                 
             # Try to detect QEMU environment (this might start new QEMU)
             qemu_process = self._detect_qemu_environment()
             if qemu_process:
-                self.qemu_executor = QemuCommandExecutor(qemu_process)
+                use_telnet = os.environ.get('QEMU_CONSOLE_TELNET', '1') \
+                    in ['1', 'true', 'True']
+                if use_telnet:
+                    self.qemu_executor = QemuSshCommandExecutor(qemu_process)
+                else:
+                    self.qemu_executor = QemuCommandExecutor(qemu_process)
         except Exception as e:
             print(f"QEMU executor initialization failed: {e}")
             self.qemu_executor = None
@@ -456,10 +501,14 @@ class UnifiedCommandExecutor:
         
         # print(f"self.qemu_executor: {self.qemu_executor}")
         # if self.qemu_executor:
-        #     print(f"qemu_executor.is_available(): {self.qemu_executor.is_available()}")
+    #     print(
+    #         f"qemu_executor.is_available(): "
+    #         f"{self.qemu_executor.is_available()}"
+    #     )
         
         # Choose executor based on context and parameters
-        if force_host or not self.qemu_executor or not self.qemu_executor.is_available():
+        if (force_host or not self.qemu_executor or
+                not self.qemu_executor.is_available()):
             executor = self.host_executor
         else:
             executor = self.qemu_executor
@@ -475,8 +524,10 @@ class UnifiedCommandExecutor:
         
         return success, output
     
-    def execute_module_command(self, operation: str, module_name: str = "nxp_simtemp",
-                              module_path: str = None) -> Tuple[bool, List[str]]:
+    def execute_module_command(self, operation: str,
+                               module_name: str = "nxp_simtemp",
+                               module_path: str = None
+                               ) -> Tuple[bool, List[str]]:
         """
         Execute module-related commands (insmod, rmmod, lsmod).
         
@@ -523,7 +574,8 @@ class UnifiedCommandExecutor:
     
     def is_qemu_available(self) -> bool:
         """Check if QEMU execution environment is available."""
-        return self.qemu_executor is not None and self.qemu_executor.is_available()
+        return (self.qemu_executor is not None and
+                self.qemu_executor.is_available())
 
 
 # Global Functions for QEMU Process Management
@@ -569,14 +621,19 @@ command_executor = UnifiedCommandExecutor()
 
 
 # Convenience functions for common operations
-def execute_command(command: str, timeout: int = 30, force_host: bool = False) -> Tuple[bool, List[str]]:
+def execute_command(command: str,
+                    timeout: int = 30,
+                    force_host: bool = False
+                    ) -> Tuple[bool, List[str]]:
     """Execute a command using the unified executor."""
     return command_executor.execute_command(command, timeout, force_host)
 
 
-def load_module(module_name: str = "nxp_simtemp", module_path: str = None) -> bool:
+def load_module(module_name: str = "nxp_simtemp",
+                module_path: str = None) -> bool:
     """Load a kernel module."""
-    success, _ = command_executor.execute_module_command("load", module_name, module_path)
+    success, _ = command_executor.execute_module_command(
+        "load", module_name, module_path)
     return success
 
 
@@ -588,7 +645,8 @@ def unload_module(module_name: str = "nxp_simtemp") -> bool:
 
 def is_module_loaded(module_name: str = "nxp_simtemp") -> bool:
     """Check if a kernel module is loaded."""
-    success, output = command_executor.execute_module_command("check", module_name)
+    success, output = command_executor.execute_module_command(
+        "check", module_name)
     if not success:
         return False
     

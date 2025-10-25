@@ -1747,7 +1747,11 @@ def start_qemu_and_wait_for_boot():
     socket_port = find_free_port()  # Port for direct socket communication
     print(f"[DEBUG] Using socket port: {socket_port}")
     
-    # Start QEMU process with socket serial interface
+    # Start QEMU process; support telnet console when requested
+    use_telnet_console = os.environ.get('QEMU_CONSOLE_TELNET', '1') \
+        in ['1', 'true', 'True']
+    telnet_port = 2323
+
     qemu_cmd = [
         "qemu-system-arm",
         "-M", "sabrelite",
@@ -1760,8 +1764,21 @@ def start_qemu_and_wait_for_boot():
         "-append",
         "console=ttymxc0,115200 earlycon=imx,0x02020000,115200 rdinit=/init",
         "-monitor", f"telnet:127.0.0.1:{monitor_port},server,nowait",
-        "-serial", "stdio",
-        "-chardev", f"socket,id=mysensor,host=127.0.0.1,port={socket_port},server=on,wait=off",
+    ]
+
+    if use_telnet_console:
+        qemu_cmd += [
+            "-serial", f"telnet:127.0.0.1:{telnet_port},server,nowait",
+        ]
+    else:
+        qemu_cmd += [
+            "-serial", "stdio",
+        ]
+
+    qemu_cmd += [
+        "-chardev",
+        ("socket,id=mysensor,host=127.0.0.1,port="
+         f"{socket_port},server=on,wait=off"),
         "-serial", "chardev:mysensor",
         "-no-reboot"
     ]
@@ -1773,7 +1790,6 @@ def start_qemu_and_wait_for_boot():
     #         "-monitor", f"telnet:127.0.0.1:{monitor_port},server,nowait",
     ###########################################################################
 
-    
     print("Starting QEMU for platform driver testing...")
     cmd_preview = f"{' '.join(qemu_cmd[:3])}... ({len(qemu_cmd)} args total)"
     print(f"[START_QEMU {call_id}] QEMU command: {cmd_preview}")
@@ -1792,7 +1808,10 @@ def start_qemu_and_wait_for_boot():
             bufsize=1,
             universal_newlines=True
         )
-        print(f"[START_QEMU {call_id}] QEMU process started with PID: {qemu_process.pid}")
+        print(
+            f"[START_QEMU {call_id}] QEMU process started with PID: "
+            f"{qemu_process.pid}"
+        )
         
         # Small delay to let QEMU initialize
         import time
@@ -1825,11 +1844,27 @@ def start_qemu_and_wait_for_boot():
     
     # Wait for ARM initramfs ready message
     print("Waiting for QEMU boot completion...")
-    print("[DEBUG] Starting wait_for_qemu_message...")
-    
-    boot_success, boot_output = wait_for_qemu_message(
-        qemu_process, "=== initramfs ready ===", timeout=120
-    )
+    print("[DEBUG] Starting wait for boot ready message...")
+
+    if use_telnet_console:
+        # Connect to telnet console and wait for initramfs message
+        try:
+            import telnetlib
+            tn = telnetlib.Telnet('127.0.0.1', telnet_port, timeout=10)
+            boot_output = []
+            data = tn.read_until(b"=== initramfs ready ===", timeout=120)
+            boot_output = data.decode('utf-8', errors='ignore').splitlines()
+            tn.close()
+            boot_success = any("=== initramfs ready ===" in line
+                               for line in boot_output)
+        except Exception as e:
+            print(f"[ERROR] Telnet wait failed: {e}")
+            boot_success = False
+            boot_output = []
+    else:
+        boot_success, boot_output = wait_for_qemu_message(
+            qemu_process, "=== initramfs ready ===", timeout=120
+        )
     
     debug_msg = f"wait_for_qemu_message returned: success={boot_success}, " \
                 f"output_lines={len(boot_output)}"
@@ -1848,7 +1883,10 @@ def start_qemu_and_wait_for_boot():
     
     print("QEMU boot completed - initramfs ready")
     print("Shell prompt available - QEMU ready for platform driver tests")
-    print(f"[START_QEMU {call_id}] Returning QEMU process with PID: {qemu_process.pid}")
+    print(
+        f"[START_QEMU {call_id}] Returning QEMU process with PID: "
+        f"{qemu_process.pid}"
+    )
     print(f"[START_QEMU {call_id}] Socket port: {socket_port}")
     
     # Return process and socket port (no monitor needed)

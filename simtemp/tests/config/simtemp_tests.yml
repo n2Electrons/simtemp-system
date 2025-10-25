@@ -154,3 +154,9 @@ tests:
         test_id: "F-K8-TC-003-QEMU-2"
         pytest_file: "test_arm_f_k8_tc_003_dtbbind.py"
         verbose_output: true
+      - name: "test_periodic_sampling_arm_functionality"
+        description: "F-K2: Periodic sampling every N ms in QEMU ARM environment"
+        enabled: true
+        test_id: "F-K2-TC-001-ARM"
+        pytest_file: "test_arm_f_k2_tc_001_sampling.py"
+        verbose_output: true
