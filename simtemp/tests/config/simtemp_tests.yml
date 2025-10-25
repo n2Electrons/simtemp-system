@@ -123,6 +123,12 @@ tests:
         test_id: "F-K4-TC-001"
         pytest_file: "test_x86_f_k4_tc_001_blocking.py"
         verbose_output: true
+      - name: "test_configuration_support"
+        description: "F-K7: Configuration support via sysfs and ioctl"
+        enabled: true
+        test_id: "F-K7-TC-001"
+        pytest_file: "test_x86_f_k7_tc_001_configuration.py"
+        verbose_output: true
 
   qemu_integration:
     enabled: true

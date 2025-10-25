@@ -167,6 +167,41 @@ static ssize_t threshold_mC_show(struct device *dev,
 	return sprintf(buf, "%u\n", data->threshold_mC);
 }
 
+static ssize_t threshold_mC_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct nxp_simtemp_data *data = dev_get_drvdata(dev);
+	u32 new_threshold_mC;
+	int ret;
+	
+	if (!data) {
+		dev_warn(dev, "Device data not available\n");
+		return -ENODEV;
+	}
+	
+	ret = kstrtou32(buf, 10, &new_threshold_mC);
+	if (ret)
+		return ret;
+	
+	/* Validate range: -40°C to 125°C in mC */
+	if (new_threshold_mC > 125000) {
+		dev_warn(dev, "Invalid threshold_mC %u (valid: 0-125000)\n", 
+			 new_threshold_mC);
+		return -EINVAL;
+	}
+	
+	mutex_lock(&data->mutex);
+	data->threshold_mC = new_threshold_mC;
+	mutex_unlock(&data->mutex);
+	
+	dev_info(dev, "Updated threshold to %u mC (%u.%03u°C)\n", 
+		 new_threshold_mC, new_threshold_mC / 1000, 
+		 new_threshold_mC % 1000);
+	
+	return count;
+}
+
 static ssize_t mode_show(struct device *dev,
 			 struct device_attribute *attr, char *buf)
 {
@@ -266,7 +301,7 @@ static ssize_t temp_pattern_store(struct device *dev,
 
 /* Define device attributes */
 static DEVICE_ATTR(sampling_ms, 0644, sampling_ms_show, sampling_ms_store);
-static DEVICE_ATTR_RO(threshold_mC);
+static DEVICE_ATTR(threshold_mC, 0644, threshold_mC_show, threshold_mC_store);
 static DEVICE_ATTR_RO(mode);
 static DEVICE_ATTR_RO(stats);
 static DEVICE_ATTR(temp_pattern, 0644, temp_pattern_show, temp_pattern_store);
@@ -588,6 +623,94 @@ static __poll_t simtemp_poll(struct file *filp, poll_table *wait)
 	return mask;
 }
 
+/**
+ * simtemp_ioctl - F-K7: ioctl support for configuration
+ */
+static long simtemp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	struct nxp_simtemp_data *data = filp->private_data;
+	u32 value;
+	int ret = 0;
+	
+	if (!data)
+		return -ENODEV;
+	
+	/* Verify ioctl magic number */
+	if (_IOC_TYPE(cmd) != SIMTEMP_IOC_MAGIC)
+		return -ENOTTY;
+	
+	/* Verify ioctl command number */
+	if (_IOC_NR(cmd) > SIMTEMP_IOC_MAXNR)
+		return -ENOTTY;
+	
+	switch (cmd) {
+	case SIMTEMP_IOC_GET_SAMPLING:
+		mutex_lock(&data->mutex);
+		value = data->sampling_ms;
+		mutex_unlock(&data->mutex);
+		
+		if (copy_to_user((u32 __user *)arg, &value, sizeof(u32)))
+			return -EFAULT;
+		break;
+		
+	case SIMTEMP_IOC_SET_SAMPLING:
+		if (copy_from_user(&value, (u32 __user *)arg, sizeof(u32)))
+			return -EFAULT;
+		
+		/* Validate range: 100ms to 10s */
+		if (value < 100 || value > 10000) {
+			dev_warn(data->dev, "Invalid sampling_ms %u (valid: 100-10000)\n", value);
+			return -EINVAL;
+		}
+		
+		mutex_lock(&data->mutex);
+		data->sampling_ms = value;
+		
+		/* Restart timer with new interval if active */
+		if (data->timer_active) {
+			del_timer_sync(&data->sample_timer);
+			mod_timer(&data->sample_timer,
+				  jiffies + msecs_to_jiffies(data->sampling_ms));
+		}
+		mutex_unlock(&data->mutex);
+		
+		dev_info(data->dev, "ioctl: Updated sampling interval to %u ms\n", value);
+		break;
+		
+	case SIMTEMP_IOC_GET_THRESHOLD:
+		mutex_lock(&data->mutex);
+		value = data->threshold_mC;
+		mutex_unlock(&data->mutex);
+		
+		if (copy_to_user((u32 __user *)arg, &value, sizeof(u32)))
+			return -EFAULT;
+		break;
+		
+	case SIMTEMP_IOC_SET_THRESHOLD:
+		if (copy_from_user(&value, (u32 __user *)arg, sizeof(u32)))
+			return -EFAULT;
+		
+		/* Validate range: 0°C to 125°C in mC */
+		if (value > 125000) {
+			dev_warn(data->dev, "Invalid threshold_mC %u (valid: 0-125000)\n", value);
+			return -EINVAL;
+		}
+		
+		mutex_lock(&data->mutex);
+		data->threshold_mC = value;
+		mutex_unlock(&data->mutex);
+		
+		dev_info(data->dev, "ioctl: Updated threshold to %u mC (%u.%03u°C)\n", 
+			 value, value / 1000, value % 1000);
+		break;
+		
+	default:
+		return -ENOTTY;
+	}
+	
+	return ret;
+}
+
 /* Character device file operations */
 static const struct file_operations simtemp_fops = {
 	.owner = THIS_MODULE,
@@ -595,6 +718,7 @@ static const struct file_operations simtemp_fops = {
 	.release = simtemp_release,
 	.read = simtemp_read,
 	.poll = simtemp_poll,
+	.unlocked_ioctl = simtemp_ioctl,
 };
 
 /**
