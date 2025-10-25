@@ -3,21 +3,25 @@
 SimTemp Remote CLI - SSH-based Driver Configuration Tool
 Copyright (c) 2025 Jorge Rodriguez Moreno
 
-CLI remoto que utiliza SSH para interactuar con el driver SimTemp:
-- Configurar sample rate via /sys/devices/platform/simtemp/sampling_ms
-- Configurar threshold via /sys/devices/platform/simtemp/threshold_mC
-- Leer continuamente /dev/simtemp0
+Remote CLI that uses SSH to interact with the SimTemp driver:
+- Configure sample rate via /sys/devices/platform/simtemp/sampling_ms
+- Configure threshold via /sys/devices/platform/simtemp/threshold_mC
+- Read continuously from /dev/simtemp0
+- Control Octave generator for temperature signals (writes to QEMU socket)
 
-Utiliza la implementación SSH de test_utils.py para comunicarse con QEMU.
+Uses SSH implementation from test_utils.py to communicate with QEMU.
 """
 
 import sys
 import os
 import time
 import argparse
-from typing import Optional, Tuple, List
+import subprocess
+import signal
+import tempfile
+from typing import Optional
 
-# Add the simtemp tests directory to the path
+# Add simtemp tests directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'simtemp', 'tests'))
 
 try:
@@ -29,343 +33,497 @@ except ImportError as e:
     sys.exit(1)
 
 
+class SSHRemoteCommand:
+    """Simple wrapper for SSH commands using test_utils functions"""
+    
+    def __init__(self, port=2222):
+        self.port = port
+    
+    def check_connection(self):
+        """Check if SSH connection is available"""
+        success, _ = execute_ssh_command("echo 'test'", self.port, timeout=5)
+        return success
+    
+    def execute_command(self, command):
+        """Execute SSH command and return result object"""
+        success, output = execute_ssh_command(command, self.port)
+        
+        class Result:
+            def __init__(self, success, output):
+                self.return_code = 0 if success else 1
+                self.stdout = '\n'.join(output) if output else ''
+                self.stderr = '' if success else 'Command failed'
+        
+        return Result(success, output)
+    
+    def cleanup(self):
+        """Cleanup SSH resources"""
+        pass
+
+
 class SimTempRemoteCLI:
-    """CLI remoto para configurar SimTemp via SSH"""
+    """Remote CLI to configure SimTemp via SSH with Octave generator"""
     
     def __init__(self, ssh_port=2222, auto_start_qemu=True):
-        """Initialize the remote CLI with SSH configuration."""
+        """Initialize the remote CLI with SSH configuration and Octave generator."""
         self.ssh_port = ssh_port
         self.auto_start_qemu = auto_start_qemu
         self.sysfs_base = "/sys/devices/platform/simtemp"
         self.device_path = "/dev/simtemp0"
+        self.octave_process = None
+        self.temp_script_file = None
         
-        if auto_start_qemu:
+        # Default Octave generator configuration
+        self.octave_config = {
+            "sample_rate": 10.0,
+            "duration": 100.0
+        }
+        
+        # Check QEMU and SSH
+        if self.auto_start_qemu:
             print("[INFO] Starting QEMU with SSH support...")
-            qemu_process, socket_port = start_qemu_and_wait_for_boot()
-            self.qemu_process = qemu_process
-            self.socket_port = socket_port
-            print(f"[INFO] QEMU started, socket port: {socket_port}")
-            
-            # Wait for SSH to be ready
-            print("[INFO] Waiting for SSH service...")
-            wait_for_ssh_ready(ssh_port)
-            print(f"[INFO] SSH ready on port {ssh_port}")
+            qemu_result = start_qemu_and_wait_for_boot()
+            if qemu_result and len(qemu_result) == 2:
+                self.qemu_process, self.socket_port = qemu_result
+            else:
+                self.qemu_process = qemu_result
+                self.socket_port = None
+                
+            if self.qemu_process:
+                print(f"[INFO] QEMU started with PID: {self.qemu_process.pid}")
+                if self.socket_port:
+                    print(f"[INFO] Socket port: {self.socket_port}")
+                
+                # Wait for SSH to be ready
+                print("[INFO] Waiting for SSH service...")
+                wait_for_ssh_ready(self.ssh_port)
+                print(f"[INFO] SSH ready on port {self.ssh_port}")
+            else:
+                print("[ERROR] Failed to start QEMU")
+                sys.exit(1)
         else:
             self.qemu_process = None
-            self.socket_port = None
-            print(f"[INFO] Using existing SSH connection on port {ssh_port}")
-    
-    def _signal_handler(self, signum, frame):
-        """Handle shutdown signals"""
-        print("\n[INFO] Received shutdown signal, cleaning up...")
-        self.running = False
-        self.cleanup()
-        sys.exit(0)
-    
-    def cleanup(self):
-        """Clean up resources"""
-        if self.qemu_process and self.auto_start_qemu:
-            print("[INFO] Cleaning up QEMU process...")
-            try:
-                self.qemu_process.terminate()
-                time.sleep(2)
-                if self.qemu_process.poll() is None:
-                    self.qemu_process.kill()
-            except Exception as e:
-                print(f"[WARNING] Error during QEMU cleanup: {e}")
+            self.socket_port = self.get_socket_port_from_marker()
+            msg = f"[INFO] Using existing SSH connection on port {self.ssh_port}"
+            print(msg)
+        
+        self.ssh_remote = SSHRemoteCommand(port=self.ssh_port)
+        
+        # Auto-start Octave generator
+        self.start_octave_generator()
+
+    def get_socket_port_from_marker(self):
+        """Get socket port from QEMU session marker"""
+        try:
+            import json
+            marker_path = '/tmp/qemu_session_active.marker'
+            if os.path.exists(marker_path):
+                with open(marker_path, 'r') as f:
+                    data = json.loads(f.read())
+                    socket_port = data.get('socket_port')
+                    if socket_port:
+                        print(f"[DEBUG] Found QEMU socket port: {socket_port}")
+                        return socket_port
             
-            cleanup_qemu_processes(force_kill=True)
-    
-    def execute_command(self, command):
-        """Execute command via SSH and return (success, output_lines)"""
-        return execute_ssh_command(command)
-    
-    def read_sysfs_attribute(self, attr_name: str) -> Optional[str]:
-        """Read sysfs attribute value"""
-        path = f"{self.sysfs_base}/{attr_name}"
-        success, output = self.execute_command(f"cat {path} 2>/dev/null")
+            # Default port if marker not found
+            print("[WARNING] No socket port found, using default 5555")
+            return 5555
+        except Exception as e:
+            print(f"[WARNING] Error getting socket port: {e}")
+            return 5555
+
+    def start_octave_generator(self):
+        """Start Octave generator with default sine wave."""
+        print("[INFO] Starting Octave generator automatically...")
+        try:
+            # Generate default sine wave: 25C +/-10C, 0.1 Hz
+            self.generate_signal("sine", {"frequency": 0.1, "amplitude": 10, "offset": 25})
+            print("[INFO] Octave generator started with sine wave (25C +/-10C, 0.1 Hz)")
+        except Exception as e:
+            print(f"[WARNING] Error starting Octave generator: {e}")
+
+    def generate_signal(self, signal_type, params=None):
+        """Generate temperature signal using Octave - writes to QEMU socket.
         
-        if success and output:
-            return output[0].strip()
-        return None
-    
-    def write_sysfs_attribute(self, attr_name: str, value: str) -> bool:
-        """Write sysfs attribute value"""
-        path = f"{self.sysfs_base}/{attr_name}"
-        cmd = f'echo "{value}" > {path}'
-        success, output = self.execute_command(cmd)
-        return success
-    
-    def get_sample_rate(self) -> Optional[int]:
-        """Get current sampling rate in milliseconds"""
-        value = self.read_sysfs_attribute("sampling_ms")
-        if value:
-            try:
-                return int(value)
-            except ValueError:
-                pass
-        return None
-    
-    def set_sample_rate(self, rate_ms: int) -> bool:
-        """Set sampling rate in milliseconds"""
-        if rate_ms < 1 or rate_ms > 60000:
-            print(f"[ERROR] Invalid sample rate: {rate_ms}ms "
-                  f"(valid range: 1-60000)")
+        Supported signal types: sine, ramp, noise, step
+        """
+        self.stop_octave_generator()
+        
+        if params is None:
+            params = {}
+        
+        # Default configuration by signal type
+        default_configs = {
+            "sine": {"frequency": 0.1, "amplitude": 10, "offset": 25},
+            "ramp": {"slope": 1.0, "start": 20, "end": 30},
+            "noise": {"mean": 25, "deviation": 5},
+            "step": {"low_level": 20, "high_level": 30, "transition_time": 50}
+        }
+        
+        if signal_type not in default_configs:
+            print(f"[ERROR] Unsupported signal type: {signal_type}")
             return False
         
-        # Use direct echo command to write to sysfs
-        cmd = f'echo "{rate_ms}" > {self.sysfs_base}/sampling_ms'
-        success, output = self.execute_command(cmd)
-        if success:
-            print(f"[INFO] Sample rate set to {rate_ms}ms")
-        else:
-            print(f"[ERROR] Failed to set sample rate to {rate_ms}ms")
-        return success
-    
-    def get_threshold(self) -> Optional[int]:
-        """Get current threshold in milli-degrees Celsius"""
-        value = self.read_sysfs_attribute("threshold_mC")
-        if value:
-            try:
-                return int(value)
-            except ValueError:
-                pass
-        return None
-    
-    def set_threshold(self, threshold_mc: int) -> bool:
-        """Set threshold in milli-degrees Celsius"""
-        if threshold_mc < -50000 or threshold_mc > 150000:
-            temp_c = threshold_mc / 1000.0
-            print(f"[ERROR] Invalid threshold: {temp_c}°C "
-                  f"(valid range: -50°C to 150°C)")
-            return False
-        
-        # Use direct echo command to write to sysfs
-        cmd = f'echo "{threshold_mc}" > {self.sysfs_base}/threshold_mC'
-        success, output = self.execute_command(cmd)
-        if success:
-            temp_c = threshold_mc / 1000.0
-            print(f"[INFO] Threshold set to {temp_c}°C ({threshold_mc}mC)")
-        else:
-            temp_c = threshold_mc / 1000.0
-            print(f"[ERROR] Failed to set threshold to {temp_c}°C")
-        return success
-    
-    def show_current_config(self) -> bool:
-        """Show current driver configuration"""
-        print("\n=== SimTemp Driver Configuration ===")
-        
-        # Get sample rate directly with cat
-        cmd = f"cat {self.sysfs_base}/sampling_ms 2>/dev/null"
-        success, output = self.execute_command(cmd)
-        if success and output:
-            try:
-                sample_rate = int(output[0].strip())
-                print(f"Sample Rate: {sample_rate}ms")
-            except ValueError:
-                print("Sample Rate: Invalid value")
-        else:
-            print("Sample Rate: Unable to read")
-        
-        # Get threshold directly with cat
-        cmd = f"cat {self.sysfs_base}/threshold_mC 2>/dev/null"
-        success, output = self.execute_command(cmd)
-        if success and output:
-            try:
-                threshold = int(output[0].strip())
-                temp_c = threshold / 1000.0
-                print(f"Threshold: {temp_c}°C ({threshold}mC)")
-            except ValueError:
-                print("Threshold: Invalid value")
-        else:
-            print("Threshold: Unable to read")
-        
-        # Check if device exists
-        success, output = self.execute_command(f"ls -la {self.device_path}")
-        if success:
-            print(f"Device: {self.device_path} exists")
-        else:
-            print(f"Device: {self.device_path} not found")
-        
-        # Check if driver is loaded
-        success, output = self.execute_command("lsmod | grep nxp_simtemp")
-        if success and output:
-            print(f"Driver: {output[0]}")
-        else:
-            print("Driver: nxp_simtemp not loaded")
-        
-        print("=====================================\n")
-        return True
-    
-    def read_temperature_continuous(self, duration: int = 0,
-                                    sample_count: int = 0) -> bool:
-        """Read temperature continuously from /dev/simtemp0"""
-        print(f"Reading from {self.device_path}", end="")
-        if duration > 0:
-            print(f" for {duration}s", end="")
-        if sample_count > 0:
-            print(f" ({sample_count} samples)", end="")
-        print(" - Press Ctrl+C to stop")
-        
-        self.running = True
-        samples_read = 0
-        start_time = time.time()
+        # Merge default configuration with user parameters
+        config = {**default_configs[signal_type], **params}
         
         try:
-            while self.running:
-                # Read from device using hexdump for better parsing
-                success, output = self.execute_command(
-                    f"dd if={self.device_path} bs=20 count=1 2>/dev/null | "
-                    f"hexdump -C"
-                )
+            octave_script = self.create_octave_script(signal_type, config)
+            script_file = "/tmp/generate_signal.m"
+            
+            # Write script to remote system
+            write_command = f'cat > {script_file} << \'EOF\'\n{octave_script}\nEOF'
+            result = self.ssh_remote.execute_command(write_command)
+            
+            if result.return_code != 0:
+                print(f"[ERROR] Error writing Octave script: {result.stderr}")
+                return False
+            
+            # Execute Octave in background
+            octave_command = f"nohup octave {script_file} > /tmp/octave.log 2>&1 &"
+            result = self.ssh_remote.execute_command(octave_command)
+            
+            if result.return_code != 0:
+                print(f"[ERROR] Error executing Octave: {result.stderr}")
+                return False
                 
-                if success and output:
-                    # Parse hexdump output - single line format
-                    for line in output:
-                        if line.strip() and not line.startswith('*'):
-                            timestamp = time.strftime("%H:%M:%S")
-                            print(f"[{timestamp}] {line.strip()}")
+            # Wait a moment for script to start
+            time.sleep(2)
+            
+            print(f"[INFO] Signal {signal_type} generator started successfully")
+            print(f"[INFO] Writing to QEMU socket port: {self.socket_port}")
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] Error generating signal: {e}")
+            return False
+
+    def create_octave_script(self, signal_type, params):
+        """Create Octave script to generate temperature signal - writes to QEMU socket."""
+        sample_rate = self.octave_config["sample_rate"]
+        duration = self.octave_config["duration"]
+        socket_port = self.socket_port or 5555
+        
+        base_script = f"""
+% Signal configuration
+fs = {sample_rate};  % Sample rate (Hz)
+duration = {duration};   % Duration (seconds)
+t = 0:1/fs:duration;     % Time vector
+socket_port = {socket_port};  % QEMU chardev:mysensor socket port
+
+% Function to write temperature to QEMU socket
+function write_temperature_to_socket(temp, socket_port)
+    try
+        % For simplicity, write to netcat (nc) which connects to socket
+        temp_str = sprintf('%d\\n', round(temp));
+        cmd = sprintf('echo "%s" | nc 127.0.0.1 %d', temp_str, socket_port);
+        system(cmd);
+        
+        % Also log to debug file
+        fid = fopen('/tmp/tempsensor_debug.txt', 'a');
+        if fid != -1
+            fprintf(fid, '[%s] Sent to socket %d: %d°C\\n', 
+                    datestr(now), socket_port, round(temp));
+            fclose(fid);
+        endif
+    catch err
+        % Log errors to debug file
+        fid = fopen('/tmp/tempsensor_debug.txt', 'a');
+        if fid != -1
+            fprintf(fid, '[%s] Socket error: %s\\n', datestr(now), err.message);
+            fclose(fid);
+        endif
+    end_try_catch
+endfunction
+
+"""
+        
+        if signal_type == "sine":
+            freq = params.get("frequency", 0.1)
+            amplitude = params.get("amplitude", 10)
+            offset = params.get("offset", 25)
+            signal_script = f"""
+% Sine wave signal
+freq = {freq};      % Signal frequency (Hz)
+amplitude = {amplitude};  % Amplitude (C)
+offset = {offset};       % Offset (C)
+
+fprintf('Generating sine wave: %.2f Hz, amplitude %.1f°C, offset %.1f°C\\n', freq, amplitude, offset);
+for i = 1:length(t)
+    temp = offset + amplitude * sin(2 * pi * freq * t(i));
+    write_temperature_to_socket(temp, socket_port);
+    pause(1/fs);
+endfor
+"""
+            
+        elif signal_type == "ramp":
+            slope = params.get("slope", 1.0)
+            start = params.get("start", 20)
+            signal_script = f"""
+% Ramp signal
+slope = {slope};     % Slope (C/s)
+start_val = {start};    % Initial value (C)
+
+fprintf('Generating ramp signal: slope %.2f°C/s, start %.1f°C\\n', slope, start_val);
+for i = 1:length(t)
+    temp = start_val + slope * t(i);
+    write_temperature_to_socket(temp, socket_port);
+    pause(1/fs);
+endfor
+"""
+            
+        elif signal_type == "noise":
+            mean = params.get("mean", 25)
+            deviation = params.get("deviation", 5)
+            signal_script = f"""
+% Noise signal
+mean_val = {mean};      % Mean (C)
+std_dev = {deviation};  % Standard deviation (C)
+
+fprintf('Generating noise signal: mean %.1f°C, std dev %.1f°C\\n', mean_val, std_dev);
+randn('seed', round(time()));
+for i = 1:length(t)
+    temp = mean_val + std_dev * randn();
+    write_temperature_to_socket(temp, socket_port);
+    pause(1/fs);
+endfor
+"""
+            
+        elif signal_type == "step":
+            low_level = params.get("low_level", 20)
+            high_level = params.get("high_level", 30)
+            transition_time = params.get("transition_time", 50)
+            signal_script = f"""
+% Step signal
+low_level = {low_level};      % Low level (C)
+high_level = {high_level};     % High level (C)
+step_time = {transition_time}; % Transition time (% of duration)
+
+fprintf('Generating step signal: %.1f°C -> %.1f°C at %.0f%% duration\\n', 
+        low_level, high_level, step_time);
+step_index = round(length(t) * step_time / 100);
+for i = 1:length(t)
+    if i < step_index
+        temp = low_level;
+    else
+        temp = high_level;
+    endif
+    write_temperature_to_socket(temp, socket_port);
+    pause(1/fs);
+endfor
+"""
+        
+        output_script = f"""
+fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for details.\\n');
+"""
+        
+        return base_script + signal_script + output_script
+
+    def stop_octave_generator(self):
+        """Stop any running Octave process."""
+        try:
+            # Kill Octave processes
+            kill_command = "pkill -f octave || true"
+            result = self.ssh_remote.execute_command(kill_command)
+            
+            # Clean temporary files
+            clean_command = "rm -f /tmp/generate_signal.m /tmp/octave.log || true"
+            self.ssh_remote.execute_command(clean_command)
+            
+        except Exception as e:
+            print(f"[WARNING] Error stopping Octave generator: {e}")
+
+    def show_current_config(self):
+        """Show current system configuration."""
+        print("\n=== Current SimTemp Configuration ===")
+        
+        try:
+            # Read sample rate
+            result = self.ssh_remote.execute_command(f"cat {self.sysfs_base}/sampling_ms")
+            if result.return_code == 0:
+                freq_ms = int(result.stdout.strip())
+                print(f"Sample Rate: {freq_ms}ms ({1000/freq_ms:.1f} Hz)")
+            else:
+                print("Sample Rate: Not available")
+            
+            # Read threshold
+            result = self.ssh_remote.execute_command(f"cat {self.sysfs_base}/threshold_mC")
+            if result.return_code == 0:
+                threshold = int(result.stdout.strip())
+                print(f"Threshold: {threshold} milliCelsius ({threshold/1000:.1f} C)")
+            else:
+                print("Threshold: Not available")
+            
+            # Check device status
+            result = self.ssh_remote.execute_command(f"ls -l {self.device_path}")
+            if result.return_code == 0:
+                print(f"Device: {self.device_path} [OK]")
+            else:
+                print(f"Device: {self.device_path} [ERROR]")
+            
+            # Octave generator status
+            result = self.ssh_remote.execute_command("pgrep -f octave")
+            if result.return_code == 0:
+                print("Octave Generator: [RUNNING]")
+                print(f"Socket Port: {self.socket_port}")
+            else:
+                print("Octave Generator: [NOT RUNNING]")
                 
-                # Alternative: try to read as text
-                success, output = self.execute_command(
-                    f"timeout 1 cat {self.device_path} 2>/dev/null || "
-                    f"echo 'timeout'"
-                )
+        except Exception as e:
+            print(f"[ERROR] Error getting configuration: {e}")
+        
+        print("="*40)
+
+    def set_sample_rate(self, frequency_ms: int):
+        """Set system sample rate in milliseconds."""
+        try:
+            command = f"echo {frequency_ms} > {self.sysfs_base}/sampling_ms"
+            result = self.ssh_remote.execute_command(command)
+            
+            if result.return_code == 0:
+                print(f"[INFO] Sample rate set: {frequency_ms}ms ({1000/frequency_ms:.1f} Hz)")
+                return True
+            else:
+                print(f"[ERROR] Error setting sample rate: {result.stderr}")
+                return False
                 
-                if success and output and output[0] != 'timeout':
-                    timestamp = time.strftime("%H:%M:%S")
-                    print(f"[{timestamp}] {output[0]}")
+        except Exception as e:
+            print(f"[ERROR] Error setting sample rate: {e}")
+            return False
+
+    def set_threshold(self, threshold_mc: int):
+        """Set temperature threshold in milliCelsius."""
+        try:
+            command = f"echo {threshold_mc} > {self.sysfs_base}/threshold_mC"
+            result = self.ssh_remote.execute_command(command)
+            
+            if result.return_code == 0:
+                print(f"[INFO] Threshold set: {threshold_mc} mC ({threshold_mc/1000:.1f} C)")
+                return True
+            else:
+                print(f"[ERROR] Error setting threshold: {result.stderr}")
+                return False
                 
-                samples_read += 1
-                
-                # Check termination conditions
-                if sample_count > 0 and samples_read >= sample_count:
-                    break
-                
+        except Exception as e:
+            print(f"[ERROR] Error setting threshold: {e}")
+            return False
+
+    def read_temperature_continuous(self, duration: int = 0, count: int = 0):
+        """Read temperature continuously."""
+        print(f"[INFO] Starting continuous temperature reading...")
+        if duration > 0:
+            print(f"[INFO] Duration: {duration} seconds")
+        if count > 0:
+            print(f"[INFO] Maximum {count} readings")
+        print("[INFO] Press Ctrl+C to stop")
+        
+        try:
+            start_time = time.time()
+            readings_done = 0
+            
+            while True:
+                # Check stop conditions
                 if duration > 0 and (time.time() - start_time) >= duration:
                     break
+                if count > 0 and readings_done >= count:
+                    break
                 
-                time.sleep(0.1)  # Small delay between reads
+                # Read temperature
+                result = self.ssh_remote.execute_command(f"cat {self.device_path}")
+                if result.return_code == 0:
+                    temp_str = result.stdout.strip()
+                    try:
+                        temp_mc = int(temp_str)
+                        temp_c = temp_mc / 1000.0
+                        timestamp = time.strftime("%H:%M:%S")
+                        print(f"[{timestamp}] Temperature: {temp_c:.3f} C ({temp_mc} mC)")
+                        readings_done += 1
+                    except ValueError:
+                        print(f"[ERROR] Invalid temperature value: {temp_str}")
+                else:
+                    print(f"[ERROR] Error reading temperature: {result.stderr}")
+                
+                time.sleep(1)  # Wait 1 second between readings
                 
         except KeyboardInterrupt:
-            print(f"\nStopped - read {samples_read} samples")
-        except Exception as e:
-            print(f"\nError: {e}")
-            return False
-        
-        print(f"Completed - {samples_read} samples total")
-        return True
-    
-    def show_help(self):
-        """Show concise help information"""
-        print("=" * 70)
-        print("SimTemp Remote CLI - Quick Help")
-        print("=" * 70)
-        print("COMMANDS:")
-        print("  config        - Show current settings")
-        print("  rate <ms>     - Set sample rate (1-60000)")
-        print("  thr <°C>      - Set temperature threshold")
-        print("  read [sec]    - Read temperature (default: continuous)")
-        print("  status        - Show driver status")
-        print("  help          - Show this help")
-        print("  quit          - Exit CLI")
-        print()
-        print("EXAMPLES:")
-        print("  rate 500      - Set to 500ms sampling")
-        print("  thr 40        - Set threshold to 40°C")
-        print("  read 30       - Read for 30 seconds")
-        print("=" * 70)
-    
-    def show_welcome_message(self):
-        """Show welcome message and basic commands"""
-        print("\nSimTemp Remote CLI - SSH Driver Configuration")
-        print("=" * 70)
-        print("Quick Commands:")
-        print("  config       - Show configuration")
-        print("  rate <ms>    - Set sample rate")
-        print("  thr <°C>     - Set threshold")
-        print("  read         - Read temperature")
-        print("  help         - Extended help")
-        print("  quit         - Exit")
-        print("=" * 70)
-        print("Type 'help' for detailed usage information\n")
-        print("")
-    
+            print(f"\n[INFO] Reading stopped by user")
+            print(f"[INFO] Total readings done: {readings_done}")
+
     def interactive_mode(self):
-        """Interactive CLI mode"""
-        self.show_welcome_message()
+        """Interactive mode with voice commands."""
+        print("\nSimTemp Remote CLI - Interactive Mode")
+        print("=" * 50)
+        print("Available commands:")
+        print("  config                    - Show current configuration")
+        print("  status                    - Same as config")
+        print("  freq <ms>                 - Set sample rate in milliseconds")
+        print("  threshold <C>             - Set temperature threshold")
+        print("  read [duration] [count]   - Read temperature (duration in sec, count max readings)")
+        print("  gen sine [freq] [amp] [offset]  - Generate sine wave signal")
+        print("  gen ramp [slope] [start]        - Generate ramp signal")  
+        print("  gen noise [mean] [std]          - Generate noise signal")
+        print("  gen step [low] [high] [time]    - Generate step signal")
+        print("  stop                      - Stop generator")
+        print("  help                      - Show this help")
+        print("  exit, quit, q             - Exit")
+        print("=" * 50)
         
         while True:
             try:
-                cmd = input("simtemp> ").strip().split()
-                if not cmd:
-                    continue
+                input_text = input("\nsimtemp> ").strip().lower()
                 
-                if cmd[0].lower() in ['quit', 'exit', 'q']:
+                if input_text in ["exit", "quit", "q"]:
                     break
-                
-                elif cmd[0].lower() in ['help', 'h', '?']:
-                    self.show_help()
-                
-                elif cmd[0].lower() == 'config':
+                elif input_text in ["config", "status"]:
                     self.show_current_config()
-                
-                elif cmd[0].lower() in ['status', 'stat']:
-                    self.show_current_config()  # Same as config for now
-                
-                elif cmd[0].lower() == 'rate':
-                    if len(cmd) < 2:
-                        print(" Usage: rate <milliseconds>")
-                        print("   Example: rate 500")
-                        continue
+                elif input_text.startswith("freq "):
                     try:
-                        rate = int(cmd[1])
-                        if rate < 1 or rate > 60000:
-                            print(f" [ERROR] Rate {rate}ms out of range "
-                                  f"(valid: 1-60000)")
+                        parts = input_text.split()
+                        if len(parts) >= 2:
+                            freq_ms = int(parts[1])
+                            self.set_sample_rate(freq_ms)
                         else:
-                            self.set_sample_rate(rate)
+                            print("[ERROR] Usage: freq <ms>")
                     except ValueError:
-                        print(f" [ERROR] Invalid rate '{cmd[1]}' - "
-                              f"must be a number (1-60000)")
-                
-                elif cmd[0].lower() in ['thr', 'threshold', 'thresh']:
-                    if len(cmd) < 2:
-                        print(" Usage: thr <celsius>")
-                        print("   Example: thr 40.5")
-                        continue
+                        print("[ERROR] Frequency must be an integer")
+                elif input_text.startswith("threshold "):
                     try:
-                        temp_c = float(cmd[1])
-                        if temp_c < -50.0 or temp_c > 150.0:
-                            print(f" [ERROR] Threshold {temp_c}°C out of range"
-                                  f" (valid: -50°C to 150°C)")
-                        else:
-                            threshold_mc = int(temp_c * 1000)
+                        parts = input_text.split()
+                        if len(parts) >= 2:
+                            threshold_c = float(parts[1])
+                            threshold_mc = int(threshold_c * 1000)
                             self.set_threshold(threshold_mc)
+                        else:
+                            print("[ERROR] Usage: threshold <C>")
                     except ValueError:
-                        print(f" [ERROR] Invalid threshold '{cmd[1]}' - "
-                              f"must be a number (-50 to 150)")
-                
-                elif cmd[0].lower() == 'read':
-                    duration = 0
-                    count = 0
-                    if len(cmd) > 1:
-                        try:
-                            duration = int(cmd[1])
-                        except ValueError:
-                            print(" Invalid duration. Must be a number")
-                            continue
-                    if len(cmd) > 2:
-                        try:
-                            count = int(cmd[2])
-                        except ValueError:
-                            print(" Invalid count. Must be a number")
-                            continue
+                        print("[ERROR] Threshold must be a number")
+                elif input_text.startswith("read"):
+                    parts = input_text.split()
+                    duration = int(parts[1]) if len(parts) > 1 else 0
+                    count = int(parts[2]) if len(parts) > 2 else 0
                     self.read_temperature_continuous(duration, count)
-                
+                elif input_text.startswith("gen "):
+                    self.process_gen_command(input_text)
+                elif input_text == "stop":
+                    self.stop_octave_generator()
+                    print("[INFO] Generator stopped")
+                elif input_text == "help":
+                    print("\nAvailable commands:")
+                    print("  config                    - Show current configuration")
+                    print("  freq <ms>                 - Set sample rate in milliseconds")
+                    print("  threshold <C>             - Set temperature threshold")
+                    print("  read [duration] [count]   - Read temperature")
+                    print("  gen sine [freq] [amp] [offset]  - Generate sine wave signal")
+                    print("  gen ramp [slope] [start]        - Generate ramp signal")
+                    print("  gen noise [mean] [std]          - Generate noise signal")
+                    print("  gen step [low] [high] [time]    - Generate step signal")
+                    print("  stop                      - Stop generator")
+                    print("  exit, quit, q             - Exit")
+                elif input_text == "":
+                    continue  # Empty line, continue
                 else:
-                    print(f" Unknown command: '{cmd[0]}'")
-                    print(" Type 'help' for available commands")
+                    print(f"[ERROR] Unrecognized command: {input_text}")
+                    print("Type 'help' to see available commands")
                     
             except KeyboardInterrupt:
                 print("\n")
@@ -373,8 +531,69 @@ class SimTempRemoteCLI:
             except EOFError:
                 break
         
-        print("\n Exiting SimTemp Remote CLI")
+        print("\nExiting SimTemp Remote CLI")
         print("Thank you for using SimTemp!")
+
+    def process_gen_command(self, command):
+        """Process signal generation commands."""
+        parts = command.split()
+        if len(parts) < 2:
+            print("[ERROR] Usage: gen <type> [parameters]")
+            return
+            
+        signal_type = parts[1]
+        
+        try:
+            if signal_type == "sine":
+                # gen sine [freq] [amp] [offset]
+                freq = float(parts[2]) if len(parts) > 2 else 0.1
+                amp = float(parts[3]) if len(parts) > 3 else 10
+                offset = float(parts[4]) if len(parts) > 4 else 25
+                params = {"frequency": freq, "amplitude": amp, "offset": offset}
+                self.generate_signal("sine", params)
+                print(f"[INFO] Generating sine wave: {freq} Hz, +/-{amp}C, offset {offset}C")
+                
+            elif signal_type == "ramp":
+                # gen ramp [slope] [start]
+                slope = float(parts[2]) if len(parts) > 2 else 1.0
+                start = float(parts[3]) if len(parts) > 3 else 20
+                params = {"slope": slope, "start": start}
+                self.generate_signal("ramp", params)
+                print(f"[INFO] Generating ramp signal: slope {slope}C/s, start {start}C")
+                
+            elif signal_type == "noise":
+                # gen noise [mean] [std]
+                mean = float(parts[2]) if len(parts) > 2 else 25
+                std = float(parts[3]) if len(parts) > 3 else 5
+                params = {"mean": mean, "deviation": std}
+                self.generate_signal("noise", params)
+                print(f"[INFO] Generating noise signal: mean {mean}C, std {std}C")
+                
+            elif signal_type == "step":
+                # gen step [low] [high] [time]
+                low = float(parts[2]) if len(parts) > 2 else 20
+                high = float(parts[3]) if len(parts) > 3 else 30
+                time_pct = float(parts[4]) if len(parts) > 4 else 50
+                params = {"low_level": low, "high_level": high, "transition_time": time_pct}
+                self.generate_signal("step", params)
+                print(f"[INFO] Generating step signal: {low}C -> {high}C at {time_pct}% duration")
+                
+            else:
+                print(f"[ERROR] Unsupported signal type: {signal_type}")
+                print("Available types: sine, ramp, noise, step")
+                
+        except ValueError:
+            print("[ERROR] Invalid parameters. Must be numbers.")
+        except Exception as e:
+            print(f"[ERROR] Error processing command: {e}")
+
+    def cleanup(self):
+        """Clean up resources when finishing."""
+        self.stop_octave_generator()
+        if hasattr(self, 'ssh_remote'):
+            self.ssh_remote.cleanup()
+        if hasattr(self, 'qemu_process') and self.qemu_process:
+            cleanup_qemu_processes()
 
 
 def main():
@@ -395,7 +614,7 @@ Examples:
   # Set sample rate to 500ms
   %(prog)s --set-rate 500
   
-  # Set threshold to 40°C
+  # Set threshold to 40C
   %(prog)s --set-threshold 40.0
   
   # Read temperature for 30 seconds
@@ -403,9 +622,6 @@ Examples:
   
   # Read 100 samples
   %(prog)s --read --count 100
-  
-  # Auto-start QEMU for testing
-  %(prog)s --auto-start --config
         """
     )
     
@@ -418,8 +634,6 @@ Examples:
     # Actions
     parser.add_argument('--interactive', '-i', action='store_true',
                        help='Interactive mode (default behavior)')
-    parser.add_argument('--help-extended', '--help-ext', action='store_true',
-                       help='Show extended help and usage examples')
     parser.add_argument('--config', action='store_true',
                        help='Show current configuration')
     parser.add_argument('--set-rate', type=int, metavar='MS',
@@ -434,13 +648,6 @@ Examples:
                        help='Number of samples to read (0=infinite)')
     
     args = parser.parse_args()
-    
-    # Check for help-extended before creating CLI
-    if args.help_extended:
-        # Show extended help without starting QEMU
-        temp_cli = SimTempRemoteCLI(auto_start_qemu=False)
-        temp_cli.show_help()
-        return 0
     
     # Create CLI instance
     cli = SimTempRemoteCLI(
@@ -474,8 +681,11 @@ Examples:
         
         return 0
         
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user")
+        return 1
     except Exception as e:
-        print(f"[ERROR] {e}")
+        print(f"Unexpected error: {e}")
         return 1
     
     finally:
