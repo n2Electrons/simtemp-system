@@ -1,0 +1,43 @@
+# SimTemp CLI Configuration File
+# Example configuration for remote sensor monitoring
+
+# Connection settings
+connection_type = ssh
+remote_host = 192.168.1.100
+remote_port = 22
+username = root
+keyfile = /home/user/.ssh/id_rsa
+
+# Device paths on remote system
+device_path = /dev/simtemp
+sysfs_base = /sys/class/misc/simtemp
+
+# Default sensor configuration
+sampling_ms = 1000
+threshold_mc = 45000
+mode = normal
+
+# Operation settings
+poll_timeout_ms = 5000
+verbose = true
+json_output = false
+csv_output = false
+
+# Example configurations for different scenarios:
+
+# For local development:
+# connection_type = local
+# device_path = /dev/simtemp
+# sysfs_base = /sys/class/misc/simtemp
+
+# For high-speed monitoring:
+# sampling_ms = 100
+# poll_timeout_ms = 1000
+
+# For data logging:
+# json_output = true
+# verbose = false
+
+# For safety-critical applications:
+# threshold_mc = 35000
+# mode = normal

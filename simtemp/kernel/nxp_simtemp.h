@@ -169,6 +169,10 @@ struct nxp_simtemp_data {
 	struct timer_list sample_timer;
 	bool timer_active;
 	
+	/* F-K4: Blocking read and poll support */
+	wait_queue_head_t read_wait;
+	bool new_sample_available;
+	
 	/* Temperature pattern generator */
 	struct {
 		enum simtemp_mode pattern_type;

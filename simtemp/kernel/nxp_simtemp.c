@@ -167,6 +167,41 @@ static ssize_t threshold_mC_show(struct device *dev,
 	return sprintf(buf, "%u\n", data->threshold_mC);
 }
 
+static ssize_t threshold_mC_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct nxp_simtemp_data *data = dev_get_drvdata(dev);
+	u32 new_threshold_mC;
+	int ret;
+	
+	if (!data) {
+		dev_warn(dev, "Device data not available\n");
+		return -ENODEV;
+	}
+	
+	ret = kstrtou32(buf, 10, &new_threshold_mC);
+	if (ret)
+		return ret;
+	
+	/* Validate range: -40°C to 125°C in mC */
+	if (new_threshold_mC > 125000) {
+		dev_warn(dev, "Invalid threshold_mC %u (valid: 0-125000)\n", 
+			 new_threshold_mC);
+		return -EINVAL;
+	}
+	
+	mutex_lock(&data->mutex);
+	data->threshold_mC = new_threshold_mC;
+	mutex_unlock(&data->mutex);
+	
+	dev_info(dev, "Updated threshold to %u mC (%u.%03u°C)\n", 
+		 new_threshold_mC, new_threshold_mC / 1000, 
+		 new_threshold_mC % 1000);
+	
+	return count;
+}
+
 static ssize_t mode_show(struct device *dev,
 			 struct device_attribute *attr, char *buf)
 {
@@ -266,7 +301,7 @@ static ssize_t temp_pattern_store(struct device *dev,
 
 /* Define device attributes */
 static DEVICE_ATTR(sampling_ms, 0644, sampling_ms_show, sampling_ms_store);
-static DEVICE_ATTR_RO(threshold_mC);
+static DEVICE_ATTR(threshold_mC, 0644, threshold_mC_show, threshold_mC_store);
 static DEVICE_ATTR_RO(mode);
 static DEVICE_ATTR_RO(stats);
 static DEVICE_ATTR(temp_pattern, 0644, temp_pattern_show, temp_pattern_store);
@@ -463,6 +498,10 @@ static void simtemp_update_record(struct nxp_simtemp_data *data)
 		dev_info(data->dev, "Alert: temperature %d mC >= threshold %u mC (alert #%u)\n",
 			 temp_mC, data->threshold_mC, data->alert_count);
 	}
+	
+	/* F-K4: Signal new sample available and wake waiting processes */
+	data->new_sample_available = true;
+	wake_up_interruptible(&data->read_wait);
 }
 
 /**
@@ -519,13 +558,14 @@ static int simtemp_release(struct inode *inode, struct file *filp)
 }
 
 /**
- * simtemp_read - Character device read
+ * simtemp_read - Character device read (F-K4: supports blocking)
  */
 static ssize_t simtemp_read(struct file *filp, char __user *buf,
 			    size_t count, loff_t *f_pos)
 {
 	struct nxp_simtemp_data *data = filp->private_data;
 	size_t record_size = sizeof(struct simtemp_record);
+	int ret;
 	
 	if (!data)
 		return -ENODEV;
@@ -533,11 +573,23 @@ static ssize_t simtemp_read(struct file *filp, char __user *buf,
 	if (count < record_size)
 		return -EINVAL;
 	
-	/* Non-blocking read when no data available */
-	if (filp->f_flags & O_NONBLOCK)
-		return -EAGAIN;
+	/* F-K4: Blocking read - wait for new sample unless O_NONBLOCK */
+	if (!(filp->f_flags & O_NONBLOCK)) {
+		ret = wait_event_interruptible(data->read_wait, 
+					       data->new_sample_available);
+		if (ret)
+			return ret; /* Interrupted by signal */
+	} else {
+		/* Non-blocking: return immediately if no data */
+		if (!data->new_sample_available)
+			return -EAGAIN;
+	}
 	
 	mutex_lock(&data->mutex);
+	
+	/* Clear the flag since we're consuming the sample */
+	data->new_sample_available = false;
+	
 	if (copy_to_user(buf, &data->record, record_size)) {
 		mutex_unlock(&data->mutex);
 		return -EFAULT;
@@ -547,12 +599,126 @@ static ssize_t simtemp_read(struct file *filp, char __user *buf,
 	return record_size;
 }
 
+/**
+ * simtemp_poll - F-K4: Poll/epoll support
+ */
+static __poll_t simtemp_poll(struct file *filp, poll_table *wait)
+{
+	struct nxp_simtemp_data *data = filp->private_data;
+	__poll_t mask = 0;
+	
+	if (!data)
+		return EPOLLERR;
+	
+	/* Add to wait queue for poll/epoll */
+	poll_wait(filp, &data->read_wait, wait);
+	
+	/* Check if data is available */
+	if (data->new_sample_available)
+		mask |= EPOLLIN | EPOLLRDNORM; /* Data ready for reading */
+	
+	/* Always ready for writing (not implemented but good practice) */
+	mask |= EPOLLOUT | EPOLLWRNORM;
+	
+	return mask;
+}
+
+/**
+ * simtemp_ioctl - F-K7: ioctl support for configuration
+ */
+static long simtemp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	struct nxp_simtemp_data *data = filp->private_data;
+	u32 value;
+	int ret = 0;
+	
+	if (!data)
+		return -ENODEV;
+	
+	/* Verify ioctl magic number */
+	if (_IOC_TYPE(cmd) != SIMTEMP_IOC_MAGIC)
+		return -ENOTTY;
+	
+	/* Verify ioctl command number */
+	if (_IOC_NR(cmd) > SIMTEMP_IOC_MAXNR)
+		return -ENOTTY;
+	
+	switch (cmd) {
+	case SIMTEMP_IOC_GET_SAMPLING:
+		mutex_lock(&data->mutex);
+		value = data->sampling_ms;
+		mutex_unlock(&data->mutex);
+		
+		if (copy_to_user((u32 __user *)arg, &value, sizeof(u32)))
+			return -EFAULT;
+		break;
+		
+	case SIMTEMP_IOC_SET_SAMPLING:
+		if (copy_from_user(&value, (u32 __user *)arg, sizeof(u32)))
+			return -EFAULT;
+		
+		/* Validate range: 100ms to 10s */
+		if (value < 100 || value > 10000) {
+			dev_warn(data->dev, "Invalid sampling_ms %u (valid: 100-10000)\n", value);
+			return -EINVAL;
+		}
+		
+		mutex_lock(&data->mutex);
+		data->sampling_ms = value;
+		
+		/* Restart timer with new interval if active */
+		if (data->timer_active) {
+			del_timer_sync(&data->sample_timer);
+			mod_timer(&data->sample_timer,
+				  jiffies + msecs_to_jiffies(data->sampling_ms));
+		}
+		mutex_unlock(&data->mutex);
+		
+		dev_info(data->dev, "ioctl: Updated sampling interval to %u ms\n", value);
+		break;
+		
+	case SIMTEMP_IOC_GET_THRESHOLD:
+		mutex_lock(&data->mutex);
+		value = data->threshold_mC;
+		mutex_unlock(&data->mutex);
+		
+		if (copy_to_user((u32 __user *)arg, &value, sizeof(u32)))
+			return -EFAULT;
+		break;
+		
+	case SIMTEMP_IOC_SET_THRESHOLD:
+		if (copy_from_user(&value, (u32 __user *)arg, sizeof(u32)))
+			return -EFAULT;
+		
+		/* Validate range: 0°C to 125°C in mC */
+		if (value > 125000) {
+			dev_warn(data->dev, "Invalid threshold_mC %u (valid: 0-125000)\n", value);
+			return -EINVAL;
+		}
+		
+		mutex_lock(&data->mutex);
+		data->threshold_mC = value;
+		mutex_unlock(&data->mutex);
+		
+		dev_info(data->dev, "ioctl: Updated threshold to %u mC (%u.%03u°C)\n", 
+			 value, value / 1000, value % 1000);
+		break;
+		
+	default:
+		return -ENOTTY;
+	}
+	
+	return ret;
+}
+
 /* Character device file operations */
 static const struct file_operations simtemp_fops = {
 	.owner = THIS_MODULE,
 	.open = simtemp_open,
 	.release = simtemp_release,
 	.read = simtemp_read,
+	.poll = simtemp_poll,
+	.unlocked_ioctl = simtemp_ioctl,
 };
 
 /**
@@ -659,6 +825,10 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 	timer_setup(&data->sample_timer, simtemp_timer_callback, 0);
 	data->timer_active = false;
 
+	/* F-K4: Initialize wait queue for blocking read/poll */
+	init_waitqueue_head(&data->read_wait);
+	data->new_sample_available = false;
+
 	/* Initialize temperature generator with default linear ramp */
 	data->temp_generator.pattern_type = SIMTEMP_MODE_LINEAR;
 	data->temp_generator.sample_count = 0;
@@ -726,7 +896,11 @@ static int nxp_simtemp_probe(struct platform_device *pdev)
 /**
  * nxp_simtemp_remove - Platform driver remove function
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
+static void nxp_simtemp_remove(struct platform_device *pdev)
+#else
 static int nxp_simtemp_remove(struct platform_device *pdev)
+#endif
 {
 	struct nxp_simtemp_data *data = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
@@ -735,7 +909,11 @@ static int nxp_simtemp_remove(struct platform_device *pdev)
 
 	if (!data) {
 		dev_warn(dev, "No device data found during remove\n");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
+		return;
+#else
 		return 0;
+#endif
 	}
 
 	/* F-K2: Stop and cleanup timer */
@@ -748,8 +926,9 @@ static int nxp_simtemp_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 
 	dev_info(dev, "NXP SimTemp remove completed successfully\n");
-	
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0)
 	return 0;
+#endif
 }
 
 /**
@@ -804,7 +983,11 @@ static int __init nxp_simtemp_init(void)
 	}
 
 	/* Create device class */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,4,0)
+	simtemp_class = class_create(CLASS_NAME);
+#else
 	simtemp_class = class_create(THIS_MODULE, CLASS_NAME);
+#endif
 	if (IS_ERR(simtemp_class)) {
 		ret = PTR_ERR(simtemp_class);
 		pr_err("NXP SimTemp driver: Failed to create class: %d\n", ret);

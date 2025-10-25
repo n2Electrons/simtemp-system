@@ -17,6 +17,7 @@
   "f-k1-tc-002-qemu-dt": 16,
   "f-k2-gen-samples-ms": 35,
   "f-k3-devsimt-records": 33,
+  "f-k4-blocking-read-pollepoll": 36,
   "f-k5-raise-alert": 34,
   "f-k8-tc-001-improve": 10,
   "f-k8-tc-001-loadunload": 7,
