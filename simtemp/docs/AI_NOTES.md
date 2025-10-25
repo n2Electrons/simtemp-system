@@ -247,4 +247,14 @@ This section documents the AI-assisted creation of pure C CLI and Octave wave ge
 | **4** | "Create a interface, so the CLI communicates with an Octave module, which will be in chage of generating waves directed from you, based on used inputs. The octave generator must receive maximum levels and wave characteristics." | Design interface between CLI and Octave module for advanced wave pattern generation with configurable parameters | Implemented WaveformGenerator class with mathematical functions; Created interface for amplitude, frequency, offset, and duration parameters; Added pattern validation and wave type selection |
 | **5** | "The Octave module must send the wave data to the QEMU ARM system via a configurable port." | Enable wave data transmission from Octave to QEMU ARM target via configurable telnet port for testing | Enhanced telnet connectivity with configurable host/port parameters; Added QEMU ARM target support; Implemented port configuration options (--host, --port); Created demo scripts for ARM target testing |
 
+---
+
+## 3.15 Visual User Interface Requirements Implementation
+
+This section documents the AI prompt for creating a comprehensive visual user interface for the SimTemp temperature monitoring system.
+
+| **#** | **Prompt (User Input)** | **Purpose / Outcome** | **Validation Performed** |
+|------|---------------------------|------------------------|---------------------------|
+| **1** | "Requirements: User interface visual elements: Temp dial, Temperature in 7-segment number style, Temp real time plot, Alarm threshold in plot and in dial, Red color lamp alarm. Controls/configuration: Slider to configure threshold, Slider with steps to configure predefined sample rates. Connects to Sensor CLI to indicate the controls/configuration selected by the user. Connects to Octave to receive real time temperature. Connect button, so it will initialize only if ARM system is running" | Create comprehensive visual user interface with temperature monitoring displays, interactive controls, and system integration for real-time temperature sensor management | Implementation should include: circular temperature dial with alarm zones, 7-segment LED-style numeric display, scrolling real-time plot, threshold visualization, alarm lamp indicator, interactive sliders for threshold and sample rate configuration, CLI integration for sensor control, Octave data feed integration, and ARM system validation before connection |
+
 **End of AI_NOTES.md**
