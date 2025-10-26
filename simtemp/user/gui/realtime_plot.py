@@ -76,51 +76,66 @@ class RealTimePlot(ctk.CTkFrame):
             self.alarm_zone_color = "#ffcccc"
     
     def setup_matplotlib(self):
-        """Setup matplotlib figure and axes."""
-        # Set matplotlib style for dark theme
-        plt.style.use('dark_background' if ctk.get_appearance_mode() == "Dark" 
-                     else 'default')
+        """Setup matplotlib figure and axes with minimal logging."""
+        import warnings
+        import logging
         
-        self.fig, self.ax = plt.subplots(figsize=(8, 5))
-        self.fig.patch.set_facecolor(self.bg_color)
-        self.ax.set_facecolor(self.plot_bg)
-        
-        # Configure axes
-        self.ax.set_ylabel('Temperature (°C)', color=self.text_color, fontsize=12)
-        self.ax.set_xlabel('Time', color=self.text_color, fontsize=12)
-        self.ax.tick_params(colors=self.text_color)
-        self.ax.grid(True, color=self.grid_color, alpha=0.3)
-        
-        # Set temperature range
-        self.ax.set_ylim(self.temp_range)
-        
-        # Initialize empty line plots
-        self.temp_line, = self.ax.plot([], [], color=self.temp_color, 
-                                      linewidth=2, label='Temperature')
-        self.threshold_line = self.ax.axhline(y=self.threshold_temp, 
-                                            color=self.threshold_color,
-                                            linestyle='--', linewidth=2, 
-                                            label='Threshold')
-        
-        # Alarm zone (above threshold)
-        self.alarm_zone = self.ax.axhspan(self.threshold_temp, self.temp_range[1],
-                                         alpha=0.2, color=self.alarm_zone_color,
-                                         label='Alarm Zone')
-        
-        # Legend
-        self.ax.legend(loc='upper left', fontsize=10)
-        
-        # Tight layout
-        self.fig.tight_layout()
+        # Temporarily suppress matplotlib warnings and info
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            
+            # Temporarily suppress matplotlib logging
+            mpl_logger = logging.getLogger('matplotlib')
+            old_level = mpl_logger.level
+            mpl_logger.setLevel(logging.WARNING)
+            
+            try:
+                plt.style.use('dark_background' if ctk.get_appearance_mode() == "Dark" 
+                             else 'default')
+                
+                self.fig, self.ax = plt.subplots(figsize=(8, 5))
+                self.fig.patch.set_facecolor(self.bg_color)
+                self.ax.set_facecolor(self.plot_bg)
+                
+                # Configure axes
+                self.ax.set_ylabel('Temperature (°C)', color=self.text_color, 
+                                  fontsize=12)
+                self.ax.set_xlabel('Time', color=self.text_color, fontsize=12)
+                self.ax.tick_params(colors=self.text_color)
+                self.ax.grid(True, color=self.grid_color, alpha=0.3)
+                
+                # Set temperature range
+                self.ax.set_ylim(self.temp_range)
+                
+                # Initialize empty line plots
+                self.temp_line, = self.ax.plot([], [], color=self.temp_color, 
+                                              linewidth=2, label='Temperature')
+                self.threshold_line = self.ax.axhline(y=self.threshold_temp, 
+                                                    color=self.threshold_color,
+                                                    linestyle='--', linewidth=2, 
+                                                    label='Threshold')
+                
+                # Alarm zone (above threshold)
+                self.alarm_zone = self.ax.axhspan(self.threshold_temp, 
+                                                 self.temp_range[1],
+                                                 alpha=0.2, 
+                                                 color=self.alarm_zone_color,
+                                                 label='Alarm Zone')
+                
+                # Legend
+                self.ax.legend(loc='upper left', fontsize=10)
+                
+                # Tight layout
+                self.fig.tight_layout()
+                
+            finally:
+                # Restore original logging level
+                mpl_logger.setLevel(old_level)
     
     def add_data_point(self, temperature, timestamp=None):
         """Add a new temperature data point."""
         if timestamp is None:
             timestamp = datetime.now()
-        elif isinstance(timestamp, (int, float)):
-            # Convert Unix timestamp to datetime
-            timestamp = datetime.fromtimestamp(timestamp)
-        # If timestamp is already a datetime object, use it as-is
         
         self.timestamps.append(timestamp)
         self.temperatures.append(temperature)

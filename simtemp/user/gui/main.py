@@ -30,6 +30,10 @@ import json
 # Add CLI path for importing modules
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'cli'))
 
+# Configure matplotlib to be less verbose
+import matplotlib
+matplotlib.set_loglevel('WARNING')
+
 # Import our custom widgets
 from temperature_dial import TemperatureDial
 from seven_segment_display import SevenSegmentDisplay
@@ -74,13 +78,13 @@ class CLIDataServer:
             self.server_socket.listen(1)
             self.running = True
             
-            logger.info(f"CLI Data Server listening on port {self.port}")
+            logger.info(f"GUI Data Server listening on port {self.port}")
             
             while self.running:
                 try:
                     self.client_socket, addr = self.server_socket.accept()
-                    logger.info(f"✓ CLI connected from {addr}")
-                    print(f"✓ CLI connected from {addr}")
+                    logger.info(f"✓ GUI client connected from {addr}")
+                    print(f"✓ GUI client connected from {addr}")
                     
                     # Notify about CLI connection
                     if self.connection_callback:
@@ -109,22 +113,31 @@ class CLIDataServer:
                                             # Handle text commands/status messages
                                             logger.debug(f"Received text command: '{line}'")
                             else:
-                                logger.info("Client disconnected")
+                                logger.info("✗ GUI client disconnected")
+                                print("✗ GUI client disconnected")
                                 # Notify about CLI disconnection
                                 if self.connection_callback:
                                     self.connection_callback(False, None)
                                 break
                         except socket.error as e:
-                            logger.error(f"Socket error receiving data: {e}")
+                            logger.info(f"✗ CLI connection lost: {e}")
+                            print(f"✗ CLI connection lost: {e}")
+                            # Notify about CLI disconnection
+                            if self.connection_callback:
+                                self.connection_callback(False, None)
                             break
                             
                 except socket.error as e:
                     if self.running:
-                        logger.error(f"Server socket error: {e}")
+                        logger.error(f"✗ CLI server socket error: {e}")
+                        print(f"✗ CLI server socket error: {e}")
                         
         except Exception as e:
-            logger.error(f"Server error: {e}")
+            logger.error(f"✗ CLI server error: {e}")
+            print(f"✗ CLI server error: {e}")
         finally:
+            logger.info("✗ GUI Data Server stopped")
+            print("✗ GUI Data Server stopped")
             self.stop()
             
     def stop(self):
@@ -157,46 +170,53 @@ class SimTempExternalGUI:
         self.root.title("SimTemp External Monitor - Challenge 2025")
         self.root.geometry("1400x900")
         self.root.minsize(1200, 800)
-        
+
         # Set appearance
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
-        
+
         # Data client
         self.data_client = None
         self.monitoring_active = False
         self.monitoring_thread = None
-        
-        # CLI Data Server for receiving data from CLI
+
+        # GUI Data Server for receiving data from CLI
         self.cli_server = CLIDataServer(
-            port=4446, 
+            port=4446,
             data_callback=self.on_cli_data_received,
             connection_callback=self.on_cli_connection_change
         )
-        
+
         # Current sensor data
         self.current_temperature = 25.0
         self.current_threshold = 45.0
         self.alarm_active = False
-        
+
         # GUI components
         self.dial = None
         self.display = None
         self.plot = None
         self.config_panel = None
         self.status_bar = None
-        
-        # Setup GUI
+
+        # Setup GUI (this will trigger matplotlib initialization)
+        print("Initializing GUI components...")
         self.setup_gui()
+
+        # Wait for matplotlib to finish initialization
+        print("Waiting for plot initialization...")
+        time.sleep(1)  # Give matplotlib time to finish font loading
+
+        # Now setup callbacks and start services
         self.setup_callbacks()
-        
-        # Start CLI data server
+
+        # Start GUI data server
         self.cli_server.start()
-        logger.info("CLI Data Server started on port 4446")
-        
+        logger.info("GUI Data Server started on port 4446")
+
         # Bind cleanup on window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        
+
         logger.info("SimTemp External GUI initialized")
     
     def setup_gui(self):
@@ -608,10 +628,12 @@ class SimTempExternalGUI:
         """Handle CLI connection state change"""
         try:
             if connected:
-                status_text = f"✓ CLI connected from {addr[0]}:{addr[1]}"
+                status_text = f"✓ GUI client connected from {addr[0]}:{addr[1]}"
+                logger.info(f"✓ GUI client connected from {addr[0]}:{addr[1]}")
                 self.root.after(0, self._update_connection_status, True, status_text)
             else:
-                status_text = "⏳ Waiting for CLI connection"
+                status_text = "✗ GUI client disconnected - Waiting for reconnection"
+                logger.info("✗ GUI client disconnected - Waiting for reconnection")
                 self.root.after(0, self._update_connection_status, False, status_text)
         except Exception as e:
             logger.error(f"Error handling CLI connection change: {e}")
@@ -621,7 +643,7 @@ class SimTempExternalGUI:
         try:
             if connected:
                 self.connection_indicator.configure(
-                    text="✓ CLI Connected",
+                    text="✓ GUI Client Connected",
                     text_color="lightgreen"
                 )
                 self.status_label.configure(text=status_text)

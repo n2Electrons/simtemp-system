@@ -46,15 +46,25 @@ class GUIClient:
         
     def connect(self):
         """Try to connect to GUI"""
+        print(f"[INFO] Attempting to connect to GUI at {self.host}:{self.port}...")
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.settimeout(2.0)  # 2 second timeout
             self.socket.connect((self.host, self.port))
             self.connected = True
-            print(f"[INFO] Connected to GUI at {self.host}:{self.port}")
+            print(f"[INFO] ✓ Successfully connected to GUI at {self.host}:{self.port}")
             return True
-        except (socket.error, ConnectionRefusedError, socket.timeout):
+        except ConnectionRefusedError:
             self.connected = False
+            print(f"[WARNING] ✗ Connection refused - GUI not listening on {self.host}:{self.port}")
+            return False
+        except socket.timeout:
+            self.connected = False
+            print(f"[WARNING] ✗ Connection timeout - GUI not responding on {self.host}:{self.port}")
+            return False
+        except socket.error as e:
+            self.connected = False
+            print(f"[WARNING] ✗ Connection error: {e}")
             return False
             
     def send_temperature(self, temp_c, temp_mc=None):
@@ -84,6 +94,8 @@ class GUIClient:
         if self.socket:
             try:
                 self.socket.close()
+                if self.connected:
+                    print(f"[INFO] ✗ Disconnected from GUI at {self.host}:{self.port}")
             except:
                 pass
         self.connected = False
@@ -132,7 +144,14 @@ class SimTempRemoteCLI:
         
         # GUI client for sending temperature data
         self.gui_client = GUIClient()
-        self.gui_enabled = False
+        self.gui_enabled = True  # Always enabled
+        print("[INFO] GUI client initialized - attempting connection...")
+        
+        # Try to connect to GUI proactively
+        if self.gui_client.connect():
+            print("[INFO] ✓ Connected to GUI - ready for data transmission")
+        else:
+            print("[INFO] GUI not available - will retry when sending data")
         
         # Default Octave generator configuration
         self.octave_config = {
@@ -188,8 +207,8 @@ class SimTempRemoteCLI:
                         return socket_port
             
             # Default port if marker not found
-            print("[WARNING] No socket port found, using default 4445")
-            return 4445
+            print("[INFO] No QEMU socket port found, using default 4446 for GUI connection")
+            return 4446
         except Exception as e:
             print(f"[WARNING] Error getting socket port: {e}")
             return 5555
@@ -204,31 +223,21 @@ class SimTempRemoteCLI:
         except Exception as e:
             print(f"[ERROR] Failed to start Octave generator: {e}")
 
-    def enable_gui_connection(self, enable=True):
-        """Enable or disable GUI connection for temperature data."""
-        if enable:
-            self.gui_enabled = True
-            print("[INFO] GUI data transmission enabled")
-        else:
-            self.gui_client.disconnect()
-            self.gui_enabled = False
-            print("[INFO] GUI data transmission disabled")
-
     def send_temp_to_gui(self, temp_c, temp_mc=None):
         """Send temperature data to GUI if connected."""
-        if self.gui_enabled:
-            # Try to connect if not connected
-            if not self.gui_client.connected:
-                if not self.gui_client.connect():
-                    print("[WARNING] Failed to connect to GUI")
-                    return
-                else:
-                    print("[INFO] Connected to GUI for data transmission")
-            
-            # Send data
-            if not self.gui_client.send_temperature(temp_c, temp_mc):
-                print("[WARNING] Failed to send data to GUI")
-                self.gui_client.connected = False  # Mark as disconnected for retry
+        # Try to connect if not connected
+        if not self.gui_client.connected:
+            print("[INFO] GUI not connected, attempting to establish connection...")
+            if not self.gui_client.connect():
+                # connect() method already prints detailed error messages
+                return
+            else:
+                print("[INFO] ✓ Ready to send temperature data to GUI")
+        
+        # Send data
+        if not self.gui_client.send_temperature(temp_c, temp_mc):
+            print("[WARNING] ✗ Failed to send temperature data to GUI - connection lost")
+            self.gui_client.connected = False  # Mark as disconnected for retry
 
     def generate_signal(self, signal_type, params=None):
         """Generate temperature signal using Octave - writes to QEMU socket.
@@ -290,7 +299,7 @@ class SimTempRemoteCLI:
         """Create Octave script to generate temperature signal - writes to QEMU socket."""
         sample_rate = self.octave_config["sample_rate"]
         duration = self.octave_config["duration"]
-        socket_port = self.socket_port or 4445
+        socket_port = self.socket_port or 4446
         
         base_script = f"""
 % Signal configuration
@@ -594,17 +603,6 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                     duration = int(parts[1]) if len(parts) > 1 else 0
                     count = int(parts[2]) if len(parts) > 2 else 0
                     self.read_temperature_continuous(duration, count)
-                elif input_text.startswith("gui "):
-                    parts = input_text.split()
-                    if len(parts) >= 2:
-                        if parts[1] == "on":
-                            self.enable_gui_connection(True)
-                        elif parts[1] == "off":
-                            self.enable_gui_connection(False)
-                        else:
-                            print("[ERROR] Usage: gui on|off")
-                    else:
-                        print("[ERROR] Usage: gui on|off")
                 elif input_text.startswith("gen "):
                     self.process_gen_command(input_text)
                 elif input_text == "stop":
@@ -739,8 +737,6 @@ Examples:
     # Actions
     parser.add_argument('--interactive', '-i', action='store_true',
                        help='Interactive mode (default behavior)')
-    parser.add_argument('--gui', action='store_true',
-                       help='Enable GUI connection for temperature data')
     parser.add_argument('--status', action='store_true',
                        help='Show current configuration')
     parser.add_argument('--set-rate', type=int, metavar='MS',
@@ -760,18 +756,10 @@ Examples:
     cli = SimTempRemoteCLI(
         ssh_port=args.ssh_port,
         auto_start_qemu=args.auto_start,
-        disable_auto_generator=args.gui  # Disable generator when GUI is used
+        disable_auto_generator=False  # Keep generator always available
     )
     
-    # Enable GUI connection if requested
-    if args.gui:
-        cli.enable_gui_connection(True)
-    
     try:
-        # Enable GUI connection if requested
-        if args.gui:
-            cli.enable_gui_connection(True)
-        
         # Execute actions
         if args.status:
             cli.show_current_config()
