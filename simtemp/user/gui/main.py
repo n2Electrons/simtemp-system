@@ -26,6 +26,7 @@ import os
 import logging
 import socket
 import json
+from datetime import datetime
 
 # Add CLI path for importing modules
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'cli'))
@@ -666,7 +667,10 @@ class SimTempExternalGUI:
             
             # Use provided timestamp or current time
             if timestamp is None:
-                timestamp = time.time()
+                timestamp = datetime.now()
+            elif isinstance(timestamp, (int, float)):
+                # Convert Unix timestamp to datetime
+                timestamp = datetime.fromtimestamp(timestamp)
             
             # Update dial
             if self.dial and hasattr(self.dial, 'set_temperature'):
