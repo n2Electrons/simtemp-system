@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.animation import FuncAnimation
 import numpy as np
-from datetime import datetime, timedelta
 from collections import deque
 import threading
 import time
@@ -30,13 +29,11 @@ class RealTimePlot(ctk.CTkFrame):
         
         # Data storage
         self.max_points = 300  # 5 minutes at 1Hz
-        self.timestamps = deque(maxlen=self.max_points)
         self.temperatures = deque(maxlen=self.max_points)
         self.threshold_temp = 45.0
         
         # Plot settings
         self.temp_range = (-10, 100)
-        self.time_window = 300  # seconds (5 minutes)
         
         # Colors based on CustomTkinter theme
         self.setup_colors()
@@ -98,13 +95,15 @@ class RealTimePlot(ctk.CTkFrame):
                 self.ax.set_facecolor(self.plot_bg)
                 
                 # Configure axes
-                self.ax.set_ylabel('Temperature (°C)', color=self.text_color, 
+                self.ax.set_ylabel('Temperature (°C)', color=self.text_color,
                                   fontsize=12)
-                self.ax.set_xlabel('Time', color=self.text_color, fontsize=12)
-                self.ax.tick_params(colors=self.text_color)
-                self.ax.grid(True, color=self.grid_color, alpha=0.3)
-                
-                # Set temperature range
+                # Remove x-axis labels, ticks and numbers for cleaner look
+                self.ax.set_xticks([])
+                self.ax.set_xticklabels([])
+                self.ax.tick_params(axis='x', which='both', bottom=False, 
+                                   top=False, labelbottom=False)
+                self.ax.tick_params(axis='y', colors=self.text_color)
+                self.ax.grid(True, color=self.grid_color, alpha=0.3)                # Set temperature range
                 self.ax.set_ylim(self.temp_range)
                 
                 # Initialize empty line plots
@@ -134,10 +133,6 @@ class RealTimePlot(ctk.CTkFrame):
     
     def add_data_point(self, temperature, timestamp=None):
         """Add a new temperature data point."""
-        if timestamp is None:
-            timestamp = datetime.now()
-        
-        self.timestamps.append(timestamp)
         self.temperatures.append(temperature)
         
         # Update plot if not animating
@@ -161,43 +156,21 @@ class RealTimePlot(ctk.CTkFrame):
     
     def update_plot(self):
         """Update the temperature plot."""
-        if len(self.timestamps) == 0:
+        if len(self.temperatures) == 0:
             return
         
-        # Convert timestamps to relative time in seconds
-        current_time = datetime.now()
-        time_data = [(current_time - ts).total_seconds() 
-                     for ts in self.timestamps]
-        time_data = [-t for t in time_data]  # Make negative for past times
+        # Create sequential x-axis data starting from 0
+        x_data = list(range(len(self.temperatures)))
         
         # Update temperature line
-        self.temp_line.set_data(time_data, list(self.temperatures))
+        self.temp_line.set_data(x_data, list(self.temperatures))
         
-        # Update x-axis limits to show last time_window seconds
-        self.ax.set_xlim(-self.time_window, 0)
-        
-        # Update x-axis labels
-        self.update_time_labels()
+        # Update x-axis limits to show all data, starting from 0
+        if len(self.temperatures) > 0:
+            self.ax.set_xlim(0, max(len(self.temperatures), 10))
         
         # Redraw canvas
         self.canvas.draw()
-    
-    def update_time_labels(self):
-        """Update time axis labels."""
-        # Set x-axis to show time in MM:SS format
-        current_time = datetime.now()
-        
-        # Create time ticks
-        time_ticks = []
-        time_labels = []
-        
-        for i in range(0, self.time_window + 1, 60):  # Every minute
-            time_ticks.append(-i)
-            past_time = current_time - timedelta(seconds=i)
-            time_labels.append(past_time.strftime('%H:%M'))
-        
-        self.ax.set_xticks(time_ticks)
-        self.ax.set_xticklabels(time_labels)
     
     def start_animation(self, interval=1000):
         """Start real-time animation."""
@@ -223,7 +196,6 @@ class RealTimePlot(ctk.CTkFrame):
     
     def clear_data(self):
         """Clear all temperature data."""
-        self.timestamps.clear()
         self.temperatures.clear()
         self.update_plot()
     
@@ -243,25 +215,18 @@ class RealTimePlot(ctk.CTkFrame):
     
     def generate_test_data(self):
         """Generate test data for demonstration."""
-        # Generate 2 minutes of test data
-        current_time = datetime.now()
-        
-        for i in range(120):  # 2 minutes of data
-            timestamp = current_time - timedelta(seconds=120-i)
+        # Generate 120 data points
+        for i in range(120):
             # Generate sinusoidal temperature with some noise
             temp = 35 + 15 * np.sin(i * 0.1) + np.random.normal(0, 2)
-            self.timestamps.append(timestamp)
             self.temperatures.append(temp)
     
-    def set_time_window(self, seconds):
-        """Set the time window for display."""
-        self.time_window = seconds
-        self.max_points = max(seconds, 300)  # At least 5 minutes of storage
+    def set_max_points(self, max_points):
+        """Set the maximum number of data points to display."""
+        self.max_points = max_points
         
-        # Update deques with new max length
-        new_timestamps = deque(self.timestamps, maxlen=self.max_points)
+        # Update deque with new max length
         new_temperatures = deque(self.temperatures, maxlen=self.max_points)
-        self.timestamps = new_timestamps
         self.temperatures = new_temperatures
         
         self.update_plot()
