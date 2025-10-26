@@ -126,8 +126,8 @@ class SimTempRemoteCLI:
                         return socket_port
             
             # Default port if marker not found
-            print("[WARNING] No socket port found, using default 5555")
-            return 5555
+            print("[WARNING] No socket port found, using default 4445")
+            return 4445
         except Exception as e:
             print(f"[WARNING] Error getting socket port: {e}")
             return 5555
@@ -202,7 +202,7 @@ class SimTempRemoteCLI:
         """Create Octave script to generate temperature signal - writes to QEMU socket."""
         sample_rate = self.octave_config["sample_rate"]
         duration = self.octave_config["duration"]
-        socket_port = self.socket_port or 5555
+        socket_port = self.socket_port or 4445
         
         base_script = f"""
 % Signal configuration
@@ -350,7 +350,7 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
             result = self.ssh_remote.execute_command(f"cat {self.sysfs_base}/threshold_mC")
             if result.return_code == 0:
                 threshold = int(result.stdout.strip())
-                print(f"Threshold: {threshold} milliCelsius ({threshold/1000:.1f} C)")
+                print(f"Threshold: {threshold/1000:.1f} C milliCelsius ({threshold})")
             else:
                 print("Threshold: Not available")
             
@@ -608,7 +608,7 @@ Examples:
   %(prog)s --auto-start
   
   # Show configuration
-  %(prog)s --config
+  %(prog)s --status
   
   # Set sample rate to 500ms
   %(prog)s --set-rate 500

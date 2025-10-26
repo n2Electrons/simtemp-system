@@ -335,11 +335,11 @@ static struct class *simtemp_class;
 static int device_count = 0;
 
 /**
- * simtemp_read_temperature_from_sensor - Read temperature from /dev/tempsensor
+ * simtemp_generate_temperature - Read from sensor or generate synthetic temperature
  * @data: Device data structure
  *
- * This function reads real temperature data from /dev/tempsensor device
- * instead of generating synthetic temperature patterns.
+ * This function tries to read from /dev/tempsensor first, but falls back to
+ * generating a simple synthetic temperature pattern if the sensor is not available.
  */
 static int simtemp_generate_temperature(struct nxp_simtemp_data *data)
 {
@@ -349,41 +349,43 @@ static int simtemp_generate_temperature(struct nxp_simtemp_data *data)
 	int new_temp = data->temperature; /* Default to current if read fails */
 	long parsed_temp;
 	int ret;
+	static int fallback_counter = 0;
 	
-	/* Open /dev/tempsensor for reading */
-	sensor_file = filp_open("/dev/tempsensor", O_RDONLY, 0);
-	if (IS_ERR(sensor_file)) {
-		/* If sensor device is not available, keep current temperature */
-		dev_warn_ratelimited(data->dev, "Failed to open /dev/tempsensor: %ld\n", 
-				     PTR_ERR(sensor_file));
-		return data->temperature;
+	/* Try to open /dev/tempsensor for reading */
+	sensor_file = filp_open("/dev/tempsensor", O_RDONLY | O_NONBLOCK, 0);
+	if (!IS_ERR(sensor_file)) {
+		/* Successfully opened sensor device */
+		memset(temp_buffer, 0, sizeof(temp_buffer));
+		bytes_read = kernel_read(sensor_file, temp_buffer, sizeof(temp_buffer) - 1, 0);
+		filp_close(sensor_file, NULL);
+		
+		if (bytes_read > 0) {
+			temp_buffer[bytes_read] = '\0';
+			ret = kstrtol(temp_buffer, 10, &parsed_temp);
+			if (!ret) {
+				new_temp = (int)parsed_temp;
+				dev_dbg(data->dev, "Read temperature from sensor: %d°C\n", new_temp);
+				goto update_temp;
+			}
+		}
 	}
 	
-	/* Read temperature data from the sensor */
-	memset(temp_buffer, 0, sizeof(temp_buffer));
-	bytes_read = kernel_read(sensor_file, temp_buffer, sizeof(temp_buffer) - 1, 0);
+	/* Fallback: Generate simple synthetic temperature pattern */
+	dev_dbg(data->dev, "Using synthetic temperature (sensor unavailable)\n");
 	
-	/* Close the file */
-	filp_close(sensor_file, NULL);
+	/* Simple triangle wave: 20°C to 30°C over 60 samples */
+	fallback_counter++;
+	if (fallback_counter >= 120) fallback_counter = 0;
 	
-	if (bytes_read <= 0) {
-		dev_warn_ratelimited(data->dev, "Failed to read from /dev/tempsensor: %zd\n", 
-				     bytes_read);
-		return data->temperature;
+	if (fallback_counter < 60) {
+		/* Rising: 20 + (counter * 10 / 60) */
+		new_temp = 20 + (fallback_counter * 10) / 60;
+	} else {
+		/* Falling: 30 - ((counter-60) * 10 / 60) */
+		new_temp = 30 - ((fallback_counter - 60) * 10) / 60;
 	}
-	
-	/* Null-terminate the buffer */
-	temp_buffer[bytes_read] = '\0';
-	
-	/* Parse temperature value (expecting integer in degrees Celsius) */
-	ret = kstrtol(temp_buffer, 10, &parsed_temp);
-	if (ret) {
-		dev_warn_ratelimited(data->dev, "Failed to parse temperature from sensor: '%s'\n", 
-				     temp_buffer);
-		return data->temperature;
-	}
-	
-	new_temp = (int)parsed_temp;
+
+update_temp:
 	
 	/* Clamp temperature to reasonable bounds */
 	if (new_temp < -40) {
