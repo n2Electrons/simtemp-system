@@ -19,11 +19,15 @@
 #include <linux/delay.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
+#include <linux/file.h>
+#include <linux/fcntl.h>
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 #include <linux/wait.h>
 #include <linux/poll.h>
 #include <linux/timer.h>
+#include <linux/kthread.h>
+#include <linux/string.h>
 #include <linux/jiffies.h>
 
 #include "nxp_simtemp.h"
@@ -331,150 +335,83 @@ static struct class *simtemp_class;
 static int device_count = 0;
 
 /**
- * simtemp_generate_temperature - Generate dynamic temperature based on mode
+ * simtemp_generate_temperature - Read from sensor or generate synthetic temperature
  * @data: Device data structure
  *
- * This function implements various temperature generation patterns:
- * - STATIC: No change
- * - LINEAR: Linear ramp from min to max temperature
- * - EXPONENTIAL: Exponential heating curve
- * - SINUSOIDAL: Sinusoidal temperature variation
- * - STEP: Step changes between temperature levels
- * - NOISY: Linear ramp with Gaussian noise
- * - REALISTIC: Complex environmental simulation
+ * This function tries to read from /dev/tempsensor first, but falls back to
+ * generating a simple synthetic temperature pattern if the sensor is not available.
  */
 static int simtemp_generate_temperature(struct nxp_simtemp_data *data)
 {
-	u32 elapsed_ms;
-	int new_temp = data->temperature;
-	int temp_range, progress_percent;
-	u64 current_time_ns = ktime_get_ns();
+	struct file *sensor_file;
+	char temp_buffer[32];
+	ssize_t bytes_read;
+	int new_temp = data->temperature; /* Default to current if read fails */
+	long parsed_temp;
+	int ret;
+	static int fallback_counter = 0;
+	loff_t pos = 0;
 	
-	if (!data->temp_generator.enabled) {
-		return data->temperature;
-	}
-	
-	/* Calculate elapsed time since pattern start */
-	elapsed_ms = data->temp_generator.sample_count * data->sampling_ms;
-	data->temp_generator.sample_count++;
-	
-	/* Generate temperature based on pattern type */
-	switch (data->temp_generator.pattern_type) {
-	case SIMTEMP_MODE_STATIC:
-		/* No change - keep current temperature */
-		break;
+	/* Try to open /dev/tempsensor for reading (non-blocking to avoid timer stalls) */
+	sensor_file = filp_open("/dev/tempsensor", O_RDONLY | O_NONBLOCK, 0);
+	if (!IS_ERR(sensor_file)) {
+		/* Successfully opened sensor device */
+		memset(temp_buffer, 0, sizeof(temp_buffer));
+		/* kernel_read expects a position pointer on 5.x kernels */
+		bytes_read = kernel_read(sensor_file, temp_buffer, sizeof(temp_buffer) - 1, &pos);
+		filp_close(sensor_file, NULL);
 		
-	case SIMTEMP_MODE_LINEAR:
-		/* Linear ramp: T = T_min + (T_max - T_min) * (t / period) */
-		if (data->temp_generator.period_ms > 0) {
-			progress_percent = (elapsed_ms % data->temp_generator.period_ms) * 100 / 
-					   data->temp_generator.period_ms;
-			temp_range = data->temp_generator.max_temp - data->temp_generator.min_temp;
-			new_temp = data->temp_generator.min_temp + (temp_range * progress_percent / 100);
-		}
-		break;
-		
-	case SIMTEMP_MODE_EXPONENTIAL:
-		/* Exponential heating: T = T_min + (T_max - T_min) * (1 - exp(-t/tau)) */
-		if (data->temp_generator.period_ms > 0) {
-			/* Use period_ms as time constant (tau) in milliseconds */
-			int tau_ms = data->temp_generator.period_ms / 3; /* tau = period/3 for 95% completion */
-			int exp_factor = 1000 - (1000 * elapsed_ms / (elapsed_ms + tau_ms)); /* Approximation */
-			temp_range = data->temp_generator.max_temp - data->temp_generator.min_temp;
-			new_temp = data->temp_generator.min_temp + (temp_range * (1000 - exp_factor) / 1000);
-		}
-		break;
-		
-	case SIMTEMP_MODE_SINUSOIDAL:
-		/* Sinusoidal: T = T_base + amplitude * sin(2*pi*t/period) */
-		if (data->temp_generator.period_ms > 0) {
-			/* Simple sine approximation using lookup table approach */
-			int phase = (elapsed_ms % data->temp_generator.period_ms) * 360 / data->temp_generator.period_ms;
-			int sine_approx = 0;
-			
-			/* Simple sine approximation (good enough for kernel space) */
-			if (phase < 90) {
-				sine_approx = phase * 1000 / 90;  /* 0 to 1000 (0 to 1.0) */
-			} else if (phase < 180) {
-				sine_approx = (180 - phase) * 1000 / 90;  /* 1000 to 0 */
-			} else if (phase < 270) {
-				sine_approx = -(phase - 180) * 1000 / 90;  /* 0 to -1000 */
-			} else {
-				sine_approx = -(360 - phase) * 1000 / 90;  /* -1000 to 0 */
+		if (bytes_read > 0) {
+			temp_buffer[bytes_read] = '\0';
+			ret = kstrtol(temp_buffer, 10, &parsed_temp);
+			if (!ret) {
+				/*
+				 * Interpret input as milliCelsius if magnitude is large, otherwise Celsius.
+				 * This avoids accidental 25,000°C if the producer sends milliC.
+				 */
+				if (parsed_temp > 1000 || parsed_temp < -1000)
+					new_temp = (int)(parsed_temp / 1000);
+				else
+					new_temp = (int)parsed_temp;
+				dev_dbg(data->dev, "Read temperature from sensor: %d°C\n", new_temp);
+				goto update_temp;
 			}
-			
-			new_temp = data->temp_generator.base_temperature + 
-				   (data->temp_generator.amplitude * sine_approx / 1000);
 		}
-		break;
-		
-	case SIMTEMP_MODE_STEP:
-		/* Step pattern: Change temperature every period/4 */
-		if (data->temp_generator.period_ms > 0) {
-			int step_duration = data->temp_generator.period_ms / 4;
-			int step_index = (elapsed_ms / step_duration) % 4;
-			int step_temps[] = {
-				data->temp_generator.min_temp,
-				data->temp_generator.base_temperature,
-				data->temp_generator.max_temp,
-				data->temp_generator.base_temperature
-			};
-			new_temp = step_temps[step_index];
-		}
-		break;
-		
-	case SIMTEMP_MODE_NOISY:
-		/* Linear ramp with noise */
-		/* First calculate linear ramp */
-		if (data->temp_generator.period_ms > 0) {
-			progress_percent = (elapsed_ms % data->temp_generator.period_ms) * 100 / 
-					   data->temp_generator.period_ms;
-			temp_range = data->temp_generator.max_temp - data->temp_generator.min_temp;
-			new_temp = data->temp_generator.min_temp + (temp_range * progress_percent / 100);
-		}
-		/* Add simple noise (using current time as pseudo-random source) */
-		{
-			u32 noise_seed = (u32)(current_time_ns & 0xFFFFFFFF);
-			int noise = ((int)(noise_seed % 2000) - 1000) * data->temp_generator.noise_level / 1000;
-			new_temp += noise;
-		}
-		break;
-		
-	case SIMTEMP_MODE_REALISTIC:
-		/* Complex environmental simulation */
-		/* Base exponential heating with multiple frequency components */
-		if (data->temp_generator.period_ms > 0) {
-			/* Variable declarations at beginning of block */
-			int tau_ms = data->temp_generator.period_ms / 2;
-			int exp_factor = 1000 - (1000 * elapsed_ms / (elapsed_ms + tau_ms));
-			int hvac_phase = (elapsed_ms % (data->temp_generator.period_ms * 2)) * 360 / 
-					 (data->temp_generator.period_ms * 2);
-			int hvac_effect = data->temp_generator.amplitude * hvac_phase / 720; /* Small modulation */
-			u32 noise_seed = (u32)(current_time_ns & 0xFFFFFFFF);
-			int env_noise = ((int)(noise_seed % 1000) - 500) * data->temp_generator.noise_level / 1000;
-			
-			/* Primary heating curve */
-			temp_range = data->temp_generator.max_temp - data->temp_generator.min_temp;
-			new_temp = data->temp_generator.min_temp + (temp_range * (1000 - exp_factor) / 1000);
-			
-			/* Add HVAC-like cycling (slow oscillation) */
-			new_temp += hvac_effect;
-			
-			/* Add environmental noise */
-			new_temp += env_noise;
-		}
-		break;
-		
-	default:
-		/* Unknown mode - keep current temperature */
-		break;
 	}
+	
+	/* Fallback: Generate simple synthetic temperature pattern */
+	dev_dbg(data->dev, "Using synthetic temperature (sensor unavailable)\n");
+	
+	/* Simple triangle wave: 20°C to 30°C over 60 samples */
+	fallback_counter++;
+	if (fallback_counter >= 120) fallback_counter = 0;
+	
+	if (fallback_counter < 60) {
+		/* Rising: 20 + (counter * 10 / 60) */
+		new_temp = 20 + (fallback_counter * 10) / 60;
+	} else {
+		/* Falling: 30 - ((counter-60) * 10 / 60) */
+		new_temp = 30 - ((fallback_counter - 60) * 10) / 60;
+	}
+
+update_temp:
 	
 	/* Clamp temperature to reasonable bounds */
-	if (new_temp < -40) new_temp = -40;  /* -40°C minimum */
-	if (new_temp > 125) new_temp = 125;  /* 125°C maximum */
+	if (new_temp < -40) {
+		dev_warn_ratelimited(data->dev, "Temperature %d°C below minimum, clamping to -40°C\n", 
+				     new_temp);
+		new_temp = -40;
+	}
+	if (new_temp > 125) {
+		dev_warn_ratelimited(data->dev, "Temperature %d°C above maximum, clamping to 125°C\n", 
+				     new_temp);
+		new_temp = 125;
+	}
 	
+	/* Update temperature if successfully read */
 	data->temperature = new_temp;
+	
+	dev_dbg(data->dev, "Read temperature from sensor: %d°C\n", new_temp);
 	
 	return new_temp;
 }
@@ -558,44 +495,54 @@ static int simtemp_release(struct inode *inode, struct file *filp)
 }
 
 /**
- * simtemp_read - Character device read (F-K4: supports blocking)
+ * simtemp_read - Character device read (supports both text and binary formats)
  */
 static ssize_t simtemp_read(struct file *filp, char __user *buf,
 			    size_t count, loff_t *f_pos)
 {
 	struct nxp_simtemp_data *data = filp->private_data;
 	size_t record_size = sizeof(struct simtemp_record);
+	char temp_str[32];
+	size_t temp_str_len;
 	int ret;
 	
 	if (!data)
 		return -ENODEV;
 	
+	/* If not first read, signal EOF for cat-like callers */
+	if (*f_pos > 0)
+		return 0;
+
+	/* Default path: textual one-shot read for blocking callers (e.g., cat) */
+	if (!(filp->f_flags & O_NONBLOCK)) {
+		/* Snapshot current temperature under lock to avoid races */
+		mutex_lock(&data->mutex);
+		snprintf(temp_str, sizeof(temp_str), "%d\n", data->temperature * 1000);
+		mutex_unlock(&data->mutex);
+		temp_str_len = strlen(temp_str);
+		if (count < temp_str_len)
+			return -EINVAL;
+		if (copy_to_user(buf, temp_str, temp_str_len))
+			return -EFAULT;
+		*f_pos += temp_str_len;
+		return temp_str_len;
+	}
+
+	/* Non-blocking readers may request binary records */
 	if (count < record_size)
 		return -EINVAL;
-	
-	/* F-K4: Blocking read - wait for new sample unless O_NONBLOCK */
-	if (!(filp->f_flags & O_NONBLOCK)) {
-		ret = wait_event_interruptible(data->read_wait, 
-					       data->new_sample_available);
-		if (ret)
-			return ret; /* Interrupted by signal */
-	} else {
-		/* Non-blocking: return immediately if no data */
-		if (!data->new_sample_available)
-			return -EAGAIN;
-	}
-	
+
+	/* Non-blocking: return immediately if no data */
+	if (!data->new_sample_available)
+		return -EAGAIN;
+
 	mutex_lock(&data->mutex);
-	
-	/* Clear the flag since we're consuming the sample */
-	data->new_sample_available = false;
-	
+	data->new_sample_available = false; /* consume */
 	if (copy_to_user(buf, &data->record, record_size)) {
 		mutex_unlock(&data->mutex);
 		return -EFAULT;
 	}
 	mutex_unlock(&data->mutex);
-	
 	return record_size;
 }
 

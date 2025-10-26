@@ -3,6 +3,47 @@ mount -t proc     proc /proc
 mount -t sysfs    sysfs /sys
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs -o mode=0755 none /dev
 
+# Mount pts filesystem for SSH pseudo-terminal support (robust across kernel configs)
+mkdir -p /dev/pts
+# First try with newinstance (requires CONFIG_DEVPTS_MULTIPLE_INSTANCES=y)
+if ! mount -t devpts devpts /dev/pts -o ptmxmode=0666,mode=620,gid=5,newinstance 2>/dev/null; then
+  # Fallback: mount without newinstance for kernels without multiple instances
+  mount -t devpts devpts /dev/pts -o ptmxmode=0666,mode=620,gid=5 2>/dev/null || mount -t devpts devpts /dev/pts
+fi
+
+# Set up /dev/ptmx as the classic char device (works reliably with 5.10)
+rm -f /dev/ptmx 2>/dev/null || true
+mknod -m 666 /dev/ptmx c 5 2 2>/dev/null || true
+
+# Ensure proper permissions for PTY system
+chmod 755 /dev/pts 2>/dev/null || true
+
+# Create additional TTY device nodes for better compatibility
+for i in 0 1 2 3 4 5; do
+  mknod -m 620 /dev/tty$i c 4 $i 2>/dev/null || true
+done
+
+# Create legacy BSD PTY devices for Dropbear compatibility
+# Master devices (ptyp0-ptyp9)
+for i in 0 1 2 3 4 5 6 7 8 9; do
+  mknod -m 666 /dev/ptyp$i c 2 $i 2>/dev/null || true
+done
+
+# Slave devices (ttyp0-ttyp9)
+for i in 0 1 2 3 4 5 6 7 8 9; do
+  mknod -m 666 /dev/ttyp$i c 3 $i 2>/dev/null || true
+done
+
+# Create virtual console devices
+for i in 0 1 2 3; do
+  mknod -m 620 /dev/vc/$i c 4 $i 2>/dev/null || true
+done 2>/dev/null || true
+
+# Ensure console and standard devices exist
+mknod -m 600 /dev/console c 5 1 2>/dev/null || true
+mknod -m 666 /dev/null c 1 3 2>/dev/null || true
+mknod -m 666 /dev/zero c 1 5 2>/dev/null || true
+
 echo "=== initramfs ready ==="
 
 while [ ! -e /dev/ttymxc1 ]; do
@@ -15,11 +56,62 @@ ln -s /dev/ttymxc1 /dev/tempsensor
 ifconfig lo 127.0.0.1 up
 ifconfig eth0 up
 
+# If using QEMU user networking, set a default static IP so hostfwd works
+# Default QEMU user net: guest=10.0.2.15, gateway=10.0.2.2
+if command -v ifconfig >/dev/null 2>&1; then
+  ifconfig eth0 10.0.2.15 up
+fi
+if command -v route >/dev/null 2>&1; then
+  route add default gw 10.0.2.2 2>/dev/null || true
+fi
+
 # Start telnetd on port 23 for SSH alternative access
 if command -v telnetd >/dev/null 2>&1; then
     telnetd -p 23 -l /bin/sh
     echo "telnetd started on port 23"
 fi
+
+# Start dropbear (SSH) on port 22 if available
+if [ -x /usr/sbin/dropbear ]; then
+  echo "Starting dropbear SSH server on port 22..."
+  # Ensure runtime directories exist
+  mkdir -p /etc/dropbear /var/run
+  
+  # Generate host keys if they don't exist
+  if [ ! -f /etc/dropbear/dropbear_rsa_host_key ]; then
+    echo "Generating RSA host key..."
+    /usr/sbin/dropbearkey -t rsa -f /etc/dropbear/dropbear_rsa_host_key
+  fi
+  if [ ! -f /etc/dropbear/dropbear_ecdsa_host_key ]; then
+    echo "Generating ECDSA host key..."
+    /usr/sbin/dropbearkey -t ecdsa -f /etc/dropbear/dropbear_ecdsa_host_key
+  fi
+  if [ ! -f /etc/dropbear/dropbear_ed25519_host_key ]; then
+    echo "Generating Ed25519 host key..."
+    /usr/sbin/dropbearkey -t ed25519 -f /etc/dropbear/dropbear_ed25519_host_key
+  fi
+  
+  # Start dropbear in background (fork mode)
+  /usr/sbin/dropbear -p 22 || echo "Warning: dropbear failed to start"
+  if pidof dropbear >/dev/null 2>&1; then
+    echo "dropbear started on port 22"
+  fi
+fi
+
+# Load SimTemp driver with error handling
+if [ -f "/tmp/prebuild/simtemp-driver/nxp_simtemp.ko" ]; then
+  echo "Loading SimTemp driver..."
+  if insmod /tmp/prebuild/simtemp-driver/nxp_simtemp.ko; then
+    echo "SimTemp driver loaded successfully"
+    lsmod | grep nxp_simtemp
+  else
+    echo "Failed to load SimTemp driver"
+  fi
+else
+  echo "SimTemp driver not found at /tmp/prebuild/simtemp-driver/"
+fi
+
+echo "=== Driver loading complete ==="
 
 # Requires BusyBox cttyhack applet for a proper controlling TTY
 if command -v cttyhack >/dev/null 2>&1; then

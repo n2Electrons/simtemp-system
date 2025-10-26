@@ -1752,6 +1752,10 @@ def start_qemu_and_wait_for_boot():
         in ['1', 'true', 'True']
     telnet_port = 2323
 
+    # SSH configuration - enable SSH access on port 2222 (hardcoded)
+    ssh_port = 2222
+    enable_ssh = True  # Hardcoded SSH configuration as requested
+    
     qemu_cmd = [
         "qemu-system-arm",
         "-M", "sabrelite",
@@ -1766,14 +1770,26 @@ def start_qemu_and_wait_for_boot():
         "-monitor", f"telnet:127.0.0.1:{monitor_port},server,nowait",
     ]
 
+    # Add networking with SSH forwarding (hardcoded configuration)
+    if enable_ssh:
+        qemu_cmd += [
+            "-net", "nic",
+            "-net", f"user,hostfwd=tcp::{ssh_port}-:22"
+        ]
+        print(f"[DEBUG] SSH forwarding: "
+              f"host 127.0.0.1:{ssh_port} -> guest 22 (dropbear)")
+
     if use_telnet_console:
         qemu_cmd += [
             "-serial", f"telnet:127.0.0.1:{telnet_port},server,nowait",
         ]
+        print(f"[DEBUG] Serial console exposed on: "
+              f"telnet localhost:{telnet_port}")
     else:
         qemu_cmd += [
             "-serial", "stdio",
         ]
+        print("[DEBUG] Serial console: stdio (this terminal)")
 
     qemu_cmd += [
         "-chardev",
@@ -1883,11 +1899,16 @@ def start_qemu_and_wait_for_boot():
     
     print("QEMU boot completed - initramfs ready")
     print("Shell prompt available - QEMU ready for platform driver tests")
+    if enable_ssh:
+        print(f"[SSH] SSH access available on host port {ssh_port}")
+        print(f"[SSH] Use: ssh -p {ssh_port} root@127.0.0.1")
     print(
         f"[START_QEMU {call_id}] Returning QEMU process with PID: "
         f"{qemu_process.pid}"
     )
     print(f"[START_QEMU {call_id}] Socket port: {socket_port}")
+    if enable_ssh:
+        print(f"[START_QEMU {call_id}] SSH port: {ssh_port}")
     
     # Return process and socket port (no monitor needed)
     return qemu_process, socket_port
@@ -1914,6 +1935,85 @@ def send_qemu_command(qemu_process, command, timeout=5):
     maintained for API compatibility.
     """
     return execute_command(command, timeout)
+
+
+def wait_for_ssh_ready(ssh_port=2222, timeout=30):
+    """
+    Wait for SSH service to be ready in QEMU guest.
+    
+    Args:
+        ssh_port: SSH port to test (default: 2222)
+        timeout: Timeout in seconds (default: 30)
+    
+    Returns:
+        bool: True if SSH is ready, False if timeout
+    """
+    import subprocess
+    import time
+    
+    print(f"[SSH] Waiting for SSH service on port {ssh_port}...")
+    start_time = time.time()
+    
+    while time.time() - start_time < timeout:
+        try:
+            # Test SSH connection without authentication
+            result = subprocess.run([
+                'ssh', '-o', 'ConnectTimeout=2',
+                '-o', 'StrictHostKeyChecking=no',
+                '-o', 'UserKnownHostsFile=/dev/null',
+                '-o', 'LogLevel=QUIET',
+                '-p', str(ssh_port),
+                'root@127.0.0.1',
+                'echo ssh_ready'
+            ], capture_output=True, timeout=5)
+            
+            if result.returncode == 0 or 'ssh_ready' in result.stdout.decode():
+                print(f"[SSH] SSH service ready on port {ssh_port}")
+                return True
+                
+        except (subprocess.TimeoutExpired, Exception):
+            pass
+        
+        time.sleep(1)
+    
+    print(f"[SSH] SSH service not ready after {timeout} seconds")
+    return False
+
+
+def execute_ssh_command(command, ssh_port=2222, timeout=10):
+    """
+    Execute a command via SSH to the QEMU guest.
+    
+    Args:
+        command: Command to execute
+        ssh_port: SSH port (default: 2222)
+        timeout: Timeout in seconds (default: 10)
+    
+    Returns:
+        tuple: (success: bool, output_lines: list)
+    """
+    import subprocess
+    
+    try:
+        result = subprocess.run([
+            'ssh', '-o', 'ConnectTimeout=5',
+            '-o', 'StrictHostKeyChecking=no',
+            '-o', 'UserKnownHostsFile=/dev/null',
+            '-o', 'LogLevel=QUIET',
+            '-p', str(ssh_port),
+            'root@127.0.0.1',
+            command
+        ], capture_output=True, text=True, timeout=timeout)
+        
+        if result.returncode == 0:
+            return True, result.stdout.splitlines()
+        else:
+            return False, result.stderr.splitlines()
+            
+    except subprocess.TimeoutExpired:
+        return False, [f"SSH command timed out after {timeout} seconds"]
+    except Exception as e:
+        return False, [f"SSH execution error: {e}"]
 
 
 # =============================================================================

@@ -129,3 +129,5 @@ docs_to_review/
 *nxp-simtemp-overlay.dtbo
 ../../arm_vs_debian_vs_host.txt
 simtemp/kernel/.*
+simtemp/user/gui/simtemp_gui_env/
+dropbear-2022.83*

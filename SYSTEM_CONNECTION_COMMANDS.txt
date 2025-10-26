@@ -1,0 +1,37 @@
+
+GUI
+cd /home/jorge/challenge-2509/simtemp-system/simtemp/user/gui
+source simtemp_gui_env/bin/activate && python3 main.py --port 4446
+
+
+CLI ORQUESTATOR
+cd /home/jorge/challenge-2509/simtemp-system/simtemp/user/cli
+python3 simtemp_orchestrator.py --gui-port 4446 --sensor-port 4445 --wave sine --frequency 0.1 --amplitude 10.0 --offset 35.0
+
+WAVE-GENERATOR
+ cd /home/jorge/challenge-2509/simtemp-system/simtemp/user/cli
+ python3 continuous_wave_generator.py --host localhost --port 4445 --wave sine --frequency 0.1 --amplitude 10.0 --offset 35.0
+
+
+
+ln -s /dev/ttymxc1 /dev/tempsensor
+ps aux | grep -E "(octave|python.*wave|continuous_wave)" | grep -v grep
+
+QEMU REMOTO (Solución 1 - telnet)
+ Arrancar QEMU con red (elige uno):
+	- deployment/qemu/scripts/run_qemu_with_network.sh
+	- deployment/qemu/scripts/run_qemu.ssh.sh  (monitor en 45455, telnet en 2323)
+
+ Conectar a la shell del invitado (telnetd en guest:23):
+	- telnet localhost 2323
+
+ Ejecutar comandos remotos no interactivos:
+	- deployment/qemu/scripts/remote_telnet_exec.sh -- uname -a
+	- deployment/qemu/scripts/remote_telnet_exec.sh -- 'echo hello && id'
+
+ Monitor QEMU (si necesitas comandos de monitor):
+	- telnet localhost 45455
+
+INSPECT KERNEL
+zcat /proc/config.gz | egrep 'CONFIG_UNIX98_PTYS|CONFIG_LEGACY_PTYS|CONFIG_DEVPTS'
+
