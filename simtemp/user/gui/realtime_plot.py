@@ -37,8 +37,8 @@ class RealTimePlot(ctk.CTkFrame):
         self.last_update_time = 0
         self.update_interval = 0.05  # 50ms minimum between updates (20 FPS max)
         
-        # Plot settings
-        self.temp_range = (10, 85)  # Adjusted for 15-80°C noise range
+        # Plot settings - Allow negative temperatures
+        self.temp_range = (-20, 85)  # Extended range: -20°C to +85°C
         
         # Colors based on CustomTkinter theme
         self.setup_colors()
@@ -193,8 +193,8 @@ class RealTimePlot(ctk.CTkFrame):
         else:
             self.ax.set_xlim(0, max(len(x_data), 10))
         
-        # Ensure Y-axis shows the noise range properly
-        self.ax.set_ylim(10, 85)
+        # Ensure Y-axis shows full range including negative temperatures
+        self.ax.set_ylim(-20, 85)
         
         # Redraw canvas efficiently
         self.canvas.draw_idle()  # Use draw_idle for better performance

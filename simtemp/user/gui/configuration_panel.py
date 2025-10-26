@@ -156,9 +156,9 @@ class ConfigurationPanel(ctk.CTkFrame):
                                                                weight="bold"))
         self.threshold_value_label.pack(pady=(0, 5))
         
-        # Threshold slider
-        self.threshold_slider = ctk.CTkSlider(threshold_frame, from_=0, to=100,
-                                            number_of_steps=200,
+        # Threshold slider - Allow negative temperatures
+        self.threshold_slider = ctk.CTkSlider(threshold_frame, from_=-20, to=100,
+                                            number_of_steps=240,
                                             command=self.on_threshold_change)
         self.threshold_slider.pack(fill="x", padx=10, pady=5)
         self.threshold_slider.set(self.current_threshold)

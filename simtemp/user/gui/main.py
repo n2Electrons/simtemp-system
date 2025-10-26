@@ -600,7 +600,7 @@ class SimTempExternalGUI:
             timestamp = data.get('timestamp', time.time())
             
             # Show temperature sample clearly in console
-            print(f"Temperature Sample: {temp_c:.1f}°C")
+            print(f" ==> Received from CLI: {temp_c:.1f}°C")
             
             # Rate limit GUI updates to prevent grab conflicts
             current_time = time.time()

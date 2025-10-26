@@ -19,6 +19,7 @@ import argparse
 import subprocess
 import signal
 import tempfile
+import numpy as np
 import socket
 import json
 from typing import Optional
@@ -155,8 +156,8 @@ class SimTempRemoteCLI:
         
         # Default Octave generator configuration
         self.octave_config = {
-            "sample_rate": 5.0,  # Update every 200ms (1/0.2 = 5.0 Hz)
-            "duration": 200.0
+            "sample_rate": 3.33,  # Update every 300ms (1/0.3 = 3.33 Hz)
+            "duration": 300.0
         }
         
         # Check QEMU and SSH
@@ -245,7 +246,9 @@ class SimTempRemoteCLI:
         
         Supported signal types: sine, ramp, noise, step
         """
-        self.stop_octave_generator()
+        # Stop all generators first to avoid conflicts
+        self.stop_all_generators()
+        print(f"[INFO] Starting {signal_type} generator...")
         
         if params is None:
             params = {}
@@ -253,7 +256,7 @@ class SimTempRemoteCLI:
         # Default configuration by signal type - doubled amplitude for wider range
         default_configs = {
             "sine": {"frequency": 2.0, "amplitude": 35.0, "offset": 27.5},
-            "ramp": {"slope": 8.0, "start": 10, "end": 40},
+            "ramp": {"start": 15.0, "end": 50.0, "time_seconds": 10.0},
             "noise": {"mean": 25, "deviation": 20},
             "step": {"low_level": 10, "high_level": 40, "transition_time": 25}
         }
@@ -356,19 +359,37 @@ endfor
 """
             
         elif signal_type == "ramp":
-            slope = params.get("slope", 8.0)
-            start = params.get("start", 10)
+            start = params.get("start", 15.0)  # Always start at 15°C
+            end = params.get("end", 50.0)      # End/max temperature
+            time_seconds = params.get("time_seconds", 10.0)  # Time to reach max
+            
+            # Calculate slope based on start, end, and time
+            slope = (end - start) / time_seconds  # °C per second
+            
             signal_script = f"""
-% Ramp signal
-slope = {slope};     % Slope (C/s)
-start_val = {start};    % Initial value (C)
+% Ramp signal: {start}°C to {end}°C in {time_seconds}s
+start_val = {start};    % Start temperature (C)
+end_val = {end};        % End temperature (C)
+time_total = {time_seconds};  % Time to reach end (seconds)
+slope = {slope:.3f};    % Calculated slope (C/s)
 
-fprintf('Generating ramp signal: slope %.2f°C/s, start %.1f°C\\n', slope, start_val);
+fprintf('Generating ramp signal: %.1f°C to %.1f°C in %.1fs (slope: %.2f°C/s)\\n', start_val, end_val, time_total, slope);
 for i = 1:length(t)
-    temp = start_val + slope * t(i);
+    % Use min(t(i), time_total) so temp increases linearly until time_total
+    tt = min(t(i), time_total);
+    temp = start_val + slope * tt;
+    % After reaching time_total the temp will equal end_val (clamped)
+    if (slope >= 0 && temp > end_val) || (slope < 0 && temp < end_val)
+        temp = end_val;
+    endif
     write_temperature_to_socket(temp, socket_port);
     pause(1/fs);
 endfor
+% After the main duration, hold the end value indefinitely until the generator is stopped
+while 1
+    write_temperature_to_socket(end_val, socket_port);
+    pause(1/fs);
+endwhile
 """
             
         elif signal_type == "noise":
@@ -431,6 +452,43 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
             
         except Exception as e:
             print(f"[WARNING] Error stopping Octave generator: {e}")
+
+    def stop_all_generators(self):
+        """Stop all generators (Octave and NumPy) and clean buffers."""
+        print("[INFO] Stopping all generators and cleaning buffers...")
+        
+        # Stop NumPy generators
+        self.stop_generator = True
+        if hasattr(self, 'generator_thread') and self.generator_thread:
+            try:
+                self.generator_thread.join(timeout=1.0)  # Wait up to 1 second
+                print("[INFO] ✓ NumPy generator thread stopped")
+            except:
+                print("[WARNING] NumPy generator thread did not stop cleanly")
+            finally:
+                self.generator_thread = None
+        
+        # Stop Octave generators
+        self.stop_octave_generator()
+        print("[INFO] ✓ Octave generators stopped")
+        
+        # Clear generator state variables
+        self.stop_generator = False
+        
+        # Clear any buffered data in ports (optional - flush sensor port)
+        try:
+            import socket
+            # Try to clear any pending data in sensor port 4445
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(0.1)
+            sock.connect(("127.0.0.1", 4445))
+            sock.send("CLEAR\n".encode())  # Send clear command
+            sock.close()
+            print("[INFO] ✓ Sensor port buffer cleared")
+        except:
+            pass  # Silent fail - port may not be available
+        
+        print("[INFO] ✓ All generators stopped and buffers cleaned")
 
     def show_current_config(self):
         """Show current system configuration."""
@@ -508,52 +566,128 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
             return False
 
     def generate_random_noise_to_gui(self):
-        """Generate random temperature noise data from 20-60°C at maximum rate and send to sensor port 4445"""
-        import random
+        """Generate numpy-based noise signal and send to sensor port 4445"""
+        import numpy as np
         import threading
         import time
         import socket
         
-        print("[INFO] Starting HIGH-SPEED random noise generator: 20-60°C")
-        print("[INFO] Sending random data to sensor port 4445 at MAXIMUM RATE")
-        print("[INFO] Use 'run' command to read the generated data")
-        print("[INFO] Press Ctrl+C or use 'stop' command to stop")
+        # Stop all other generators first
+        self.stop_all_generators()
         
-        def noise_generator():
+        print("[INFO] Starting NumPy-based noise generator: 20°C center, -10 to +50°C range")
+        print("[INFO] Sample rate: 3.33Hz (300ms intervals)")
+        print("[INFO] Sending noise data to sensor port 4445")
+        print("[INFO] Use 'run' command to read the generated data")
+        
+        def numpy_noise_generator():
             try:
-                while True:
-                    # Generate random temperature between 20-60°C with high variability
-                    # Add some more dramatic swings for better visual noise
-                    if random.random() < 0.8:  # 10% chance of extreme values
-                        temp = random.choice([20, 60])  # Extreme values
-                    else:
-                        temp = random.uniform(20, 60)  # Normal range
+                # NumPy-based noise generation parameters
+                fs = 3.33  # Sample rate: ~3.33 Hz (write every 300ms)
+                duration = 1.0  # Generate 1 second of data at a time
+                
+                while not getattr(self, 'stop_generator', False):
+                    # Generate time vector for this chunk
+                    t = np.linspace(0, duration, int(fs * duration))
                     
-                    # Send to sensor port 4445 (like other signal generators)
-                    try:
-                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        sock.settimeout(0.05)  # Very short timeout for maximum speed
-                        sock.connect(("127.0.0.1", 4445))
-                        # Convert to milliCelsius for sensor compatibility
-                        temp_mc = int(round(temp * 1000))  # Convert °C to mC
-                        temp_str = f"{temp_mc}\n"
-                        sock.send(temp_str.encode())
-                        sock.close()
-                    except Exception:
-                        pass  # Silent fail, keep generating at maximum speed
+                    # Generate noise using sine with random frequencies (5-10 Hz range)
+                    # This creates a more complex, varying noise pattern
+                    noise_freqs = np.random.uniform(5, 10, len(t))
+                    noise_signal = np.sin(2 * np.pi * noise_freqs * t)
                     
-                    # No delay for absolute maximum rate
+                    # Scale to temperature range: -10°C to +50°C (wider range including negatives)
+                    # Center around 20°C with ±30°C variation for negative/positive range
+                    temps = 20 + 30 * noise_signal
+                    
+                    # Ensure we stay within -10°C to +50°C bounds
+                    temps = np.clip(temps, -10, 50)
+                    
+                    # Send each temperature value
+                    for temp in temps:
+                        if getattr(self, 'stop_generator', False):
+                            break
+                            
+                        # Send to sensor port 4445
+                        try:
+                            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            sock.settimeout(0.1)
+                            sock.connect(("127.0.0.1", 4445))
+                            temp_mc = int(round(temp * 1000))
+                            temp_str = f"{temp_mc}\n"
+                            sock.send(temp_str.encode())
+                            sock.close()
+                        except Exception:
+                            pass  # Silent fail, keep generating
+                        
+                        # Wait 300ms between samples (3.33 Hz rate)
+                        time.sleep(0.3)
                     
             except Exception as e:
-                print(f"[INFO] Noise generator stopped: {e}")
+                print(f"[INFO] NumPy noise generator stopped: {e}")
         
         # Start noise generator in background thread
-        noise_thread = threading.Thread(target=noise_generator, daemon=True)
+        self.stop_generator = False
+        noise_thread = threading.Thread(target=numpy_noise_generator, daemon=True)
         noise_thread.start()
+        self.generator_thread = noise_thread
+
+    def read_temperature_fast(self, duration: int = 0, count: int = 0, interval_ms: int = 300):
+        """Read temperature in high-speed mode for waveform capture."""
+        print("[INFO] Starting HIGH-SPEED temperature reading...")
+        print(f"[INFO] Reading interval: {interval_ms}ms ({1000/interval_ms:.1f} Hz)")
+        if duration > 0:
+            print(f"[INFO] Duration: {duration} seconds")
+        if count > 0:
+            print(f"[INFO] Maximum {count} readings")
+        print("[INFO] Press Ctrl+C to stop")
+        
+        try:
+            start_time = time.time()
+            readings_done = 0
+            last_temp = None
+            
+            while True:
+                # Check stop conditions
+                if duration > 0 and (time.time() - start_time) >= duration:
+                    break
+                if count > 0 and readings_done >= count:
+                    break
+                
+                # Read temperature
+                result = self.ssh_remote.execute_command(f"cat {self.device_path}")
+                if result.return_code == 0:
+                    temp_str = result.stdout.strip()
+                    try:
+                        temp_mc = int(temp_str)
+                        temp_c = temp_mc / 1000.0
+                        
+                        # Only print if temperature changed significantly (reduce noise)
+                        if last_temp is None or abs(temp_c - last_temp) > 0.1:
+                            timestamp = time.strftime("%H:%M:%S.%f")[:-3]  # Include ms
+                            print(f"[{timestamp}] {temp_c:.2f}°C ({temp_mc}mC)")
+                            last_temp = temp_c
+                        
+                        # Always send to GUI
+                        self.send_temp_to_gui(temp_c, temp_mc)
+                        
+                        readings_done += 1
+                    except ValueError:
+                        print(f"[ERROR] Invalid temperature value: {temp_str}")
+                else:
+                    print(f"[ERROR] Error reading temperature: {result.stderr}")
+                
+                time.sleep(interval_ms / 1000.0)  # Convert ms to seconds
+                
+        except KeyboardInterrupt:
+            print(f"\n[INFO] Fast reading stopped by user")
+            print(f"[INFO] Total readings done: {readings_done}")
+            if readings_done > 0:
+                actual_rate = readings_done / (time.time() - start_time)
+                print(f"[INFO] Actual rate: {actual_rate:.1f} Hz")
 
     def read_temperature_continuous(self, duration: int = 0, count: int = 0):
         """Read temperature continuously."""
-        print(f"[INFO] Starting continuous temperature reading...")
+        print("[INFO] Starting continuous temperature reading...")
         if duration > 0:
             print(f"[INFO] Duration: {duration} seconds")
         if count > 0:
@@ -590,7 +724,7 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                 else:
                     print(f"[ERROR] Error reading temperature: {result.stderr}")
                 
-                time.sleep(0.1)  # Wait 100ms between readings
+                time.sleep(0.3)  # Wait 300ms between readings (3.33 Hz)
                 
         except KeyboardInterrupt:
             print(f"\n[INFO] Reading stopped by user")
@@ -607,7 +741,7 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
         print("  run [duration] [count]    - Run temperature reading (duration in sec, count max readings)")
         print("  gui on/off                - Enable/disable GUI connection")
         print("  gen sine [samples] [amp] [offset] - Sine wave (default: 20 samples, 27.5±35°C)")
-        print("  gen ramp [samples] [start]       - Ramp signal (default: 80 samples, from 10°C)")
+        print("  gen ramp [max_temp] [time_sec]   - Ramp signal (start: 15°C, default: 50°C in 10s)")
         print("  gen noise                        - Noise signal (20-60°C at maximum rate)")
         print("  gen step [low] [high] [time]     - Step signal (default: 10→40°C at 25%)")
         print("  stop                      - Stop generator")
@@ -647,26 +781,43 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                         print("[ERROR] Threshold must be a number")
                 elif input_text.startswith("run"):
                     parts = input_text.split()
-                    duration = int(parts[1]) if len(parts) > 1 else 0
-                    count = int(parts[2]) if len(parts) > 2 else 0
-                    self.read_temperature_continuous(duration, count)
+                    if len(parts) > 1 and parts[1] == "fast":
+                        # Fast mode: run fast [duration] [count] [interval_ms]
+                        duration = int(parts[2]) if len(parts) > 2 else 0
+                        count = int(parts[3]) if len(parts) > 3 else 0
+                        interval = int(parts[4]) if len(parts) > 4 else 300  # 300ms default
+                        self.read_temperature_fast(duration, count, interval)
+                    else:
+                        # Normal mode: run [duration] [count]
+                        duration = int(parts[1]) if len(parts) > 1 else 0
+                        count = int(parts[2]) if len(parts) > 2 else 0
+                        self.read_temperature_continuous(duration, count)
                 elif input_text.startswith("gen "):
                     self.process_gen_command(input_text)
                 elif input_text == "stop":
-                    self.stop_octave_generator()
-                    print("[INFO] Generator stopped")
+                    self.stop_all_generators()
+                    print("[INFO] All generators stopped and buffers cleaned")
+                elif input_text == "clean":
+                    self.stop_all_generators()
+                    print("[INFO] Manual cleanup: All generators stopped and buffers cleared")
                 elif input_text == "help":
                     print("\nAvailable commands:")
                     print("  status                    - Show current configuration")
                     print("  samples <ms>              - Set sample rate in milliseconds")
                     print("  thr <C>                   - Set temperature threshold")
-                    print("  run [duration] [count]    - Run temperature reading")
+                    print("  run [duration] [count]    - Run temperature reading (300ms)")
+                    print("  run fast [dur] [cnt] [ms] - Custom reading interval (300ms default)")
                     print("  gen sine [samples] [amp] [offset] - Sine wave (default: 20 samples, 27.5±35°C)")
-                    print("  gen ramp [samples] [start]       - Ramp signal (default: 80 samples, from 10°C)")
+                    print("  gen ramp [max_temp] [time_sec]   - Ramp signal (start: 15°C, default: 50°C in 10s)")
                     print("  gen noise                        - Noise signal (20-60°C at maximum rate)")
                     print("  gen step [low] [high] [time]     - Step signal (default: 10→40°C at 25%)")
                     print("  stop                      - Stop generator")
+                    print("  clean                     - Clean buffers and stop all generators")
                     print("  exit, quit, q             - Exit")
+                    print("\nFast Mode Examples:")
+                    print("  run fast 10 0 100        - Fast reading for 10s at 10Hz (100ms)")
+                    print("  run fast 0 100 200       - Fast reading 100 samples at 5Hz (200ms)")
+                    print("  run fast 0 0 300         - Standard continuous at 3.33Hz (300ms)")
                 elif input_text == "":
                     continue  # Empty line, continue
                 else:
@@ -704,14 +855,13 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                 print(f"[INFO] Generating sine wave: {samples} samples/period, +/-{amp}C, offset {offset}C")
                 
             elif signal_type == "ramp":
-                # gen ramp [samples] [start]
-                samples = float(parts[2]) if len(parts) > 2 else 80
-                start = float(parts[3]) if len(parts) > 3 else 10
-                # Convert samples to slope: higher samples = faster ramp
-                slope = samples / 10.0  # samples/10 gives reasonable slope range
-                params = {"slope": slope, "start": start}
+                # gen ramp [max_temp] [time_seconds]
+                max_temp = float(parts[2]) if len(parts) > 2 else 50.0
+                time_seconds = float(parts[3]) if len(parts) > 3 else 10.0
+                params = {"start": 15.0, "end": max_temp, "time_seconds": time_seconds}
                 self.generate_signal("ramp", params)
-                print(f"[INFO] Generating ramp signal: {samples} samples/step, start {start}C")
+                slope = (max_temp - 15.0) / time_seconds
+                print(f"[INFO] Generating ramp: 15°C to {max_temp}°C in {time_seconds}s (slope: {slope:.2f}°C/s)")
                 
             elif signal_type == "noise":
                 # gen noise - generates random data from 20-60°C at maximum rate
@@ -742,7 +892,7 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
 
     def cleanup(self):
         """Clean up resources when finishing."""
-        self.stop_octave_generator()
+        self.stop_all_generators()  # Use comprehensive cleanup
         if hasattr(self, 'gui_client'):
             self.gui_client.disconnect()
         if hasattr(self, 'ssh_remote'):
