@@ -87,6 +87,9 @@ class SimTempExternalGUI:
         # Bind cleanup on window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
+        # Schedule auto-connect after 2 seconds
+        self.root.after(2000, self.auto_connect)
+        
         logger.info("SimTemp External GUI initialized")
     
     def setup_gui(self):
@@ -456,6 +459,24 @@ class SimTempExternalGUI:
         if window_str in window_map:
             seconds = window_map[window_str]
             self.plot.set_time_window(seconds)
+    
+    def auto_connect(self):
+        """Automatically attempt to connect after GUI startup."""
+        logger.info("Attempting auto-connect to SimTemp sensor...")
+        
+        try:
+            # Get default connection parameters (host should be localhost, port 4445)
+            host = self.config_panel.host_entry.get()
+            port = self.config_panel.port_entry.get()
+            
+            logger.info(f"Auto-connecting to {host}:{port}")
+            
+            # Trigger connection via configuration panel
+            self.config_panel.connect_button.invoke()
+            
+        except Exception as e:
+            logger.warning(f"Auto-connect failed: {e}")
+            # Don't show error to user - they can manually connect if needed
     
     def on_closing(self):
         """Handle application closing."""

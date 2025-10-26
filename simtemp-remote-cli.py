@@ -594,6 +594,64 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
         if hasattr(self, 'qemu_process') and self.qemu_process:
             cleanup_qemu_processes()
 
+    def launch_gui(self):
+        """Launch the SimTemp GUI application."""
+        import subprocess
+        import os
+        
+        # Find the GUI directory relative to this script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        gui_dir = os.path.join(script_dir, 'simtemp', 'user', 'gui')
+        gui_script = os.path.join(gui_dir, 'run_gui.sh')
+        
+        # Check if GUI script exists
+        if not os.path.exists(gui_script):
+            print(f"[ERROR] GUI script not found at: {gui_script}")
+            print("[INFO] Available GUI files:")
+            if os.path.exists(gui_dir):
+                for file in os.listdir(gui_dir):
+                    print(f"  - {file}")
+            else:
+                print(f"  GUI directory not found: {gui_dir}")
+            return False
+        
+        print("[INFO] Starting SimTemp GUI...")
+        print(f"[INFO] GUI location: {gui_script}")
+        
+        try:
+            # Make script executable
+            os.chmod(gui_script, 0o755)
+            
+            # Launch GUI in background
+            process = subprocess.Popen(
+                ['bash', gui_script],
+                cwd=gui_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                preexec_fn=os.setsid  # Create new process group
+            )
+            
+            print(f"[INFO] GUI launched with PID: {process.pid}")
+            print("[INFO] GUI is starting in the background...")
+            
+            # Wait a moment to check if GUI started successfully
+            time.sleep(1)
+            if process.poll() is None:
+                print("[INFO] ✓ GUI appears to be running successfully")
+                return True
+            else:
+                stdout, stderr = process.communicate()
+                print("[ERROR] GUI failed to start:")
+                if stdout:
+                    print(f"STDOUT: {stdout.decode()}")
+                if stderr:
+                    print(f"STDERR: {stderr.decode()}")
+                return False
+                
+        except Exception as e:
+            print(f"[ERROR] Failed to launch GUI: {e}")
+            return False
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -621,6 +679,9 @@ Examples:
   
   # Read 100 samples
   %(prog)s --read --count 100
+  
+  # Launch GUI application
+  %(prog)s --gui
         """
     )
     
@@ -645,6 +706,8 @@ Examples:
                        help='Duration for continuous reading (0=infinite)')
     parser.add_argument('--count', type=int, metavar='SAMPLES',
                        help='Number of samples to read (0=infinite)')
+    parser.add_argument('--gui', action='store_true',
+                       help='Launch the SimTemp GUI application')
     
     args = parser.parse_args()
     
@@ -670,6 +733,22 @@ Examples:
             duration = args.duration or 0
             count = args.count or 0
             cli.read_temperature_continuous(duration, count)
+        
+        elif args.gui:
+            success = cli.launch_gui()
+            if success:
+                print("\n[INFO] GUI launched successfully!")
+                print("[INFO] You can now:")
+                print("  - Use the GUI for visual monitoring")
+                print("  - Continue using this CLI for command-line operations")
+                print("  - Press Ctrl+C to exit CLI (GUI will keep running)")
+                
+                # Automatically enter interactive mode after launching GUI
+                print("\n[INFO] Starting interactive CLI mode...")
+                cli.interactive_mode()
+            else:
+                print("[ERROR] Failed to launch GUI")
+                return 1
         
         elif args.interactive:
             cli.interactive_mode()
