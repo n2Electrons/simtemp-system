@@ -54,7 +54,7 @@ class RealTimePlot(ctk.CTkFrame):
         self.is_animating = False
         
         # Generate some initial data for testing
-        self.generate_test_data()
+        # self.generate_test_data()  # Disabled to prevent test data contamination
     
     def setup_colors(self):
         """Setup colors based on CustomTkinter appearance mode."""

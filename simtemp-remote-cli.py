@@ -156,7 +156,7 @@ class SimTempRemoteCLI:
         # Default Octave generator configuration
         self.octave_config = {
             "sample_rate": 5.0,  # Update every 200ms (1/0.2 = 5.0 Hz)
-            "duration": 100.0
+            "duration": 200.0
         }
         
         # Check QEMU and SSH
@@ -277,7 +277,8 @@ class SimTempRemoteCLI:
                 return False
             
             # Execute Octave in background
-            octave_command = f"nohup octave {script_file} > /tmp/octave.log 2>&1 &"
+            # octave_command = f"nohup octave {script_file} > /tmp/octave.log 2>&1 &"
+            octave_command = f"nohup octave {script_file} > /tmp/octave.log"
             result = self.ssh_remote.execute_command(octave_command)
             
             if result.return_code != 0:
