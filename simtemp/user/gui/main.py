@@ -17,8 +17,6 @@ Usage:
 """
 
 import customtkinter as ctk
-import tkinter as tk
-from tkinter import messagebox
 import threading
 import time
 import sys
@@ -42,9 +40,9 @@ from realtime_plot import RealTimePlot
 from configuration_panel import ConfigurationPanel
 from external_simtemp_client import ExternalSimTempClient
 
-# Configure logging
+# Configure logging - Only show important messages
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.WARNING,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -79,13 +77,12 @@ class CLIDataServer:
             self.server_socket.listen(1)
             self.running = True
             
-            logger.info(f"GUI Data Server listening on port {self.port}")
+            print(f"GUI Data Server listening on port {self.port}")
             
             while self.running:
                 try:
                     self.client_socket, addr = self.server_socket.accept()
-                    logger.info(f"✓ GUI client connected from {addr}")
-                    print(f"✓ GUI client connected from {addr}")
+                    print(f"✓ CLI client connected from {addr}")
                     
                     # Notify about CLI connection
                     if self.connection_callback:
@@ -94,35 +91,27 @@ class CLIDataServer:
                     while self.running:
                         try:
                             data = self.client_socket.recv(1024).decode('utf-8').strip()
-                            logger.debug(f"Received raw data: '{data}'")
                             if data:
                                 # Handle multiple JSON messages separated by newlines
                                 for line in data.split('\n'):
                                     line = line.strip()
                                     if line:
-                                        logger.debug(f"Processing line: '{line}'")
                                         # Check if it's a JSON temperature message
                                         if line.startswith('{') and line.endswith('}'):
                                             try:
                                                 temp_data = json.loads(line)
-                                                logger.debug(f"Parsed JSON: {temp_data}")
                                                 if self.data_callback:
                                                     self.data_callback(temp_data)
-                                            except json.JSONDecodeError as e:
-                                                logger.debug(f"JSON decode error for '{line}': {e}")
-                                        else:
-                                            # Handle text commands/status messages
-                                            logger.debug(f"Received text command: '{line}'")
+                                            except json.JSONDecodeError:
+                                                pass  # Ignore invalid JSON
                             else:
-                                logger.info("✗ GUI client disconnected")
-                                print("✗ GUI client disconnected")
+                                print("✗ CLI client disconnected")
                                 # Notify about CLI disconnection
                                 if self.connection_callback:
                                     self.connection_callback(False, None)
                                 break
-                        except socket.error as e:
-                            logger.info(f"✗ CLI connection lost: {e}")
-                            print(f"✗ CLI connection lost: {e}")
+                        except socket.error:
+                            print("✗ CLI connection lost")
                             # Notify about CLI disconnection
                             if self.connection_callback:
                                 self.connection_callback(False, None)
@@ -130,14 +119,11 @@ class CLIDataServer:
                             
                 except socket.error as e:
                     if self.running:
-                        logger.error(f"✗ CLI server socket error: {e}")
                         print(f"✗ CLI server socket error: {e}")
                         
         except Exception as e:
-            logger.error(f"✗ CLI server error: {e}")
             print(f"✗ CLI server error: {e}")
         finally:
-            logger.info("✗ GUI Data Server stopped")
             print("✗ GUI Data Server stopped")
             self.stop()
             
@@ -192,6 +178,10 @@ class SimTempExternalGUI:
         self.current_temperature = 25.0
         self.current_threshold = 45.0
         self.alarm_active = False
+        
+        # GUI update rate limiting to prevent grab conflicts
+        self.last_gui_update = 0
+        self.gui_update_interval = 0.1  # Minimum 100ms between GUI updates
 
         # GUI components
         self.dial = None
@@ -201,24 +191,16 @@ class SimTempExternalGUI:
         self.status_bar = None
 
         # Setup GUI (this will trigger matplotlib initialization)
-        print("Initializing GUI components...")
         self.setup_gui()
 
-        # Wait for matplotlib to finish initialization
-        print("Waiting for plot initialization...")
-        time.sleep(1)  # Give matplotlib time to finish font loading
-
-        # Now setup callbacks and start services
+        # Setup callbacks and start services
         self.setup_callbacks()
 
         # Start GUI data server
         self.cli_server.start()
-        logger.info("GUI Data Server started on port 4446")
 
         # Bind cleanup on window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-
-        logger.info("SimTemp External GUI initialized")
     
     def setup_gui(self):
         """Setup the complete GUI layout."""
@@ -432,13 +414,11 @@ class SimTempExternalGUI:
         self.threshold_display.configure(
             text=f"Threshold: {threshold:.1f}°C"
         )
-        
         logger.info(f"Threshold changed to {threshold:.1f}°C")
     
     def on_sample_rate_change(self, sample_rate):
         """Handle sample rate change from configuration panel."""
         logger.info(f"Sample rate changed to {sample_rate}ms")
-        # Sample rate is applied via configuration panel to sensor
     
     def on_connection_change(self, connected):
         """Handle connection state change."""
@@ -489,9 +469,10 @@ class SimTempExternalGUI:
                 self.plot.start_animation(1000)
                 
                 self.status_label.configure(text="Monitoring active - Receiving data")
-                logger.info("Started real-time monitoring")
             else:
-                messagebox.showerror("Error", "Failed to connect for monitoring")
+                # Use status message instead of modal dialog to avoid grab conflicts
+                self.status_label.configure(text="Error: Failed to connect for monitoring")
+                print("[ERROR] Failed to connect for monitoring")
         else:
             # Stop monitoring
             self.monitoring_active = False
@@ -505,7 +486,6 @@ class SimTempExternalGUI:
             self.plot.stop_animation()
             
             self.status_label.configure(text="Monitoring stopped")
-            logger.info("Stopped real-time monitoring")
     
     def on_new_data(self, sample):
         """Handle new temperature data sample."""
@@ -566,14 +546,19 @@ class SimTempExternalGUI:
     def export_plot_data(self):
         """Export plot data to CSV file."""
         if self.plot:
-            from tkinter import filedialog
-            filename = filedialog.asksaveasfilename(
-                defaultextension=".csv",
-                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
-            )
-            if filename:
-                self.plot.export_data(filename)
-                self.status_label.configure(text=f"Data exported to {filename}")
+            try:
+                from tkinter import filedialog
+                filename = filedialog.asksaveasfilename(
+                    defaultextension=".csv",
+                    filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+                )
+                if filename:
+                    self.plot.export_data(filename)
+                    self.status_label.configure(text=f"Data exported to {filename}")
+            except Exception as e:
+                # Handle grab conflicts or other dialog issues gracefully
+                self.status_label.configure(text="Export failed - try again")
+                logger.error(f"Export dialog error: {e}")
     
     def change_time_window(self, window_str):
         """Change plot time window."""
@@ -586,12 +571,13 @@ class SimTempExternalGUI:
         
         if window_str in window_map:
             seconds = window_map[window_str]
-            self.plot.set_time_window(seconds)
+            # Assume ~1 sample per second for data point calculation
+            # This gives reasonable display windows
+            max_points = max(60, seconds)  # Min 60 points, up to time window
+            self.plot.set_max_points(max_points)
     
     def on_closing(self):
         """Handle application closing."""
-        logger.info("Closing application...")
-        
         # Stop monitoring
         if self.monitoring_active:
             self.toggle_monitoring()
@@ -611,16 +597,20 @@ class SimTempExternalGUI:
         """Handle temperature data received from CLI"""
         try:
             temp_c = data.get('temperature_c', 0.0)
-            temp_mc = data.get('temperature_mc', 0)
             timestamp = data.get('timestamp', time.time())
             
-            logger.info(f"Received from CLI: {temp_c}°C")
+            # Show temperature sample clearly in console
+            print(f"Temperature Sample: {temp_c:.1f}°C")
             
-            # Update temperature in main thread with error handling
-            try:
-                self.root.after(0, self._update_temperature_display, temp_c, timestamp)
-            except Exception as e:
-                logger.error(f"Error scheduling GUI update: {e}")
+            # Rate limit GUI updates to prevent grab conflicts
+            current_time = time.time()
+            if current_time - self.last_gui_update >= self.gui_update_interval:
+                self.last_gui_update = current_time
+                # Update temperature in main thread with error handling
+                try:
+                    self.root.after(0, self._update_temperature_display, temp_c, timestamp)
+                except Exception as e:
+                    logger.error(f"Error scheduling GUI update: {e}")
             
         except Exception as e:
             logger.error(f"Error processing CLI data: {e}")
@@ -629,12 +619,10 @@ class SimTempExternalGUI:
         """Handle CLI connection state change"""
         try:
             if connected:
-                status_text = f"✓ GUI client connected from {addr[0]}:{addr[1]}"
-                logger.info(f"✓ GUI client connected from {addr[0]}:{addr[1]}")
+                status_text = f"✓ CLI client connected from {addr[0]}:{addr[1]}"
                 self.root.after(0, self._update_connection_status, True, status_text)
             else:
-                status_text = "✗ GUI client disconnected - Waiting for reconnection"
-                logger.info("✗ GUI client disconnected - Waiting for reconnection")
+                status_text = "✗ CLI client disconnected - Waiting for reconnection"
                 self.root.after(0, self._update_connection_status, False, status_text)
         except Exception as e:
             logger.error(f"Error handling CLI connection change: {e}")
@@ -642,6 +630,12 @@ class SimTempExternalGUI:
     def _update_connection_status(self, connected, status_text):
         """Update connection status in main thread"""
         try:
+            # Prevent grab conflicts by checking if there's an active grab
+            if self.root.grab_current() is not None:
+                # Reschedule if there's an active grab
+                self.root.after(100, self._update_connection_status, connected, status_text)
+                return
+                
             if connected:
                 self.connection_indicator.configure(
                     text="✓ GUI Client Connected",
@@ -662,7 +656,12 @@ class SimTempExternalGUI:
     def _update_temperature_display(self, temperature, timestamp=None):
         """Update GUI with new temperature data (runs in main thread)"""
         try:
-            logger.debug(f"Updating temperature display: {temperature}°C")
+            # Prevent grab conflicts by checking if there's an active grab
+            if self.root.grab_current() is not None:
+                # Reschedule if there's an active grab to avoid conflicts
+                self.root.after(50, self._update_temperature_display, temperature, timestamp)
+                return
+                
             self.current_temperature = temperature
             
             # Use provided timestamp or current time
@@ -675,28 +674,22 @@ class SimTempExternalGUI:
             # Update dial
             if self.dial and hasattr(self.dial, 'set_temperature'):
                 try:
-                    logger.debug("Updating dial...")
                     self.dial.set_temperature(temperature)
-                    logger.debug("Dial updated successfully")
                 except Exception as e:
                     logger.error(f"Error updating dial: {e}")
             
             # Update display
             if self.display and hasattr(self.display, 'set_value'):
                 try:
-                    logger.debug("Updating display...")
                     self.display.set_value(f"{temperature:.1f}")
-                    logger.debug("Display updated successfully")
                 except Exception as e:
                     logger.error(f"Error updating display: {e}")
             
             # Update plot
             if self.plot and hasattr(self.plot, 'add_data_point'):
                 try:
-                    logger.debug("Updating plot...")
                     # Use the actual timestamp from the data
                     self.plot.add_data_point(temperature, timestamp=timestamp)
-                    logger.debug("Plot updated successfully")
                 except Exception as e:
                     logger.error(f"Error updating plot: {e}")
             
@@ -704,44 +697,36 @@ class SimTempExternalGUI:
             if temperature > self.current_threshold:
                 if not self.alarm_active:
                     self.alarm_active = True
-                    logger.warning(f"Temperature alarm: {temperature}°C > {self.current_threshold}°C")
+                    print(f"🚨 ALARM: Temperature {temperature:.1f}°C exceeds "
+                          f"threshold {self.current_threshold:.1f}°C")
             else:
                 self.alarm_active = False
-                
-            logger.debug("Temperature display update completed")
                 
         except Exception as e:
             logger.error(f"Error in _update_temperature_display: {e}")
 
     def run(self):
         """Start the GUI application."""
-        logger.info("Starting SimTemp External GUI...")
-        
         try:
             self.root.mainloop()
         except KeyboardInterrupt:
-            logger.info("Application interrupted by user")
+            pass
         except Exception as e:
             logger.error(f"Application error: {e}")
-        finally:
-            logger.info("Application finished")
 
 
 def main():
     """Main entry point."""
-    print("=" * 60)
     print("SimTemp External GUI Application")
     print("Challenge 2025 - Temperature Sensor Monitor")
-    print("=" * 60)
-    print()
+    print("=" * 50)
     
     # Check if running in virtual environment
-    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and 
+    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and
                                        sys.base_prefix != sys.prefix):
         print("✓ Running in virtual environment")
     else:
         print("⚠ Not running in virtual environment")
-        print("  Consider running: source simtemp_gui_env/bin/activate")
     
     # Check dependencies
     try:
@@ -750,13 +735,9 @@ def main():
         print("✓ Dependencies available")
     except ImportError as e:
         print(f"✗ Missing dependencies: {e}")
-        print("  Run: pip install -r requirements.txt")
         return 1
     
-    print()
     print("Starting GUI application...")
-    print("Use the Configuration Panel to connect to your SimTemp sensor")
-    print()
     
     # Create and run application
     app = SimTempExternalGUI()

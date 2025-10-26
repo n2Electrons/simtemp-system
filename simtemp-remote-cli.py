@@ -217,9 +217,10 @@ class SimTempRemoteCLI:
         """Start Octave generator with default sine wave."""
         print("[INFO] Starting Octave generator automatically...")
         try:
-            # Generate faster, higher amplitude sine wave: 25C +/-25C, 1.0 Hz
-            self.generate_signal("sine", {"frequency": 1.0, "amplitude": 25, "offset": 25})
-            print("[INFO] Octave generator started with sine wave (25C +/-25C, 1.0 Hz)")
+            # Generate sine wave: DOUBLED amplitude for wider range
+            # Range: 10-45°C → -7.5-62.5°C, Center: 27.5°C, Amplitude: ±35°C, Frequency: 2.0 Hz
+            self.generate_signal("sine", {"frequency": 2.0, "amplitude": 35.0, "offset": 27.5})
+            print("[INFO] Octave generator started with sine wave (27.5C ±35C, 2.0 Hz, -7.5 to 62.5°C range)")
         except Exception as e:
             print(f"[ERROR] Failed to start Octave generator: {e}")
 
@@ -249,9 +250,9 @@ class SimTempRemoteCLI:
         if params is None:
             params = {}
         
-        # Default configuration by signal type - faster and greater amplitude
+        # Default configuration by signal type - doubled amplitude for wider range
         default_configs = {
-            "sine": {"frequency": 10.0, "amplitude": 45, "offset": 80},
+            "sine": {"frequency": 2.0, "amplitude": 35.0, "offset": 27.5},
             "ramp": {"slope": 8.0, "start": 10, "end": 40},
             "noise": {"mean": 25, "deviation": 20},
             "step": {"low_level": 10, "high_level": 40, "transition_time": 25}
@@ -506,6 +507,50 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
             print(f"[ERROR] Error setting threshold: {e}")
             return False
 
+    def generate_random_noise_to_gui(self):
+        """Generate random temperature noise data from 20-60°C at maximum rate and send to sensor port 4445"""
+        import random
+        import threading
+        import time
+        import socket
+        
+        print("[INFO] Starting HIGH-SPEED random noise generator: 20-60°C")
+        print("[INFO] Sending random data to sensor port 4445 at MAXIMUM RATE")
+        print("[INFO] Use 'run' command to read the generated data")
+        print("[INFO] Press Ctrl+C or use 'stop' command to stop")
+        
+        def noise_generator():
+            try:
+                while True:
+                    # Generate random temperature between 20-60°C with high variability
+                    # Add some more dramatic swings for better visual noise
+                    if random.random() < 0.8:  # 10% chance of extreme values
+                        temp = random.choice([20, 60])  # Extreme values
+                    else:
+                        temp = random.uniform(20, 60)  # Normal range
+                    
+                    # Send to sensor port 4445 (like other signal generators)
+                    try:
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(0.05)  # Very short timeout for maximum speed
+                        sock.connect(("127.0.0.1", 4445))
+                        # Convert to milliCelsius for sensor compatibility
+                        temp_mc = int(round(temp * 1000))  # Convert °C to mC
+                        temp_str = f"{temp_mc}\n"
+                        sock.send(temp_str.encode())
+                        sock.close()
+                    except Exception:
+                        pass  # Silent fail, keep generating at maximum speed
+                    
+                    # No delay for absolute maximum rate
+                    
+            except Exception as e:
+                print(f"[INFO] Noise generator stopped: {e}")
+        
+        # Start noise generator in background thread
+        noise_thread = threading.Thread(target=noise_generator, daemon=True)
+        noise_thread.start()
+
     def read_temperature_continuous(self, duration: int = 0, count: int = 0):
         """Read temperature continuously."""
         print(f"[INFO] Starting continuous temperature reading...")
@@ -534,7 +579,7 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                         temp_mc = int(temp_str)
                         temp_c = temp_mc / 1000.0
                         timestamp = time.strftime("%H:%M:%S")
-                        print(f"[{timestamp}] Temperature: {temp_c:.3f} C ({temp_mc} mC)")
+                        print(f"[{timestamp}] Temperature: {temp_c:.3f} C ({temp_mc} mC)   ===>")
                         
                         # Send to GUI if enabled
                         self.send_temp_to_gui(temp_c, temp_mc)
@@ -559,16 +604,17 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
         print("  status                    - Show current configuration")
         print("  samples <ms>              - Set sample rate in milliseconds")
         print("  thr <C>                   - Set temperature threshold")
-        print("  read [duration] [count]   - Read temperature (duration in sec, count max readings)")
+        print("  run [duration] [count]    - Run temperature reading (duration in sec, count max readings)")
         print("  gui on/off                - Enable/disable GUI connection")
-        print("  gen sine [freq] [amp] [offset]  - Generate sine wave signal")
-        print("  gen ramp [slope] [start]        - Generate ramp signal")  
-        print("  gen noise [mean] [std]          - Generate noise signal")
-        print("  gen step [low] [high] [time]    - Generate step signal")
+        print("  gen sine [samples] [amp] [offset] - Sine wave (default: 20 samples, 27.5±35°C)")
+        print("  gen ramp [samples] [start]       - Ramp signal (default: 80 samples, from 10°C)")
+        print("  gen noise                        - Noise signal (20-60°C at maximum rate)")
+        print("  gen step [low] [high] [time]     - Step signal (default: 10→40°C at 25%)")
         print("  stop                      - Stop generator")
         print("  help                      - Show this help")
         print("  exit, quit, q             - Exit")
         print("=" * 50)
+        print("\n[INFO] Sine wave ready. Type 'run' to start reading temperatures.")
         
         while True:
             try:
@@ -599,7 +645,7 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                             print("[ERROR] Usage: thr <C>")
                     except ValueError:
                         print("[ERROR] Threshold must be a number")
-                elif input_text.startswith("read"):
+                elif input_text.startswith("run"):
                     parts = input_text.split()
                     duration = int(parts[1]) if len(parts) > 1 else 0
                     count = int(parts[2]) if len(parts) > 2 else 0
@@ -614,11 +660,11 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                     print("  status                    - Show current configuration")
                     print("  samples <ms>              - Set sample rate in milliseconds")
                     print("  thr <C>                   - Set temperature threshold")
-                    print("  read [duration] [count]   - Read temperature")
-                    print("  gen sine [freq] [amp] [offset]  - Generate sine wave signal")
-                    print("  gen ramp [slope] [start]        - Generate ramp signal")
-                    print("  gen noise [mean] [std]          - Generate noise signal")
-                    print("  gen step [low] [high] [time]    - Generate step signal")
+                    print("  run [duration] [count]    - Run temperature reading")
+                    print("  gen sine [samples] [amp] [offset] - Sine wave (default: 20 samples, 27.5±35°C)")
+                    print("  gen ramp [samples] [start]       - Ramp signal (default: 80 samples, from 10°C)")
+                    print("  gen noise                        - Noise signal (20-60°C at maximum rate)")
+                    print("  gen step [low] [high] [time]     - Step signal (default: 10→40°C at 25%)")
                     print("  stop                      - Stop generator")
                     print("  exit, quit, q             - Exit")
                 elif input_text == "":
@@ -647,29 +693,30 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
         
         try:
             if signal_type == "sine":
-                # gen sine [freq] [amp] [offset]
-                freq = float(parts[2]) if len(parts) > 2 else 1.0
-                amp = float(parts[3]) if len(parts) > 3 else 25
-                offset = float(parts[4]) if len(parts) > 4 else 25
+                # gen sine [samples] [amp] [offset] - defaults for doubled amplitude range
+                samples = float(parts[2]) if len(parts) > 2 else 20  # 2.0 Hz default
+                amp = float(parts[3]) if len(parts) > 3 else 35.0    # ±35°C (doubled)
+                offset = float(parts[4]) if len(parts) > 4 else 27.5  # 27.5°C center
+                # Convert samples to frequency: higher samples = higher frequency
+                freq = samples / 10.0  # samples/10 gives reasonable frequency range
                 params = {"frequency": freq, "amplitude": amp, "offset": offset}
                 self.generate_signal("sine", params)
-                print(f"[INFO] Generating sine wave: {freq} Hz, +/-{amp}C, offset {offset}C")
+                print(f"[INFO] Generating sine wave: {samples} samples/period, +/-{amp}C, offset {offset}C")
                 
             elif signal_type == "ramp":
-                # gen ramp [slope] [start]
-                slope = float(parts[2]) if len(parts) > 2 else 8.0
+                # gen ramp [samples] [start]
+                samples = float(parts[2]) if len(parts) > 2 else 80
                 start = float(parts[3]) if len(parts) > 3 else 10
+                # Convert samples to slope: higher samples = faster ramp
+                slope = samples / 10.0  # samples/10 gives reasonable slope range
                 params = {"slope": slope, "start": start}
                 self.generate_signal("ramp", params)
-                print(f"[INFO] Generating ramp signal: slope {slope}C/s, start {start}C")
+                print(f"[INFO] Generating ramp signal: {samples} samples/step, start {start}C")
                 
             elif signal_type == "noise":
-                # gen noise [mean] [std]
-                mean = float(parts[2]) if len(parts) > 2 else 25
-                std = float(parts[3]) if len(parts) > 3 else 20
-                params = {"mean": mean, "deviation": std}
-                self.generate_signal("noise", params)
-                print(f"[INFO] Generating noise signal: mean {mean}C, std {std}C")
+                # gen noise - generates random data from 20-60°C at maximum rate
+                self.generate_random_noise_to_gui()
+                print("[INFO] Generating random noise: 20-60°C at maximum rate")
                 
             elif signal_type == "step":
                 # gen step [low] [high] [time]
@@ -688,6 +735,10 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
             print("[ERROR] Invalid parameters. Must be numbers.")
         except Exception as e:
             print(f"[ERROR] Error processing command: {e}")
+            return
+        
+        # Inform user that wave is ready, but don't auto-start reading
+        print("[INFO] Wave generated. Type 'run' to start reading temperatures.")
 
     def cleanup(self):
         """Clean up resources when finishing."""

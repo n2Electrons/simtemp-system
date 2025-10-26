@@ -27,13 +27,18 @@ class RealTimePlot(ctk.CTkFrame):
         self.width = width
         self.height = height
         
-        # Data storage
-        self.max_points = 300  # 5 minutes at 1Hz
+        # Data storage - Optimized for high-frequency noise
+        self.max_points = 1000  # Increased for high-speed data
         self.temperatures = deque(maxlen=self.max_points)
+        self.timestamps = deque(maxlen=self.max_points)
         self.threshold_temp = 45.0
         
+        # Plot update throttling for noise
+        self.last_update_time = 0
+        self.update_interval = 0.05  # 50ms minimum between updates (20 FPS max)
+        
         # Plot settings
-        self.temp_range = (-10, 100)
+        self.temp_range = (10, 85)  # Adjusted for 15-80°C noise range
         
         # Colors based on CustomTkinter theme
         self.setup_colors()
@@ -107,8 +112,11 @@ class RealTimePlot(ctk.CTkFrame):
                 self.ax.set_ylim(self.temp_range)
                 
                 # Initialize empty line plots
+                # Temperature line - optimized for noise visualization
                 self.temp_line, = self.ax.plot([], [], color=self.temp_color, 
-                                              linewidth=2, label='Temperature')
+                                              linewidth=1.5, alpha=0.8,
+                                              label='Temperature', 
+                                              marker='.', markersize=2)
                 self.threshold_line = self.ax.axhline(y=self.threshold_temp, 
                                                     color=self.threshold_color,
                                                     linestyle='--', linewidth=2, 
@@ -132,12 +140,20 @@ class RealTimePlot(ctk.CTkFrame):
                 mpl_logger.setLevel(old_level)
     
     def add_data_point(self, temperature, timestamp=None):
-        """Add a new temperature data point."""
-        self.temperatures.append(temperature)
+        """Add a new temperature data point with update throttling for high-frequency noise."""
+        import time
         
-        # Update plot if not animating
-        if not self.is_animating:
-            self.update_plot()
+        # Store the data point
+        self.temperatures.append(temperature)
+        current_time = time.time()
+        self.timestamps.append(timestamp or current_time)
+        
+        # Throttle updates for high-frequency noise data
+        if current_time - self.last_update_time >= self.update_interval:
+            # Update plot if not animating
+            if not self.is_animating:
+                self.update_plot()
+            self.last_update_time = current_time
     
     def set_threshold(self, threshold):
         """Update threshold temperature."""
@@ -155,29 +171,41 @@ class RealTimePlot(ctk.CTkFrame):
         self.canvas.draw()
     
     def update_plot(self):
-        """Update the temperature plot."""
+        """Update the temperature plot optimized for high-frequency noise data."""
         if len(self.temperatures) == 0:
             return
         
-        # Create sequential x-axis data starting from 0
+        # Use simple sequential x-axis for reliable plotting
         x_data = list(range(len(self.temperatures)))
+        y_data = list(self.temperatures)
         
         # Update temperature line
-        self.temp_line.set_data(x_data, list(self.temperatures))
+        self.temp_line.set_data(x_data, y_data)
         
-        # Update x-axis limits to show all data, starting from 0
-        if len(self.temperatures) > 0:
-            self.ax.set_xlim(0, max(len(self.temperatures), 10))
+        # Update x-axis limits - show last 200 points for noise visualization
+        if len(x_data) > 200:
+            # Show only recent data for better noise visualization
+            start_idx = len(x_data) - 200
+            x_data = x_data[start_idx:]
+            y_data = y_data[start_idx:]
+            self.temp_line.set_data(x_data, y_data)
+            self.ax.set_xlim(x_data[0], x_data[-1])
+        else:
+            self.ax.set_xlim(0, max(len(x_data), 10))
         
-        # Redraw canvas
-        self.canvas.draw()
+        # Ensure Y-axis shows the noise range properly
+        self.ax.set_ylim(10, 85)
+        
+        # Redraw canvas efficiently
+        self.canvas.draw_idle()  # Use draw_idle for better performance
     
-    def start_animation(self, interval=1000):
-        """Start real-time animation."""
+    def start_animation(self, interval=50):
+        """Start real-time animation optimized for noise data."""
         if self.animation is not None:
             self.animation.event_source.stop()
         
         self.is_animating = True
+        # Higher frame rate for noise visualization (50ms = 20 FPS)
         self.animation = FuncAnimation(
             self.fig, self._animate, interval=interval, blit=False)
         self.canvas.draw()
