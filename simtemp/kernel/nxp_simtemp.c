@@ -350,20 +350,29 @@ static int simtemp_generate_temperature(struct nxp_simtemp_data *data)
 	long parsed_temp;
 	int ret;
 	static int fallback_counter = 0;
+	loff_t pos = 0;
 	
-	/* Try to open /dev/tempsensor for reading */
+	/* Try to open /dev/tempsensor for reading (non-blocking to avoid timer stalls) */
 	sensor_file = filp_open("/dev/tempsensor", O_RDONLY | O_NONBLOCK, 0);
 	if (!IS_ERR(sensor_file)) {
 		/* Successfully opened sensor device */
 		memset(temp_buffer, 0, sizeof(temp_buffer));
-		bytes_read = kernel_read(sensor_file, temp_buffer, sizeof(temp_buffer) - 1, 0);
+		/* kernel_read expects a position pointer on 5.x kernels */
+		bytes_read = kernel_read(sensor_file, temp_buffer, sizeof(temp_buffer) - 1, &pos);
 		filp_close(sensor_file, NULL);
 		
 		if (bytes_read > 0) {
 			temp_buffer[bytes_read] = '\0';
 			ret = kstrtol(temp_buffer, 10, &parsed_temp);
 			if (!ret) {
-				new_temp = (int)parsed_temp;
+				/*
+				 * Interpret input as milliCelsius if magnitude is large, otherwise Celsius.
+				 * This avoids accidental 25,000°C if the producer sends milliC.
+				 */
+				if (parsed_temp > 1000 || parsed_temp < -1000)
+					new_temp = (int)(parsed_temp / 1000);
+				else
+					new_temp = (int)parsed_temp;
 				dev_dbg(data->dev, "Read temperature from sensor: %d°C\n", new_temp);
 				goto update_temp;
 			}
@@ -494,58 +503,46 @@ static ssize_t simtemp_read(struct file *filp, char __user *buf,
 	struct nxp_simtemp_data *data = filp->private_data;
 	size_t record_size = sizeof(struct simtemp_record);
 	char temp_str[32];
-	int temp_str_len;
+	size_t temp_str_len;
 	int ret;
 	
 	if (!data)
 		return -ENODEV;
 	
-	/* Generate fresh temperature reading */
-	simtemp_generate_temperature(data);
-	
-	/* For small reads (like cat), return simple text format */
-	if (count < record_size || *f_pos > 0) {
-		if (*f_pos > 0)
-			return 0;  /* EOF for subsequent reads */
-			
-		/* Convert temperature to milliCelsius and format as string */
+	/* If not first read, signal EOF for cat-like callers */
+	if (*f_pos > 0)
+		return 0;
+
+	/* Default path: textual one-shot read for blocking callers (e.g., cat) */
+	if (!(filp->f_flags & O_NONBLOCK)) {
+		/* Snapshot current temperature under lock to avoid races */
+		mutex_lock(&data->mutex);
 		snprintf(temp_str, sizeof(temp_str), "%d\n", data->temperature * 1000);
+		mutex_unlock(&data->mutex);
 		temp_str_len = strlen(temp_str);
-		
 		if (count < temp_str_len)
 			return -EINVAL;
-			
 		if (copy_to_user(buf, temp_str, temp_str_len))
 			return -EFAULT;
-			
 		*f_pos += temp_str_len;
 		return temp_str_len;
 	}
-	
-	/* For larger reads, return binary record format */
-	/* F-K4: Blocking read - wait for new sample unless O_NONBLOCK */
-	if (!(filp->f_flags & O_NONBLOCK)) {
-		ret = wait_event_interruptible(data->read_wait, 
-					       data->new_sample_available);
-		if (ret)
-			return ret; /* Interrupted by signal */
-	} else {
-		/* Non-blocking: return immediately if no data */
-		if (!data->new_sample_available)
-			return -EAGAIN;
-	}
-	
+
+	/* Non-blocking readers may request binary records */
+	if (count < record_size)
+		return -EINVAL;
+
+	/* Non-blocking: return immediately if no data */
+	if (!data->new_sample_available)
+		return -EAGAIN;
+
 	mutex_lock(&data->mutex);
-	
-	/* Clear the flag since we're consuming the sample */
-	data->new_sample_available = false;
-	
+	data->new_sample_available = false; /* consume */
 	if (copy_to_user(buf, &data->record, record_size)) {
 		mutex_unlock(&data->mutex);
 		return -EFAULT;
 	}
 	mutex_unlock(&data->mutex);
-	
 	return record_size;
 }
 
