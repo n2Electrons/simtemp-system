@@ -24,6 +24,8 @@ import time
 import sys
 import os
 import logging
+import socket
+import json
 
 # Add CLI path for importing modules
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'cli'))
@@ -37,10 +39,107 @@ from external_simtemp_client import ExternalSimTempClient
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+class CLIDataServer:
+    """TCP Server to receive temperature data from CLI"""
+    
+    def __init__(self, port=4446, data_callback=None, connection_callback=None):
+        self.port = port
+        self.data_callback = data_callback
+        self.connection_callback = connection_callback
+        self.server_socket = None
+        self.client_socket = None
+        self.running = False
+        self.server_thread = None
+        
+    def start(self):
+        """Start the TCP server"""
+        if self.running:
+            return
+            
+        self.server_thread = threading.Thread(target=self._run_server, daemon=True)
+        self.server_thread.start()
+        
+    def _run_server(self):
+        """Run the TCP server loop"""
+        try:
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.server_socket.bind(("127.0.0.1", self.port))
+            self.server_socket.listen(1)
+            self.running = True
+            
+            logger.info(f"CLI Data Server listening on port {self.port}")
+            
+            while self.running:
+                try:
+                    self.client_socket, addr = self.server_socket.accept()
+                    logger.info(f"✓ CLI connected from {addr}")
+                    print(f"✓ CLI connected from {addr}")
+                    
+                    # Notify about CLI connection
+                    if self.connection_callback:
+                        self.connection_callback(True, addr)
+                    
+                    while self.running:
+                        try:
+                            data = self.client_socket.recv(1024).decode('utf-8').strip()
+                            logger.debug(f"Received raw data: '{data}'")
+                            if data:
+                                # Handle multiple JSON messages separated by newlines
+                                for line in data.split('\n'):
+                                    line = line.strip()
+                                    if line:
+                                        logger.debug(f"Processing line: '{line}'")
+                                        # Check if it's a JSON temperature message
+                                        if line.startswith('{') and line.endswith('}'):
+                                            try:
+                                                temp_data = json.loads(line)
+                                                logger.debug(f"Parsed JSON: {temp_data}")
+                                                if self.data_callback:
+                                                    self.data_callback(temp_data)
+                                            except json.JSONDecodeError as e:
+                                                logger.debug(f"JSON decode error for '{line}': {e}")
+                                        else:
+                                            # Handle text commands/status messages
+                                            logger.debug(f"Received text command: '{line}'")
+                            else:
+                                logger.info("Client disconnected")
+                                # Notify about CLI disconnection
+                                if self.connection_callback:
+                                    self.connection_callback(False, None)
+                                break
+                        except socket.error as e:
+                            logger.error(f"Socket error receiving data: {e}")
+                            break
+                            
+                except socket.error as e:
+                    if self.running:
+                        logger.error(f"Server socket error: {e}")
+                        
+        except Exception as e:
+            logger.error(f"Server error: {e}")
+        finally:
+            self.stop()
+            
+    def stop(self):
+        """Stop the TCP server"""
+        self.running = False
+        if self.client_socket:
+            try:
+                self.client_socket.close()
+            except:
+                pass
+        if self.server_socket:
+            try:
+                self.server_socket.close()
+            except:
+                pass
 
 
 class SimTempExternalGUI:
@@ -68,6 +167,13 @@ class SimTempExternalGUI:
         self.monitoring_active = False
         self.monitoring_thread = None
         
+        # CLI Data Server for receiving data from CLI
+        self.cli_server = CLIDataServer(
+            port=4446, 
+            data_callback=self.on_cli_data_received,
+            connection_callback=self.on_cli_connection_change
+        )
+        
         # Current sensor data
         self.current_temperature = 25.0
         self.current_threshold = 45.0
@@ -84,11 +190,12 @@ class SimTempExternalGUI:
         self.setup_gui()
         self.setup_callbacks()
         
+        # Start CLI data server
+        self.cli_server.start()
+        logger.info("CLI Data Server started on port 4446")
+        
         # Bind cleanup on window close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        
-        # Schedule auto-connect after 2 seconds
-        self.root.after(2000, self.auto_connect)
         
         logger.info("SimTemp External GUI initialized")
     
@@ -144,8 +251,8 @@ class SimTempExternalGUI:
         
         self.connection_indicator = ctk.CTkLabel(
             connection_frame,
-            text="Disconnected",
-            text_color="white",
+            text="⏳ Waiting for CLI connection",
+            text_color="yellow",
             font=ctk.CTkFont(size=14, weight="bold")
         )
         self.connection_indicator.pack(side="right")
@@ -261,7 +368,7 @@ class SimTempExternalGUI:
         
         self.status_label = ctk.CTkLabel(
             status_frame,
-            text="Ready - Click Connect to start monitoring",
+            text="Server listening on port 4446 - Waiting for CLI connection",
             font=ctk.CTkFont(size=12)
         )
         self.status_label.pack(side="left", padx=10, pady=5)
@@ -460,39 +567,126 @@ class SimTempExternalGUI:
             seconds = window_map[window_str]
             self.plot.set_time_window(seconds)
     
-    def auto_connect(self):
-        """Automatically attempt to connect after GUI startup."""
-        logger.info("Attempting auto-connect to SimTemp sensor...")
-        
-        try:
-            # Get default connection parameters (host should be localhost, port 4445)
-            host = self.config_panel.host_entry.get()
-            port = self.config_panel.port_entry.get()
-            
-            logger.info(f"Auto-connecting to {host}:{port}")
-            
-            # Trigger connection via configuration panel
-            self.config_panel.connect_button.invoke()
-            
-        except Exception as e:
-            logger.warning(f"Auto-connect failed: {e}")
-            # Don't show error to user - they can manually connect if needed
-    
     def on_closing(self):
         """Handle application closing."""
-        logger.info("Application closing...")
+        logger.info("Closing application...")
         
         # Stop monitoring
         if self.monitoring_active:
             self.toggle_monitoring()
         
-        # Cleanup
+        # Disconnect from sensor
         if self.data_client:
             self.data_client.disconnect()
         
+        # Stop CLI server
+        if hasattr(self, 'cli_server'):
+            self.cli_server.stop()
+        
         self.root.quit()
         self.root.destroy()
-    
+
+    def on_cli_data_received(self, data):
+        """Handle temperature data received from CLI"""
+        try:
+            temp_c = data.get('temperature_c', 0.0)
+            temp_mc = data.get('temperature_mc', 0)
+            timestamp = data.get('timestamp', time.time())
+            
+            logger.info(f"Received from CLI: {temp_c}°C")
+            
+            # Update temperature in main thread with error handling
+            try:
+                self.root.after(0, self._update_temperature_display, temp_c, timestamp)
+            except Exception as e:
+                logger.error(f"Error scheduling GUI update: {e}")
+            
+        except Exception as e:
+            logger.error(f"Error processing CLI data: {e}")
+
+    def on_cli_connection_change(self, connected, addr=None):
+        """Handle CLI connection state change"""
+        try:
+            if connected:
+                status_text = f"✓ CLI connected from {addr[0]}:{addr[1]}"
+                self.root.after(0, self._update_connection_status, True, status_text)
+            else:
+                status_text = "⏳ Waiting for CLI connection"
+                self.root.after(0, self._update_connection_status, False, status_text)
+        except Exception as e:
+            logger.error(f"Error handling CLI connection change: {e}")
+
+    def _update_connection_status(self, connected, status_text):
+        """Update connection status in main thread"""
+        try:
+            if connected:
+                self.connection_indicator.configure(
+                    text="✓ CLI Connected",
+                    text_color="lightgreen"
+                )
+                self.status_label.configure(text=status_text)
+            else:
+                self.connection_indicator.configure(
+                    text="⏳ Waiting for CLI connection",
+                    text_color="yellow"
+                )
+                self.status_label.configure(
+                    text="Server listening on port 4446 - Waiting for CLI connection"
+                )
+        except Exception as e:
+            logger.error(f"Error updating connection status: {e}")
+
+    def _update_temperature_display(self, temperature, timestamp=None):
+        """Update GUI with new temperature data (runs in main thread)"""
+        try:
+            logger.debug(f"Updating temperature display: {temperature}°C")
+            self.current_temperature = temperature
+            
+            # Use provided timestamp or current time
+            if timestamp is None:
+                timestamp = time.time()
+            
+            # Update dial
+            if self.dial and hasattr(self.dial, 'set_temperature'):
+                try:
+                    logger.debug("Updating dial...")
+                    self.dial.set_temperature(temperature)
+                    logger.debug("Dial updated successfully")
+                except Exception as e:
+                    logger.error(f"Error updating dial: {e}")
+            
+            # Update display
+            if self.display and hasattr(self.display, 'set_value'):
+                try:
+                    logger.debug("Updating display...")
+                    self.display.set_value(f"{temperature:.1f}")
+                    logger.debug("Display updated successfully")
+                except Exception as e:
+                    logger.error(f"Error updating display: {e}")
+            
+            # Update plot
+            if self.plot and hasattr(self.plot, 'add_data_point'):
+                try:
+                    logger.debug("Updating plot...")
+                    # Use the actual timestamp from the data
+                    self.plot.add_data_point(temperature, timestamp=timestamp)
+                    logger.debug("Plot updated successfully")
+                except Exception as e:
+                    logger.error(f"Error updating plot: {e}")
+            
+            # Check threshold
+            if temperature > self.current_threshold:
+                if not self.alarm_active:
+                    self.alarm_active = True
+                    logger.warning(f"Temperature alarm: {temperature}°C > {self.current_threshold}°C")
+            else:
+                self.alarm_active = False
+                
+            logger.debug("Temperature display update completed")
+                
+        except Exception as e:
+            logger.error(f"Error in _update_temperature_display: {e}")
+
     def run(self):
         """Start the GUI application."""
         logger.info("Starting SimTemp External GUI...")

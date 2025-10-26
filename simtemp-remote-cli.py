@@ -19,6 +19,8 @@ import argparse
 import subprocess
 import signal
 import tempfile
+import socket
+import json
 from typing import Optional
 
 # Add simtemp tests directory to path
@@ -31,6 +33,60 @@ except ImportError as e:
     print(f"Error importing test_utils: {e}")
     print("Make sure you're running this from the project root directory")
     sys.exit(1)
+
+
+class GUIClient:
+    """Client to send temperature data to GUI"""
+    
+    def __init__(self, host="127.0.0.1", port=4446):
+        self.host = host
+        self.port = port
+        self.socket = None
+        self.connected = False
+        
+    def connect(self):
+        """Try to connect to GUI"""
+        try:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.settimeout(2.0)  # 2 second timeout
+            self.socket.connect((self.host, self.port))
+            self.connected = True
+            print(f"[INFO] Connected to GUI at {self.host}:{self.port}")
+            return True
+        except (socket.error, ConnectionRefusedError, socket.timeout):
+            self.connected = False
+            return False
+            
+    def send_temperature(self, temp_c, temp_mc=None):
+        """Send temperature data to GUI"""
+        if not self.connected:
+            return False
+            
+        try:
+            if temp_mc is None:
+                temp_mc = int(temp_c * 1000)
+                
+            # Send data in the format the GUI expects
+            data = json.dumps({
+                "temperature_c": temp_c,
+                "temperature_mc": temp_mc,
+                "timestamp": time.time()
+            }) + "\n"
+            
+            self.socket.send(data.encode('utf-8'))
+            return True
+        except (socket.error, BrokenPipeError):
+            self.connected = False
+            return False
+            
+    def disconnect(self):
+        """Disconnect from GUI"""
+        if self.socket:
+            try:
+                self.socket.close()
+            except:
+                pass
+        self.connected = False
 
 
 class SSHRemoteCommand:
@@ -64,14 +120,19 @@ class SSHRemoteCommand:
 class SimTempRemoteCLI:
     """Remote CLI to configure SimTemp via SSH with Octave generator"""
     
-    def __init__(self, ssh_port=2222, auto_start_qemu=True):
+    def __init__(self, ssh_port=2222, auto_start_qemu=True, disable_auto_generator=False):
         """Initialize the remote CLI with SSH configuration and Octave generator."""
         self.ssh_port = ssh_port
         self.auto_start_qemu = auto_start_qemu
+        self.disable_auto_generator = disable_auto_generator
         self.sysfs_base = "/sys/devices/platform/simtemp"
         self.device_path = "/dev/simtemp0"
         self.octave_process = None
         self.temp_script_file = None
+        
+        # GUI client for sending temperature data
+        self.gui_client = GUIClient()
+        self.gui_enabled = False
         
         # Default Octave generator configuration
         self.octave_config = {
@@ -109,8 +170,9 @@ class SimTempRemoteCLI:
         
         self.ssh_remote = SSHRemoteCommand(port=self.ssh_port)
         
-        # Auto-start Octave generator
-        self.start_octave_generator()
+        # Auto-start Octave generator (unless disabled)
+        if not self.disable_auto_generator:
+            self.start_octave_generator()
 
     def get_socket_port_from_marker(self):
         """Get socket port from QEMU session marker"""
@@ -140,7 +202,33 @@ class SimTempRemoteCLI:
             self.generate_signal("sine", {"frequency": 0.1, "amplitude": 10, "offset": 25})
             print("[INFO] Octave generator started with sine wave (25C +/-10C, 0.1 Hz)")
         except Exception as e:
-            print(f"[WARNING] Error starting Octave generator: {e}")
+            print(f"[ERROR] Failed to start Octave generator: {e}")
+
+    def enable_gui_connection(self, enable=True):
+        """Enable or disable GUI connection for temperature data."""
+        if enable:
+            self.gui_enabled = True
+            print("[INFO] GUI data transmission enabled")
+        else:
+            self.gui_client.disconnect()
+            self.gui_enabled = False
+            print("[INFO] GUI data transmission disabled")
+
+    def send_temp_to_gui(self, temp_c, temp_mc=None):
+        """Send temperature data to GUI if connected."""
+        if self.gui_enabled:
+            # Try to connect if not connected
+            if not self.gui_client.connected:
+                if not self.gui_client.connect():
+                    print("[WARNING] Failed to connect to GUI")
+                    return
+                else:
+                    print("[INFO] Connected to GUI for data transmission")
+            
+            # Send data
+            if not self.gui_client.send_temperature(temp_c, temp_mc):
+                print("[WARNING] Failed to send data to GUI")
+                self.gui_client.connected = False  # Mark as disconnected for retry
 
     def generate_signal(self, signal_type, params=None):
         """Generate temperature signal using Octave - writes to QEMU socket.
@@ -437,6 +525,10 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                         temp_c = temp_mc / 1000.0
                         timestamp = time.strftime("%H:%M:%S")
                         print(f"[{timestamp}] Temperature: {temp_c:.3f} C ({temp_mc} mC)")
+                        
+                        # Send to GUI if enabled
+                        self.send_temp_to_gui(temp_c, temp_mc)
+                        
                         readings_done += 1
                     except ValueError:
                         print(f"[ERROR] Invalid temperature value: {temp_str}")
@@ -458,6 +550,7 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
         print("  samples <ms>              - Set sample rate in milliseconds")
         print("  thr <C>                   - Set temperature threshold")
         print("  read [duration] [count]   - Read temperature (duration in sec, count max readings)")
+        print("  gui on/off                - Enable/disable GUI connection")
         print("  gen sine [freq] [amp] [offset]  - Generate sine wave signal")
         print("  gen ramp [slope] [start]        - Generate ramp signal")  
         print("  gen noise [mean] [std]          - Generate noise signal")
@@ -501,6 +594,17 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                     duration = int(parts[1]) if len(parts) > 1 else 0
                     count = int(parts[2]) if len(parts) > 2 else 0
                     self.read_temperature_continuous(duration, count)
+                elif input_text.startswith("gui "):
+                    parts = input_text.split()
+                    if len(parts) >= 2:
+                        if parts[1] == "on":
+                            self.enable_gui_connection(True)
+                        elif parts[1] == "off":
+                            self.enable_gui_connection(False)
+                        else:
+                            print("[ERROR] Usage: gui on|off")
+                    else:
+                        print("[ERROR] Usage: gui on|off")
                 elif input_text.startswith("gen "):
                     self.process_gen_command(input_text)
                 elif input_text == "stop":
@@ -589,68 +693,12 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
     def cleanup(self):
         """Clean up resources when finishing."""
         self.stop_octave_generator()
+        if hasattr(self, 'gui_client'):
+            self.gui_client.disconnect()
         if hasattr(self, 'ssh_remote'):
             self.ssh_remote.cleanup()
         if hasattr(self, 'qemu_process') and self.qemu_process:
             cleanup_qemu_processes()
-
-    def launch_gui(self):
-        """Launch the SimTemp GUI application."""
-        import subprocess
-        import os
-        
-        # Find the GUI directory relative to this script
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        gui_dir = os.path.join(script_dir, 'simtemp', 'user', 'gui')
-        gui_script = os.path.join(gui_dir, 'run_gui.sh')
-        
-        # Check if GUI script exists
-        if not os.path.exists(gui_script):
-            print(f"[ERROR] GUI script not found at: {gui_script}")
-            print("[INFO] Available GUI files:")
-            if os.path.exists(gui_dir):
-                for file in os.listdir(gui_dir):
-                    print(f"  - {file}")
-            else:
-                print(f"  GUI directory not found: {gui_dir}")
-            return False
-        
-        print("[INFO] Starting SimTemp GUI...")
-        print(f"[INFO] GUI location: {gui_script}")
-        
-        try:
-            # Make script executable
-            os.chmod(gui_script, 0o755)
-            
-            # Launch GUI in background
-            process = subprocess.Popen(
-                ['bash', gui_script],
-                cwd=gui_dir,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                preexec_fn=os.setsid  # Create new process group
-            )
-            
-            print(f"[INFO] GUI launched with PID: {process.pid}")
-            print("[INFO] GUI is starting in the background...")
-            
-            # Wait a moment to check if GUI started successfully
-            time.sleep(1)
-            if process.poll() is None:
-                print("[INFO] ✓ GUI appears to be running successfully")
-                return True
-            else:
-                stdout, stderr = process.communicate()
-                print("[ERROR] GUI failed to start:")
-                if stdout:
-                    print(f"STDOUT: {stdout.decode()}")
-                if stderr:
-                    print(f"STDERR: {stderr.decode()}")
-                return False
-                
-        except Exception as e:
-            print(f"[ERROR] Failed to launch GUI: {e}")
-            return False
 
 
 def main():
@@ -679,9 +727,6 @@ Examples:
   
   # Read 100 samples
   %(prog)s --read --count 100
-  
-  # Launch GUI application
-  %(prog)s --gui
         """
     )
     
@@ -694,6 +739,8 @@ Examples:
     # Actions
     parser.add_argument('--interactive', '-i', action='store_true',
                        help='Interactive mode (default behavior)')
+    parser.add_argument('--gui', action='store_true',
+                       help='Enable GUI connection for temperature data')
     parser.add_argument('--status', action='store_true',
                        help='Show current configuration')
     parser.add_argument('--set-rate', type=int, metavar='MS',
@@ -706,18 +753,25 @@ Examples:
                        help='Duration for continuous reading (0=infinite)')
     parser.add_argument('--count', type=int, metavar='SAMPLES',
                        help='Number of samples to read (0=infinite)')
-    parser.add_argument('--gui', action='store_true',
-                       help='Launch the SimTemp GUI application')
     
     args = parser.parse_args()
     
     # Create CLI instance
     cli = SimTempRemoteCLI(
         ssh_port=args.ssh_port,
-        auto_start_qemu=args.auto_start
+        auto_start_qemu=args.auto_start,
+        disable_auto_generator=args.gui  # Disable generator when GUI is used
     )
     
+    # Enable GUI connection if requested
+    if args.gui:
+        cli.enable_gui_connection(True)
+    
     try:
+        # Enable GUI connection if requested
+        if args.gui:
+            cli.enable_gui_connection(True)
+        
         # Execute actions
         if args.status:
             cli.show_current_config()
@@ -733,22 +787,6 @@ Examples:
             duration = args.duration or 0
             count = args.count or 0
             cli.read_temperature_continuous(duration, count)
-        
-        elif args.gui:
-            success = cli.launch_gui()
-            if success:
-                print("\n[INFO] GUI launched successfully!")
-                print("[INFO] You can now:")
-                print("  - Use the GUI for visual monitoring")
-                print("  - Continue using this CLI for command-line operations")
-                print("  - Press Ctrl+C to exit CLI (GUI will keep running)")
-                
-                # Automatically enter interactive mode after launching GUI
-                print("\n[INFO] Starting interactive CLI mode...")
-                cli.interactive_mode()
-            else:
-                print("[ERROR] Failed to launch GUI")
-                return 1
         
         elif args.interactive:
             cli.interactive_mode()

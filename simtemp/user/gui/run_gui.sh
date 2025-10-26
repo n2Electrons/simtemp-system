@@ -19,14 +19,14 @@ echo
 
 # Check if virtual environment exists
 if [ ! -d "$VENV_DIR" ]; then
-    echo "❌ Virtual environment not found at: $VENV_DIR"
+    echo "Virtual environment not found at: $VENV_DIR"
     echo "Creating virtual environment..."
     
     cd "$SCRIPT_DIR"
     python3 -m venv simtemp_gui_env
     
     if [ $? -ne 0 ]; then
-        echo "❌ Failed to create virtual environment"
+        echo " Failed to create virtual environment"
         exit 1
     fi
     
@@ -34,26 +34,26 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 # Activate virtual environment
-echo "🔧 Activating virtual environment..."
+echo " Activating virtual environment..."
 source "$VENV_DIR/bin/activate"
 
 if [ $? -ne 0 ]; then
-    echo "❌ Failed to activate virtual environment"
+    echo " Failed to activate virtual environment"
     exit 1
 fi
 
 echo "✓ Virtual environment activated"
 
 # Check if dependencies are installed
-echo "🔧 Checking dependencies..."
+echo " Checking dependencies..."
 python3 -c "import customtkinter, matplotlib" 2>/dev/null
 
 if [ $? -ne 0 ]; then
-    echo "📦 Installing dependencies..."
+    echo " Installing dependencies..."
     pip install -r "$SCRIPT_DIR/requirements.txt"
     
-    if [ $? -ne 0 ]; then
-        echo "❌ Failed to install dependencies"
+    if [  -ne 0 ]; then
+        echo " Failed to install dependencies"
         exit 1
     fi
     
@@ -64,7 +64,7 @@ fi
 
 # Launch GUI application
 echo
-echo "🚀 Starting SimTemp External GUI..."
+echo " Starting SimTemp External GUI..."
 echo "   Close the GUI window or press Ctrl+C to exit"
 echo
 
@@ -72,4 +72,4 @@ cd "$SCRIPT_DIR"
 python3 main.py
 
 echo
-echo "👋 SimTemp External GUI closed"
+echo " SimTemp External GUI closed"

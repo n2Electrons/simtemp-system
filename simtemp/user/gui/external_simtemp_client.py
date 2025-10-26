@@ -30,7 +30,7 @@ class ExternalSimTempClient:
     the SimTemp sensor on the ARM target system.
     """
     
-    def __init__(self, host: str = "127.0.0.1", port: int = 4445,
+    def __init__(self, host: str = "127.0.0.1", port: int = 4446,
                  timeout: float = 10.0):
         """
         Initialize the external SimTemp client.

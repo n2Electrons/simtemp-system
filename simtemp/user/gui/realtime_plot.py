@@ -117,6 +117,10 @@ class RealTimePlot(ctk.CTkFrame):
         """Add a new temperature data point."""
         if timestamp is None:
             timestamp = datetime.now()
+        elif isinstance(timestamp, (int, float)):
+            # Convert Unix timestamp to datetime
+            timestamp = datetime.fromtimestamp(timestamp)
+        # If timestamp is already a datetime object, use it as-is
         
         self.timestamps.append(timestamp)
         self.temperatures.append(temperature)
