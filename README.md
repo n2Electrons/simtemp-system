@@ -1,5 +1,71 @@
 # Challenge 2025 Temperature Sensor System with Octave Integration
 
+## Índice / Table of Contents
+
+- [Demo Script - Quick Start](#demo-script---quick-start)
+  - [What the Demo Script Does](#what-the-demo-script-does)
+  - [System Architecture](#system-architecture)
+- [Project Structure](#project-structure)
+- [QEMU Infrastructure](#qemu-infrastructure)
+  - [Host QEMU Integration (October 2025)](#host-qemu-integration-october-2025)
+- [Challenge 2025 System Compliance](#challenge-2025-system-compliance)
+  - [Kernel Module: `simtemp`](#kernel-module-simtemp)
+  - [User Space Applications](#user-space-applications)
+  - [Binary Record Format](#binary-record-format)
+- [Data Flow](#data-flow)
+- [Docker Development Environment](#docker-development-environment)
+  - [Automated Setup (Recommended)](#automated-setup-recommended)
+  - [Manual Docker Commands](#manual-docker-commands)
+  - [Development Features](#development-features)
+- [Quick Setup](#quick-setup)
+  - [For New Team Members](#for-new-team-members)
+- [Git Hooks for PR Mapping (Recommended)](#git-hooks-for-pr-mapping-recommended)
+  - [Why Use Git Hooks?](#why-use-git-hooks)
+  - [Setup (One-time per developer)](#setup-one-time-per-developer)
+  - [How It Works](#how-it-works)
+
+---
+
+## Demo Script - Quick Start
+
+The `./run_demo.sh` script provides a complete demonstration environment that automatically sets up and launches all system components:
+
+### What the Demo Script Does
+
+```bash
+./run_demo.sh
+```
+
+This script performs the following actions:
+
+1. **Builds the Kernel Driver**: 
+   - Compiles the SimTemp kernel module for ARM architecture
+   - Creates `nxp_simtemp.ko` driver file
+
+2. **Launches GUI Application**:
+   - Starts the Python GUI in a separate terminal window
+   - GUI listens on port 4446 for temperature data from CLI
+   - Provides real-time temperature visualization and controls
+
+3. **Starts QEMU Virtual Machine**:
+   - Launches ARM QEMU environment with SimTemp firmware
+   - Sets up telnet server on port 4445 for sensor simulation
+   - Loads the compiled kernel driver in the virtual environment
+
+4. **Runs Interactive CLI**:
+   - Starts the main SimTemp CLI tool (`simtemp-remote-cli.py`)
+   - CLI connects to QEMU via telnet (port 4445) for sensor control
+   - CLI connects to GUI via socket (port 4446) for data visualization
+   - Provides interactive commands for temperature generation and monitoring
+
+### System Architecture
+
+```
+[GUI App] <--socket:4446--> [CLI Tool] <--telnet:4445--> [QEMU VM + Driver]
+```
+
+The demo creates a complete testing environment where you can generate temperature signals (sine, ramp, noise) through the CLI, which get processed by the kernel driver in QEMU, and visualized in real-time through the GUI.
+
 ## Quick Setup
 
 ### For New Team Members
@@ -323,10 +389,10 @@ timeout 10 /host-workspace/deployment/qemu/scripts/run_qemu.sh"
 ```
 
 **Benefits of Host Integration:**
-- ✅ **No complex dependencies**: Uses stable host QEMU instead of container installation
-- ✅ **Immediate availability**: QEMU tools accessible via host filesystem mounting
-- ✅ **Easy maintenance**: Host QEMU updates don't require container rebuilds
-- ✅ **Reliable execution**: F-K1-TC-002 test now passes consistently
+-  **No complex dependencies**: Uses stable host QEMU instead of container installation
+-  **Immediate availability**: QEMU tools accessible via host filesystem mounting
+-  **Easy maintenance**: Host QEMU updates don't require container rebuilds
+-  **Reliable execution**: F-K1-TC-002 test now passes consistently
 
 For detailed implementation process and troubleshooting, see:
 **[deployment/docker/QEMU_HOST_INTEGRATION_SETUP.md](deployment/docker/QEMU_HOST_INTEGRATION_SETUP.md)**
