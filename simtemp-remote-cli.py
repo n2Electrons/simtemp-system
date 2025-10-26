@@ -155,7 +155,7 @@ class SimTempRemoteCLI:
         
         # Default Octave generator configuration
         self.octave_config = {
-            "sample_rate": 10.0,
+            "sample_rate": 5.0,  # Update every 200ms (1/0.2 = 5.0 Hz)
             "duration": 100.0
         }
         
@@ -217,9 +217,9 @@ class SimTempRemoteCLI:
         """Start Octave generator with default sine wave."""
         print("[INFO] Starting Octave generator automatically...")
         try:
-            # Generate default sine wave: 25C +/-10C, 0.1 Hz
-            self.generate_signal("sine", {"frequency": 0.1, "amplitude": 10, "offset": 25})
-            print("[INFO] Octave generator started with sine wave (25C +/-10C, 0.1 Hz)")
+            # Generate faster, higher amplitude sine wave: 25C +/-25C, 1.0 Hz
+            self.generate_signal("sine", {"frequency": 1.0, "amplitude": 25, "offset": 25})
+            print("[INFO] Octave generator started with sine wave (25C +/-25C, 1.0 Hz)")
         except Exception as e:
             print(f"[ERROR] Failed to start Octave generator: {e}")
 
@@ -249,12 +249,12 @@ class SimTempRemoteCLI:
         if params is None:
             params = {}
         
-        # Default configuration by signal type
+        # Default configuration by signal type - faster and greater amplitude
         default_configs = {
-            "sine": {"frequency": 0.1, "amplitude": 10, "offset": 25},
-            "ramp": {"slope": 1.0, "start": 20, "end": 30},
-            "noise": {"mean": 25, "deviation": 5},
-            "step": {"low_level": 20, "high_level": 30, "transition_time": 50}
+            "sine": {"frequency": 10.0, "amplitude": 45, "offset": 80},
+            "ramp": {"slope": 8.0, "start": 10, "end": 40},
+            "noise": {"mean": 25, "deviation": 20},
+            "step": {"low_level": 10, "high_level": 40, "transition_time": 25}
         }
         
         if signal_type not in default_configs:
@@ -336,8 +336,8 @@ endfunction
 """
         
         if signal_type == "sine":
-            freq = params.get("frequency", 0.1)
-            amplitude = params.get("amplitude", 10)
+            freq = params.get("frequency", 1.0)
+            amplitude = params.get("amplitude", 25)
             offset = params.get("offset", 25)
             signal_script = f"""
 % Sine wave signal
@@ -354,8 +354,8 @@ endfor
 """
             
         elif signal_type == "ramp":
-            slope = params.get("slope", 1.0)
-            start = params.get("start", 20)
+            slope = params.get("slope", 8.0)
+            start = params.get("start", 10)
             signal_script = f"""
 % Ramp signal
 slope = {slope};     % Slope (C/s)
@@ -371,7 +371,7 @@ endfor
             
         elif signal_type == "noise":
             mean = params.get("mean", 25)
-            deviation = params.get("deviation", 5)
+            deviation = params.get("deviation", 20)
             signal_script = f"""
 % Noise signal
 mean_val = {mean};      % Mean (C)
@@ -387,9 +387,9 @@ endfor
 """
             
         elif signal_type == "step":
-            low_level = params.get("low_level", 20)
-            high_level = params.get("high_level", 30)
-            transition_time = params.get("transition_time", 50)
+            low_level = params.get("low_level", 10)
+            high_level = params.get("high_level", 40)
+            transition_time = params.get("transition_time", 25)
             signal_script = f"""
 % Step signal
 low_level = {low_level};      % Low level (C)
@@ -544,7 +544,7 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                 else:
                     print(f"[ERROR] Error reading temperature: {result.stderr}")
                 
-                time.sleep(1)  # Wait 1 second between readings
+                time.sleep(0.1)  # Wait 100ms between readings
                 
         except KeyboardInterrupt:
             print(f"\n[INFO] Reading stopped by user")
@@ -647,8 +647,8 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
         try:
             if signal_type == "sine":
                 # gen sine [freq] [amp] [offset]
-                freq = float(parts[2]) if len(parts) > 2 else 0.1
-                amp = float(parts[3]) if len(parts) > 3 else 10
+                freq = float(parts[2]) if len(parts) > 2 else 1.0
+                amp = float(parts[3]) if len(parts) > 3 else 25
                 offset = float(parts[4]) if len(parts) > 4 else 25
                 params = {"frequency": freq, "amplitude": amp, "offset": offset}
                 self.generate_signal("sine", params)
@@ -656,8 +656,8 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
                 
             elif signal_type == "ramp":
                 # gen ramp [slope] [start]
-                slope = float(parts[2]) if len(parts) > 2 else 1.0
-                start = float(parts[3]) if len(parts) > 3 else 20
+                slope = float(parts[2]) if len(parts) > 2 else 8.0
+                start = float(parts[3]) if len(parts) > 3 else 10
                 params = {"slope": slope, "start": start}
                 self.generate_signal("ramp", params)
                 print(f"[INFO] Generating ramp signal: slope {slope}C/s, start {start}C")
@@ -665,16 +665,16 @@ fprintf('Signal generation completed. Check /tmp/tempsensor_debug.txt for detail
             elif signal_type == "noise":
                 # gen noise [mean] [std]
                 mean = float(parts[2]) if len(parts) > 2 else 25
-                std = float(parts[3]) if len(parts) > 3 else 5
+                std = float(parts[3]) if len(parts) > 3 else 20
                 params = {"mean": mean, "deviation": std}
                 self.generate_signal("noise", params)
                 print(f"[INFO] Generating noise signal: mean {mean}C, std {std}C")
                 
             elif signal_type == "step":
                 # gen step [low] [high] [time]
-                low = float(parts[2]) if len(parts) > 2 else 20
-                high = float(parts[3]) if len(parts) > 3 else 30
-                time_pct = float(parts[4]) if len(parts) > 4 else 50
+                low = float(parts[2]) if len(parts) > 2 else 10
+                high = float(parts[3]) if len(parts) > 3 else 40
+                time_pct = float(parts[4]) if len(parts) > 4 else 25
                 params = {"low_level": low, "high_level": high, "transition_time": time_pct}
                 self.generate_signal("step", params)
                 print(f"[INFO] Generating step signal: {low}C -> {high}C at {time_pct}% duration")
