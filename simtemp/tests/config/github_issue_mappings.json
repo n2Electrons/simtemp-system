@@ -25,6 +25,7 @@
   "f-u1-user-space-cli-config": 24,
   "f-u5-user-gui": 38,
   "fix-jenkins-tests": 6,
+  "jenkis-prepare": 42,
   "k8-clean-loadunload": 32,
   "req-trigger-jenkins": 5
 }
